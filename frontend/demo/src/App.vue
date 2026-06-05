@@ -60,11 +60,17 @@
         <p class="subtitle">{{ isRegisterMode ? '加入我们，探索更多精彩内容' : '登录畅享高清视频与实时弹幕' }}</p>
         
         <div class="form-group">
-          <input v-model="authForm.username" type="text" placeholder="请输入账号" />
+          <input v-model="authForm.username" type="text" placeholder="请输入用户名" />
         </div>
+        
+        <div class="form-group" v-if="isRegisterMode">
+          <input v-model="authForm.nickname" type="text" placeholder="请输入你的昵称" />
+        </div>
+        
         <div class="form-group">
           <input v-model="authForm.password" type="password" placeholder="请输入密码" @keyup.enter="isRegisterMode ? handleRegister() : handleLogin()" />
         </div>
+        
         <div class="form-group" v-if="isRegisterMode">
           <input v-model="authForm.confirmPassword" type="password" placeholder="请再次输入密码确认" @keyup.enter="handleRegister" />
         </div>
@@ -73,7 +79,7 @@
           <button class="confirm-btn" @click="isRegisterMode ? handleRegister() : handleLogin()">
             {{ isRegisterMode ? '立 即 注 册' : '登 录' }}
           </button>
-          <button class="cancel-btn" @click="closeModal">取消</button>
+          <button class="cancel-btn" @click="showModal = false">取消</button>
         </div>
 
         <div class="switch-mode">
@@ -99,6 +105,7 @@ const currentUser = ref('')
 const authForm = reactive({
   username: '',
   password: '',
+  nickname: '',
   confirmPassword: ''
 })
 
@@ -134,7 +141,7 @@ const resetForm = () => {
 
 // 注册逻辑
 const handleRegister = async () => {
-  if (!authForm.username || !authForm.password || !authForm.confirmPassword) {
+  if (!authForm.username || !authForm.password || !authForm.confirmPassword || !authForm.nickname) {
     return alert("请填写完整的注册信息！")
   }
   if (authForm.password !== authForm.confirmPassword) {
@@ -144,13 +151,15 @@ const handleRegister = async () => {
   try {
     const res = await axios.post('http://localhost:8080/api/user/register', {
       username: authForm.username,
-      password: authForm.password
+      password: authForm.password,
+      nickname: authForm.nickname
     })
     if (res.data === '注册成功！') {
       alert('🎉 注册成功！请使用新账号登录。')
       isRegisterMode.value = false 
       authForm.password = ''
       authForm.confirmPassword = ''
+      authForm.nickname = ''
     } else {
       alert(res.data) 
     }
@@ -169,9 +178,9 @@ const handleLogin = async () => {
       username: authForm.username,
       password: authForm.password
     })
-    if (res.data === '登录成功！') {
+    if (res.data && !res.data.includes('失败')) {
       isLoggedIn.value = true
-      currentUser.value = authForm.username
+      currentUser.value = res.data
       localStorage.setItem('loginUser', authForm.username)
       closeModal()
     } else {
