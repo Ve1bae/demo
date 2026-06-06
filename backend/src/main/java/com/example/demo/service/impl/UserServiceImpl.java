@@ -2,6 +2,7 @@ package com.example.demo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.example.demo.dto.LoginUserVO;
 import com.example.demo.dto.UserLoginDTO;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.UserMapper;
@@ -35,8 +36,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public String login(UserLoginDTO dto) {
-        // 1. 查找用户是否存在
+    public LoginUserVO login(UserLoginDTO dto) {
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", dto.getUsername());
         User user = this.getOne(queryWrapper);
@@ -45,11 +45,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new RuntimeException("用户不存在！");
         }
 
-        // 2. 直接将前端传来的明文密码与数据库中存的明文密码进行比对
         if (!user.getPassword().equals(dto.getPassword())) {
             throw new RuntimeException("密码错误！");
         }
 
-        return user.getNickname();
+        // 登录成功，组装VO返回给前端
+        LoginUserVO vo = new LoginUserVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        return vo; // 返回这个包含完整信息的对象
     }
 }

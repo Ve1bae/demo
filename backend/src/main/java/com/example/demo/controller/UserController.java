@@ -23,11 +23,11 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody UserLoginDTO dto) {
+    public Object login(@RequestBody UserLoginDTO dto) {
         try {
-            return userService.login(dto);
+            return userService.login(dto); // 成功时返回 JSON 对象 {id: 1, username: "xx", nickname: "xxx"}
         } catch (Exception e) {
-            return "登录失败：" + e.getMessage();
+            return "登录失败：" + e.getMessage(); // 失败时返回字符串
         }
     }
 }

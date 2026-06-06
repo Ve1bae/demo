@@ -168,34 +168,60 @@ const handleRegister = async () => {
   }
 }
 
-// 登录逻辑
+const currentUserId = ref(null)
+
+// 2. 页面加载时恢复状态（同时取出 ID 和 昵称）
+onMounted(() => {
+  const savedNickname = localStorage.getItem('loginUserNickname')
+  const savedUserId = localStorage.getItem('loginUserId')
+  if (savedNickname && savedUserId) {
+    isLoggedIn.value = true
+    currentUser.value = savedNickname
+    currentUserId.value = savedUserId
+  }
+})
+
+// 3. 修改登录逻辑 (重点)
 const handleLogin = async () => {
   if (!authForm.username || !authForm.password) {
-    return alert("账号和密码不能为空！")
+    alert("账号和密码不能为空！")
+    return
   }
+  
   try {
     const res = await axios.post('http://localhost:8080/api/user/login', {
       username: authForm.username,
       password: authForm.password
     })
-    if (res.data && !res.data.includes('失败')) {
+
+    // 判断后端返回的是不是对象（对象说明登录成功，字符串说明抛出了异常）
+    if (typeof res.data === 'object' && res.data.id) {
       isLoggedIn.value = true
-      currentUser.value = res.data
-      localStorage.setItem('loginUser', authForm.username)
-      closeModal()
+      
+      // 取出后端返回的 id 和 昵称
+      currentUser.value = res.data.nickname
+      currentUserId.value = res.data.id
+      
+      // 存入小仓库 (localStorage)
+      localStorage.setItem('loginUserNickname', res.data.nickname)
+      localStorage.setItem('loginUserId', res.data.id)
+      
+      showModal.value = false
     } else {
-      alert(res.data) 
+      alert(res.data) // 显示 "登录失败：密码错误！" 等
     }
   } catch (error) {
     alert('网络请求失败，请确保 Spring Boot 已启动。')
   }
 }
 
-// 退出逻辑
+// 4. 修改退出逻辑
 const logout = () => {
   isLoggedIn.value = false
   currentUser.value = ''
-  localStorage.removeItem('loginUser')
+  currentUserId.value = null
+  localStorage.removeItem('loginUserNickname')
+  localStorage.removeItem('loginUserId')
 }
 
 // ==========================================
