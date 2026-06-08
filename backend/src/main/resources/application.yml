@@ -3,4 +3,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
-    password: 
+    password:
+live:
+  srs:
+    rtmp-base-url: rtmp://localhost/live
+    http-base-url: http://localhost:8081

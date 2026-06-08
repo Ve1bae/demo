@@ -1,9 +1,9 @@
 package com.example.demo.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.example.demo.dto.LoginUserVO;
 import com.example.demo.dto.UserLoginDTO;
 import com.example.demo.entity.User;
+import com.example.demo.vo.LoginUserVO;
 
 public interface UserService extends IService<User> {
     // 声明注册业务
