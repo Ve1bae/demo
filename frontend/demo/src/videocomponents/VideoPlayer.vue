@@ -28,11 +28,12 @@
             v-for="danmaku in visibleDanmakuList"
             :key="danmaku.displayId"
             class="danmaku-item danmaku-scroll"
-            :class="[`danmaku-color-${danmaku.color}`, { 'user-danmaku': danmaku.isUser }]"
+            :class="{ 'user-danmaku': danmaku.isUser }"
             :style="{ 
               top: (30 + danmaku.track * 40) + 'px', 
               '--duration': danmaku.duration + 's',
-              opacity: danmakuOpacity / 100
+              opacity: danmakuOpacity / 100,
+              color: resolveDanmakuColor(danmaku.color)
             }"
           >
             {{ danmaku.content }}
@@ -374,6 +375,14 @@ const danmakuColors = [
   { value: '#ff00ff', hex: '#ff00ff' }
 ]
 const danmakuColor = ref('#ffffff')
+const danmakuLegacyColorMap = {
+  '1': '#ffffff',
+  '2': '#ff0000',
+  '3': '#ffff00',
+  '4': '#00ff00',
+  '5': '#00a0ff',
+  '6': '#ff00ff'
+}
 
 // ========== 评论相关变量 ==========
 const commentsList = ref(null)
@@ -428,6 +437,14 @@ const currentSrc = computed(() => {
 // ========== 弹幕排序（优化性能）==========
 const sortDanmakuByTime = () => {
   danmakuListSorted = [...danmakuList.value].sort((a, b) => a.time - b.time)
+}
+
+const resolveDanmakuColor = (color) => {
+  if (!color) {
+    return '#ffffff'
+  }
+
+  return danmakuLegacyColorMap[color] || color
 }
 
 // ========== 初始化测试弹幕数据 ==========
