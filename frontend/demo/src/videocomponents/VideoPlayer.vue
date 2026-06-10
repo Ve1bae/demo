@@ -262,7 +262,7 @@
           <div class="comment-avatar">👤</div>
           <div class="comment-content">
             <div class="comment-header">
-              <span class="comment-nickname">{{ comment.user?.nickname || '匿名用户' }}</span>
+              <span class="comment-nickname">{{ resolveCommentNickname(comment) }}</span>
               <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
             </div>
             <p class="comment-text">{{ comment.content }}</p>
@@ -335,6 +335,8 @@ const danmakuContainer = ref(null)
 
 const isLoggedIn = ref(!!localStorage.getItem('loginUserNickname'))
 const currentUserId = ref(localStorage.getItem('loginUserId'))
+const getCurrentLoginUserId = () => localStorage.getItem('loginUserId')
+const getCurrentLoginNickname = () => localStorage.getItem('loginUserNickname') || localStorage.getItem('loginUser')
 
 const isPlaying = ref(false)
 const isVideoReady = ref(false)
@@ -383,7 +385,6 @@ const danmakuLegacyColorMap = {
   '5': '#00a0ff',
   '6': '#ff00ff'
 }
-
 // ========== 评论相关变量 ==========
 const commentsList = ref(null)
 const commentsListData = ref([])
@@ -437,6 +438,27 @@ const currentSrc = computed(() => {
 // ========== 弹幕排序（优化性能）==========
 const sortDanmakuByTime = () => {
   danmakuListSorted = [...danmakuList.value].sort((a, b) => a.time - b.time)
+}
+
+const isCurrentUserDanmaku = (userId) => {
+  const currentLoginUserId = getCurrentLoginUserId()
+  if (!currentLoginUserId || userId == null) {
+    return false
+  }
+
+  return String(userId) === String(currentLoginUserId)
+}
+
+const resolveCommentNickname = (comment) => {
+  if (comment.user?.nickname) {
+    return comment.user.nickname
+  }
+
+  if (comment.userId != null && String(comment.userId) === String(getCurrentLoginUserId())) {
+    return getCurrentLoginNickname() || '匿名用户'
+  }
+
+  return '匿名用户'
 }
 
 const resolveDanmakuColor = (color) => {
@@ -499,7 +521,7 @@ const loadDanmakuFromServer = async () => {
           color: item.color,
           time: item.time,
           userId: item.userId,
-          isUser: item.isUser
+          isUser: isCurrentUserDanmaku(item.userId)
         })
       }
     })
@@ -1138,7 +1160,7 @@ const likeComment = async (commentId) => {
 }
 
 const replyComment = (comment) => {
-  commentInput.value = `@${comment.user?.nickname || '匿名用户'} `
+  commentInput.value = `@${resolveCommentNickname(comment)} `
 }
 
 const loadMoreComments = () => {
