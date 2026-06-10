@@ -28,11 +28,12 @@
             v-for="danmaku in visibleDanmakuList"
             :key="danmaku.displayId"
             class="danmaku-item danmaku-scroll"
-            :class="[`danmaku-color-${danmaku.color}`, { 'user-danmaku': danmaku.isUser }]"
+            :class="{ 'user-danmaku': danmaku.isUser }"
             :style="{ 
               top: (30 + danmaku.track * 40) + 'px', 
               '--duration': danmaku.duration + 's',
-              opacity: danmakuOpacity / 100
+              opacity: danmakuOpacity / 100,
+              color: resolveDanmakuColor(danmaku.color)
             }"
           >
             {{ danmaku.content }}
@@ -261,7 +262,7 @@
           <div class="comment-avatar">👤</div>
           <div class="comment-content">
             <div class="comment-header">
-              <span class="comment-nickname">{{ comment.user?.nickname || '匿名用户' }}</span>
+              <span class="comment-nickname">{{ resolveCommentNickname(comment) }}</span>
               <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
             </div>
             <p class="comment-text">{{ comment.content }}</p>
@@ -334,6 +335,8 @@ const danmakuContainer = ref(null)
 
 const isLoggedIn = ref(!!localStorage.getItem('loginUserNickname'))
 const currentUserId = ref(localStorage.getItem('loginUserId'))
+const getCurrentLoginUserId = () => localStorage.getItem('loginUserId')
+const getCurrentLoginNickname = () => localStorage.getItem('loginUserNickname') || localStorage.getItem('loginUser')
 
 const isPlaying = ref(false)
 const isVideoReady = ref(false)
@@ -374,6 +377,14 @@ const danmakuColors = [
   { value: '#ff00ff', hex: '#ff00ff' }
 ]
 const danmakuColor = ref('#ffffff')
+const danmakuLegacyColorMap = {
+  '1': '#ffffff',
+  '2': '#ff0000',
+  '3': '#ffff00',
+  '4': '#00ff00',
+  '5': '#00a0ff',
+  '6': '#ff00ff'
+}
 
 // ========== 评论相关变量 ==========
 const commentsList = ref(null)
@@ -430,6 +441,35 @@ const sortDanmakuByTime = () => {
   danmakuListSorted = [...danmakuList.value].sort((a, b) => a.time - b.time)
 }
 
+const resolveDanmakuColor = (color) => {
+  if (!color) {
+    return '#ffffff'
+  }
+
+  return danmakuLegacyColorMap[color] || color
+}
+
+const isCurrentUserDanmaku = (userId) => {
+  const currentLoginUserId = getCurrentLoginUserId()
+  if (!currentLoginUserId || userId == null) {
+    return false
+  }
+
+  return String(userId) === String(currentLoginUserId)
+}
+
+const resolveCommentNickname = (comment) => {
+  if (comment.user?.nickname) {
+    return comment.user.nickname
+  }
+
+  if (comment.userId != null && String(comment.userId) === String(getCurrentLoginUserId())) {
+    return getCurrentLoginNickname() || '匿名用户'
+  }
+
+  return '匿名用户'
+}
+
 // ========== 初始化测试弹幕数据 ==========
 const initMockDanmaku = () => {
   const mockDanmakuData = [
@@ -479,10 +519,10 @@ const loadDanmakuFromServer = async () => {
         danmakuList.value.push({
           id: item.id,
           content: item.content,
-          color: item.color,
+          color: resolveDanmakuColor(item.color),
           time: item.time,
           userId: item.userId,
-          isUser: item.isUser
+          isUser: isCurrentUserDanmaku(item.userId)
         })
       }
     })
@@ -565,15 +605,11 @@ const checkAndShowDanmaku = () => {
   
   const currentVideoTime = videoRef.value.currentTime
   
-  // 调试日志
-  console.log('[弹幕同步] 当前时间:', currentVideoTime.toFixed(2), '指针:', danmakuIndex, '总数:', danmakuListSorted.length)
-  
   // 检查当前指针位置及之后的弹幕
   while (danmakuIndex < danmakuListSorted.length && danmakuListSorted[danmakuIndex].time <= currentVideoTime) {
     const danmaku = danmakuListSorted[danmakuIndex]
     // ✅ 检查是否已经显示过，防止重复显示
     if (!displayedDanmakuIds.has(danmaku.id)) {
-      console.log('[弹幕显示]', danmaku.time, danmaku.content)
       showSingleDanmaku(danmaku)
       displayedDanmakuIds.add(danmaku.id)
     }
@@ -992,14 +1028,10 @@ const handleMouseMove = () => {
 const sendDanmaku = async () => {
   if (!danmakuInput.value.trim()) return
   
-  // 获取当前登录用户ID
-  const userId = typeof currentUserId !== 'undefined' ? currentUserId : 
-                 localStorage.getItem('userId') || 'anonymous'
+  const userId = currentUserId.value ? Number(currentUserId.value) : null
   
   // 使用视频元素的当前时间（最准确）
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
-  
-  console.log('[发送弹幕] 当前时间:', currentVideoTime, '内容:', danmakuInput.value)
   
   // 前端内部使用的弹幕对象
   const newDanmaku = {
@@ -1015,8 +1047,6 @@ const sendDanmaku = async () => {
   danmakuList.value.push(newDanmaku)
   danmakuInput.value = ''
   
-  // ✅ 立即显示刚发送的弹幕
-  console.log('[立即显示弹幕]', newDanmaku.content)
   showSingleDanmaku(newDanmaku)
   
   // ✅ 重新排序列表，确保后续播放时弹幕顺序正确
@@ -1029,7 +1059,8 @@ const sendDanmaku = async () => {
     const requestBody = {
       content: newDanmaku.content,
       timeSeconds: newDanmaku.time,
-      color: newDanmaku.color
+      color: newDanmaku.color,
+      userId: userId
     }
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus`, {
       method: 'POST',
@@ -1083,7 +1114,7 @@ const sendComment = async () => {
   const requestBody = {
     content: commentInput.value,
     parentId: null,
-    userId: currentUserId.value
+    userId: currentUserId.value ? Number(currentUserId.value) : null
   }
   
   try {
@@ -1130,7 +1161,7 @@ const likeComment = async (commentId) => {
 }
 
 const replyComment = (comment) => {
-  commentInput.value = `@${comment.user?.nickname || '匿名用户'} `
+  commentInput.value = `@${resolveCommentNickname(comment)} `
 }
 
 const loadMoreComments = () => {
