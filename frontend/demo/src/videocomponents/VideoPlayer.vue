@@ -565,15 +565,11 @@ const checkAndShowDanmaku = () => {
   
   const currentVideoTime = videoRef.value.currentTime
   
-  // 调试日志
-  console.log('[弹幕同步] 当前时间:', currentVideoTime.toFixed(2), '指针:', danmakuIndex, '总数:', danmakuListSorted.length)
-  
   // 检查当前指针位置及之后的弹幕
   while (danmakuIndex < danmakuListSorted.length && danmakuListSorted[danmakuIndex].time <= currentVideoTime) {
     const danmaku = danmakuListSorted[danmakuIndex]
     // ✅ 检查是否已经显示过，防止重复显示
     if (!displayedDanmakuIds.has(danmaku.id)) {
-      console.log('[弹幕显示]', danmaku.time, danmaku.content)
       showSingleDanmaku(danmaku)
       displayedDanmakuIds.add(danmaku.id)
     }
@@ -999,8 +995,6 @@ const sendDanmaku = async () => {
   // 使用视频元素的当前时间（最准确）
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
   
-  console.log('[发送弹幕] 当前时间:', currentVideoTime, '内容:', danmakuInput.value)
-  
   // 前端内部使用的弹幕对象
   const newDanmaku = {
     id: Date.now(),
@@ -1016,7 +1010,6 @@ const sendDanmaku = async () => {
   danmakuInput.value = ''
   
   // ✅ 立即显示刚发送的弹幕
-  console.log('[立即显示弹幕]', newDanmaku.content)
   showSingleDanmaku(newDanmaku)
   
   // ✅ 重新排序列表，确保后续播放时弹幕顺序正确
