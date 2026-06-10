@@ -246,12 +246,28 @@ const videoList = ref([]);
 // 将后端 Video 实体转换为前端需要的格式（组装 sources 对象）
 // 按照 API 规范处理字段
 const convertVideoFromBackend = (v) => {
-  const sources = {};
-  if (v.url240p) sources['240P'] = v.url240p;
-  if (v.url360p) sources['360P'] = v.url360p;
-  if (v.url480p) sources['480P'] = v.url480p;
-  if (v.url720p) sources['720P'] = v.url720p;
-  if (v.url1080p) sources['1080P'] = v.url1080p;
+  // 优先使用后端返回的 sources 字段
+  let sources = v.sources || {};
+  
+  // 如果后端没有返回 sources，尝试从各清晰度字段构建
+  if (Object.keys(sources).length === 0) {
+    if (v.url240p) sources['240P'] = v.url240p;
+    if (v.url360p) sources['360P'] = v.url360p;
+    if (v.url480p) sources['480P'] = v.url480p;
+    if (v.url720p) sources['720P'] = v.url720p;
+    if (v.url1080p) sources['1080P'] = v.url1080p;
+    
+    // 如果还是没有，使用 playUrl 作为所有清晰度的源
+    if (Object.keys(sources).length === 0 && v.playUrl) {
+      sources = {
+        '240P': v.playUrl,
+        '360P': v.playUrl,
+        '480P': v.playUrl,
+        '720P': v.playUrl,
+        '1080P': v.playUrl
+      };
+    }
+  }
   
   // 使用 videoId 或 id（兼容新旧字段）
   const videoId = v.videoId || v.id;

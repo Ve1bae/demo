@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.demo.entity.Video;
 import java.util.List;
+import java.util.Map;
 
 public interface VideoService extends IService<Video> {
     List<Video> getAllVideos();
@@ -10,4 +11,12 @@ public interface VideoService extends IService<Video> {
     Video getVideoById(Long id);
 
     Video getVideoByVideoUrl(String videoUrl);
+
+    Map<String, Object> toggleLike(Long userId, Long videoId);
+
+    Map<String, Object> toggleFavorite(Long userId, Long videoId);
+
+    Map<String, Object> incrementPlayCount(Long videoId);
+
+    Map<String, Object> getUserVideoStatus(Long userId, Long videoId);
 }

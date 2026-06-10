@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @TableName("video")
@@ -45,26 +46,15 @@ public class Video {
     @TableField("video_url")
     private String videoUrl;
 
-    @TableField("url_240p")
-    private String url240p;
-
-    @TableField("url_360p")
-    private String url360p;
-
-    @TableField("url_480p")
-    private String url480p;
-
-    @TableField("url_720p")
-    private String url720p;
-
-    @TableField("url_1080p")
-    private String url1080p;
-
-    @TableField("default_quality")
-    private String defaultQuality;
-
     @TableField("created_at")
     private LocalDateTime createdAt;
+
+    // 前端需要的字段（非数据库字段）
+    @TableField(exist = false)
+    private Map<String, String> sources;
+
+    @TableField(exist = false)
+    private String defaultQuality;
 
     @TableField(exist = false)
     private String duration;

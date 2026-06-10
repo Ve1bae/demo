@@ -5,16 +5,22 @@
     </div>
     
     <div class="player-wrapper">
-      <div class="video-area" ref="videoArea" @mousemove="handleMouseMove" @click="handleVideoClick" @dblclick="handleVideoDblClick">
+      <div class="video-area" ref="videoArea" @mousemove="handleMouseMove" @click="handleVideoClick">
         <video
           ref="videoRef"
           class="main-video"
           :src="currentSrc"
+          playsinline
+          preload="auto"
           @timeupdate="onTimeUpdate"
           @play="onPlay"
           @pause="onPause"
           @ended="onEnded"
           @volumechange="onVolumeChange"
+          @loadedmetadata="onLoadedMetadata"
+          @canplay="onCanPlay"
+          @error="onVideoError"
+          @waiting="onWaiting"
         ></video>
 
         <div class="danmaku-container" :class="{ hidden: !danmakuEnabled }" ref="danmakuContainer">
@@ -188,9 +194,32 @@
     </div>
 
     <div class="video-info-area">
-      <div class="video-title">{{ videoData.title }}</div>
+      <div class="video-title-row">
+        <div class="video-title">{{ videoData.title }}</div>
+        <!-- 点赞收藏按钮 -->
+        <div class="video-actions">
+          <button
+            :class="['action-btn', 'like-btn', { active: liked }]"
+            @click="toggleLike"
+          >
+            <span class="action-icon">{{ liked ? '❤️' : '🤍' }}</span>
+            <span class="action-text">{{ formatNumber(likeCount) }}</span>
+          </button>
+          <button
+            :class="['action-btn', 'favorite-btn', { active: favorited }]"
+            @click="toggleFavorite"
+          >
+            <span class="action-icon">{{ favorited ? '⭐' : '☆' }}</span>
+            <span class="action-text">{{ formatNumber(favoriteCount) }}</span>
+          </button>
+        </div>
+      </div>
       <div class="video-meta">
-        <span>{{ videoData.views }} 观看</span>
+        <span>{{ formatNumber(playCount) }} 播放</span>
+        <span class="meta-divider">·</span>
+        <span>{{ formatNumber(likeCount) }} 点赞</span>
+        <span class="meta-divider">·</span>
+        <span>{{ formatNumber(favoriteCount) }} 收藏</span>
         <span class="meta-divider">·</span>
         <span>{{ videoData.date }}</span>
       </div>
@@ -200,6 +229,9 @@
         <button class="follow-btn">+ 关注</button>
       </div>
     </div>
+
+    <!-- 双击点赞动画 -->
+    <div class="like-animation" v-if="showLikeAnimation">❤️</div>
 
     <!-- 评论区 -->
     <div class="comments-area">
@@ -300,9 +332,11 @@ const videoRef = ref(null)
 const videoArea = ref(null)
 const danmakuContainer = ref(null)
 
-const isLoggedIn = ref(!!localStorage.getItem('loginUser'))
+const isLoggedIn = ref(!!localStorage.getItem('loginUserNickname'))
+const currentUserId = ref(localStorage.getItem('loginUserId'))
 
 const isPlaying = ref(false)
+const isVideoReady = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(1)
@@ -326,7 +360,7 @@ const qualities = computed(() => {
 })
 
 // 当前清晰度（从视频数据推荐值初始化）
-const currentQuality = ref(props.videoData.defaultQuality || '720P')
+const currentQuality = ref(props.videoData.defaultQuality || '1080P')
 const showQualityDropdown = ref(false)
 const showSpeedDropdown = ref(false)
 
@@ -351,6 +385,15 @@ const commentPageSize = 20
 const hasMoreComments = ref(true)
 const loadingComments = ref(false)
 
+// ========== 点赞收藏相关变量 ==========
+const liked = ref(props.videoData.liked || false)
+const favorited = ref(props.videoData.favorited || false)
+const likeCount = ref(props.videoData.likeCount || 0)
+const favoriteCount = ref(props.videoData.favoriteCount || 0)
+const playCount = ref(props.videoData.playCount || 0)
+const showLikeAnimation = ref(false)
+const hasIncrementedPlayCount = ref(false) // 防止重复增加播放量
+
 // ========== 弹幕相关变量 ==========
 const danmakuList = ref([])
 const visibleDanmakuList = ref([])
@@ -370,8 +413,16 @@ const videoUrl = computed(() => props.videoData.videoUrl || props.videoData.id |
 
 // 当前播放视频源（根据清晰度动态切换）
 const currentSrc = computed(() => {
-  const sources = props.videoData.sources || {}
-  return sources[currentQuality.value] || sources['720P'] || Object.values(sources)[0] || ''
+  console.log('=== 视频源调试信息 ===')
+  console.log('videoData:', props.videoData)
+  console.log('sources:', props.videoData?.sources)
+  console.log('currentQuality:', currentQuality.value)
+  console.log('defaultQuality:', props.videoData?.defaultQuality)
+  
+  const sources = props.videoData?.sources || {}
+  const result = sources[currentQuality.value] || sources['720P'] || Object.values(sources)[0] || ''
+  console.log('最终视频URL:', result)
+  return result
 })
 
 // ========== 弹幕排序（优化性能）==========
@@ -572,6 +623,100 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
+// 格式化数字（如 1.2万）
+const formatNumber = (num) => {
+  if (!num) return '0'
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
+  }
+  return num.toString()
+}
+
+// ========== 增加播放量（只增加一次）==========
+const incrementPlayCount = async () => {
+  if (hasIncrementedPlayCount.value) return
+  hasIncrementedPlayCount.value = true
+
+  const videoId = props.videoData.id
+  try {
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/play`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      playCount.value = result.data.playCount || playCount.value + 1
+    }
+  } catch (error) {
+    console.error('增加播放量失败:', error)
+  }
+}
+
+// ========== 加载用户视频状态（点赞、收藏）==========
+const loadUserVideoStatus = async () => {
+  if (!isLoggedIn.value || !currentUserId.value) {
+    return
+  }
+  
+  const videoId = props.videoData.id
+  try {
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/status?userId=${currentUserId.value}`)
+    const result = await response.json()
+    if (result.code === 200) {
+      liked.value = result.data.liked
+      favorited.value = result.data.favorited
+    }
+  } catch (error) {
+    console.error('加载用户视频状态失败:', error)
+  }
+}
+
+// ========== 点赞视频（每个用户只能点赞一次）==========
+const toggleLike = async () => {
+  const videoId = props.videoData.id
+  try {
+    const method = liked.value ? 'DELETE' : 'POST'
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/likes`, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId: currentUserId.value })
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      liked.value = !liked.value
+      likeCount.value = liked.value ? likeCount.value + 1 : likeCount.value - 1
+    }
+  } catch (error) {
+    console.error('点赞失败:', error)
+  }
+}
+
+// ========== 收藏视频（每个用户只能收藏一次）==========
+const toggleFavorite = async () => {
+  const videoId = props.videoData.id
+  try {
+    const method = favorited.value ? 'DELETE' : 'POST'
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/favorites`, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId: currentUserId.value })
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      favorited.value = !favorited.value
+      favoriteCount.value = favorited.value ? favoriteCount.value + 1 : favoriteCount.value - 1
+    }
+  } catch (error) {
+    console.error('收藏失败:', error)
+  }
+}
+
 const togglePlay = () => {
   if (!videoRef.value) return
   if (isPlaying.value) {
@@ -587,6 +732,7 @@ const onPlay = () => {
   showControls.value = true
   resetHideTimer()
   startDanmakuSync() // 启动弹幕同步
+  incrementPlayCount() // 增加播放量
 }
 
 const onPause = () => {
@@ -600,6 +746,28 @@ const onEnded = () => {
   isPlaying.value = false
   showControls.value = true
   stopDanmakuSync() // 停止弹幕同步
+}
+
+const onLoadedMetadata = () => {
+  console.log('视频元数据加载完成')
+  if (videoRef.value) {
+    duration.value = videoRef.value.duration
+  }
+}
+
+const onCanPlay = () => {
+  console.log('视频可以播放了')
+  isVideoReady.value = true
+}
+
+const onVideoError = (event) => {
+  console.error('视频播放出错:', event)
+  console.error('错误详情:', event.target.error)
+}
+
+const onWaiting = () => {
+  console.log('视频正在缓冲...')
+  isLoading.value = true
 }
 
 // ========== 视频进度更新事件 ==========
@@ -693,24 +861,41 @@ const toggleDanmakuSettings = () => {
 }
 
 let clickTimer = null
+let lastClickTime = 0
+const DOUBLE_CLICK_THRESHOLD = 300 // 双击判断阈值（毫秒）
 
 const handleVideoClick = (e) => {
   const target = e.target
-  if (target.closest('.controls-overlay') || 
+  if (target.closest('.controls-overlay') ||
       target.closest('.danmaku-input-area') ||
       target.closest('.dropdown') ||
       target.closest('.control-btn')) {
     return
   }
+  
+  const currentTime = Date.now()
+  const timeSinceLastClick = currentTime - lastClickTime
+  
+  // 判断是否为双击
+  if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD && timeSinceLastClick > 0) {
+    // 双击：点赞
+    clearTimeout(clickTimer)
+    lastClickTime = 0 // 重置点击时间
+    toggleLike()
+    showLikeAnimation.value = true
+    setTimeout(() => {
+      showLikeAnimation.value = false
+    }, 1000)
+    return
+  }
+  
+  // 单击：设置延迟执行播放/暂停
+  lastClickTime = currentTime
   clearTimeout(clickTimer)
   clickTimer = setTimeout(() => {
+    lastClickTime = 0 // 重置点击时间
     togglePlay()
-  }, 300)
-}
-
-const handleVideoDblClick = () => {
-  clearTimeout(clickTimer)
-  toggleFullscreen()
+  }, DOUBLE_CLICK_THRESHOLD)
 }
 
 const handleKeyDown = (e) => {
@@ -897,7 +1082,8 @@ const sendComment = async () => {
   const videoId = props.videoData.id
   const requestBody = {
     content: commentInput.value,
-    parentId: null
+    parentId: null,
+    userId: currentUserId.value
   }
   
   try {
@@ -985,6 +1171,8 @@ onMounted(() => {
   loadDanmakuFromServer()
   // ✅ 从服务器加载评论
   loadComments()
+  // ✅ 从服务器加载用户对该视频的点赞和收藏状态
+  loadUserVideoStatus()
 })
 
 onUnmounted(() => {
@@ -1530,11 +1718,18 @@ const handleGlobalMouseMove = (e) => {
   padding: 24px 0;
 }
 
+.video-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .video-title {
   font-size: 22px;
   font-weight: bold;
   color: #1e1e1e;
-  margin-bottom: 12px;
+  flex: 1;
 }
 
 .video-meta {
@@ -1551,17 +1746,21 @@ const handleGlobalMouseMove = (e) => {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .author-avatar {
   font-size: 36px;
-  background: #f0f0f0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 50%;
   width: 48px;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #fff;
 }
 
 .author-name {
@@ -1584,6 +1783,87 @@ const handleGlobalMouseMove = (e) => {
 
 .follow-btn:hover {
   background: #e63946;
+}
+
+/* 操作按钮区域 */
+.video-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: all 0.2s;
+  border-radius: 20px;
+}
+
+.action-btn:hover {
+  background: #f5f5f5;
+}
+
+.action-icon {
+  font-size: 20px;
+}
+
+.action-text {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.action-btn.active .action-text {
+  color: #ff4757;
+}
+
+.like-btn.active .action-icon {
+  animation: like-bounce 0.3s ease;
+}
+
+.favorite-btn.active .action-icon {
+  animation: favorite-glow 0.3s ease;
+}
+
+@keyframes like-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+@keyframes favorite-glow {
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 10px #ffd700); }
+}
+
+/* 双击点赞动画 */
+.like-animation {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 80px;
+  animation: float-up 1s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.8);
+  }
 }
 
 /* 评论区样式 */
