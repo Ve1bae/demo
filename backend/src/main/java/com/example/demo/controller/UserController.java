@@ -1,9 +1,14 @@
 package com.example.demo.controller;
 
+import com.example.demo.common.R;
+import com.example.demo.dto.LoginUserVO;
 import com.example.demo.dto.UserLoginDTO;
 import com.example.demo.service.UserService;
+import com.example.demo.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
@@ -13,21 +18,32 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/register")
-    public String register(@RequestBody UserLoginDTO dto) {
+    public R<?> register(@RequestBody UserLoginDTO dto) {
         try {
             userService.register(dto);
-            return "注册成功！";
+            return R.ok("注册成功");
         } catch (Exception e) {
-            return "注册失败：" + e.getMessage();
+            return R.error(400, e.getMessage());
         }
     }
 
     @PostMapping("/login")
-    public Object login(@RequestBody UserLoginDTO dto) {
+    public R<?> login(@RequestBody UserLoginDTO dto) {
         try {
-            return userService.login(dto); // 成功时返回 JSON 对象 {id: 1, username: "xx", nickname: "xxx"}
+            LoginUserVO vo = userService.login(dto);
+            String token = JwtUtil.generate(vo.getId());
+            return R.ok(Map.of(
+                    "token", token,
+                    "user", vo
+            ));
         } catch (Exception e) {
-            return "登录失败：" + e.getMessage(); // 失败时返回字符串
+            return R.error(400, e.getMessage());
         }
+    }
+
+    @GetMapping("/me")
+    public R<?> me(@RequestAttribute("userId") Long userId) {
+        LoginUserVO vo = userService.getUserProfile(userId);
+        return R.ok(vo);
     }
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <header class="navbar">
-      <div class="logo">🚀 航音视频</div>
+      <div class="logo" @click="$router.push('/')">🚀 航音视频</div>
 
       <div class="search-box">
         <input type="text" placeholder="搜索感兴趣的视频、直播..." />
@@ -9,12 +9,12 @@
       </div>
 
       <div class="user-actions">
-        <button class="upload-btn">投稿</button>
-        
+        <button class="upload-btn" @click="goUpload">投稿</button>
+
         <template v-if="!isLoggedIn">
           <button class="login-action-btn" @click="openLoginModal">登 录</button>
         </template>
-        
+
         <template v-else>
           <div class="user-profile">
             <div class="avatar">👨‍💻</div>
@@ -28,53 +28,43 @@
     <div class="main-layout">
       <aside class="sidebar">
         <ul class="nav-links">
-          <li class="active">🏠 首页推荐</li>
+          <li :class="{ active: $route.path === '/' }" @click="$router.push('/')">🏠 首页推荐</li>
           <li>🔥 热门排行</li>
           <li>📡 直播大厅</li>
           <div class="divider"></div>
           <li>❤️ 我的关注</li>
           <li>🕒 历史记录</li>
-          <li>⚙️ 创作者中心</li>
+          <li :class="{ active: $route.path === '/creator' }" @click="$router.push('/creator')">⚙️ 创作者中心</li>
         </ul>
       </aside>
 
       <main class="content">
-        <div class="video-grid">
-          <div class="video-card" v-for="video in videoList" :key="video.id">
-            <div class="thumbnail">
-              <span class="duration">{{ video.duration }}</span>
-            </div>
-            <div class="info">
-              <h3 class="title">{{ video.title }}</h3>
-              <p class="author">{{ video.author }}</p>
-              <p class="stats">{{ video.views }} 观看 · {{ video.date }}</p>
-            </div>
-          </div>
-        </div>
+        <router-view :key="$route.fullPath" />
       </main>
     </div>
 
+    <!-- 登录弹窗 -->
     <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
       <div class="modal-content">
         <h2>{{ isRegisterMode ? '注册新账号' : '欢迎来到航音' }}</h2>
         <p class="subtitle">{{ isRegisterMode ? '加入我们，探索更多精彩内容' : '登录畅享高清视频与实时弹幕' }}</p>
-        
+
         <div class="form-group">
           <input v-model="authForm.username" type="text" placeholder="请输入用户名" />
         </div>
-        
+
         <div class="form-group" v-if="isRegisterMode">
           <input v-model="authForm.nickname" type="text" placeholder="请输入你的昵称" />
         </div>
-        
+
         <div class="form-group">
           <input v-model="authForm.password" type="password" placeholder="请输入密码" @keyup.enter="isRegisterMode ? handleRegister() : handleLogin()" />
         </div>
-        
+
         <div class="form-group" v-if="isRegisterMode">
           <input v-model="authForm.confirmPassword" type="password" placeholder="请再次输入密码确认" @keyup.enter="handleRegister" />
         </div>
-        
+
         <div class="modal-actions">
           <button class="confirm-btn" @click="isRegisterMode ? handleRegister() : handleLogin()">
             {{ isRegisterMode ? '立 即 注 册' : '登 录' }}
@@ -94,13 +84,16 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 
-// --- 登录/注册 核心状态 ---
+const router = useRouter()
+
 const isLoggedIn = ref(false)
 const showModal = ref(false)
 const isRegisterMode = ref(false)
 const currentUser = ref('')
+let token = ref('')
 
 const authForm = reactive({
   username: '',
@@ -110,10 +103,12 @@ const authForm = reactive({
 })
 
 onMounted(() => {
-  const savedUser = localStorage.getItem('loginUser')
-  if (savedUser) {
+  const savedNickname = localStorage.getItem('loginUserNickname')
+  const savedToken = localStorage.getItem('loginToken')
+  if (savedNickname && savedToken) {
     isLoggedIn.value = true
-    currentUser.value = savedUser
+    currentUser.value = savedNickname
+    token.value = savedToken
   }
 })
 
@@ -137,9 +132,9 @@ const resetForm = () => {
   authForm.username = ''
   authForm.password = ''
   authForm.confirmPassword = ''
+  authForm.nickname = ''
 }
 
-// 注册逻辑
 const handleRegister = async () => {
   if (!authForm.username || !authForm.password || !authForm.confirmPassword || !authForm.nickname) {
     return alert("请填写完整的注册信息！")
@@ -147,117 +142,105 @@ const handleRegister = async () => {
   if (authForm.password !== authForm.confirmPassword) {
     return alert("两次输入的密码不一致，请重新输入！")
   }
-  
+
   try {
     const res = await axios.post('http://localhost:8080/api/user/register', {
       username: authForm.username,
       password: authForm.password,
       nickname: authForm.nickname
     })
-    if (res.data === '注册成功！') {
+    if (res.data.code === 200) {
       alert('🎉 注册成功！请使用新账号登录。')
-      isRegisterMode.value = false 
+      isRegisterMode.value = false
       authForm.password = ''
       authForm.confirmPassword = ''
       authForm.nickname = ''
     } else {
-      alert(res.data) 
+      alert(res.data.message)
     }
   } catch (error) {
     alert('网络请求失败，请检查后端是否启动。')
   }
 }
 
-const currentUserId = ref(null)
-
-// 2. 页面加载时恢复状态（同时取出 ID 和 昵称）
-onMounted(() => {
-  const savedNickname = localStorage.getItem('loginUserNickname')
-  const savedUserId = localStorage.getItem('loginUserId')
-  if (savedNickname && savedUserId) {
-    isLoggedIn.value = true
-    currentUser.value = savedNickname
-    currentUserId.value = savedUserId
-  }
-})
-
-// 3. 修改登录逻辑 (重点)
 const handleLogin = async () => {
   if (!authForm.username || !authForm.password) {
     alert("账号和密码不能为空！")
     return
   }
-  
+
   try {
     const res = await axios.post('http://localhost:8080/api/user/login', {
       username: authForm.username,
       password: authForm.password
     })
 
-    // 判断后端返回的是不是对象（对象说明登录成功，字符串说明抛出了异常）
-    if (typeof res.data === 'object' && res.data.id) {
+    if (res.data.code === 200 && res.data.data) {
       isLoggedIn.value = true
-      
-      // 取出后端返回的 id 和 昵称
-      currentUser.value = res.data.nickname
-      currentUserId.value = res.data.id
-      
-      // 存入小仓库 (localStorage)
-      localStorage.setItem('loginUserNickname', res.data.nickname)
-      localStorage.setItem('loginUserId', res.data.id)
-      
+      currentUser.value = res.data.data.user.nickname
+      token.value = res.data.data.token
+
+      localStorage.setItem('loginUserNickname', res.data.data.user.nickname)
+      localStorage.setItem('loginUserId', res.data.data.user.id)
+      localStorage.setItem('loginToken', res.data.data.token)
+
       showModal.value = false
     } else {
-      alert(res.data) // 显示 "登录失败：密码错误！" 等
+      alert(res.data.message)
     }
   } catch (error) {
     alert('网络请求失败，请确保 Spring Boot 已启动。')
   }
 }
 
-// 4. 修改退出逻辑
 const logout = () => {
   isLoggedIn.value = false
   currentUser.value = ''
-  currentUserId.value = null
+  token.value = ''
   localStorage.removeItem('loginUserNickname')
   localStorage.removeItem('loginUserId')
+  localStorage.removeItem('loginToken')
 }
 
-// ==========================================
-// 2. 模拟视频列表数据 (为了保证你的主页正常渲染)
-// ==========================================
-const videoList = ref([
-  { id: 1, title: '【航音】2026届校园十佳歌手总决赛', author: '校学生会', views: '1.2万', duration: '02:15:30', date: '昨天' },
-  { id: 2, title: '软件工程基础大作业避坑指南！', author: '学长小王', views: '8000', duration: '12:05', date: '3天前' },
-  { id: 3, title: 'Vue3 + SpringBoot 从零实战', author: '码农老李', views: '5万', duration: '45:20', date: '1周前' },
-  { id: 4, title: '校园街访：你最喜欢的食堂是哪家？', author: '航音生活圈', views: '3200', duration: '08:45', date: '5小时前' },
-  { id: 5, title: '高数期末突击复习（全集）', author: '数学教研室', views: '10万+', duration: '04:00:00', date: '1个月前' },
-  { id: 6, title: '晚霞绝美！航拍延时摄影', author: '光影社', views: '1500', duration: '03:12', date: '刚刚' },
-  { id: 7, title: '前端CSS Grid布局完全指南', author: 'TechBro', views: '2.3万', duration: '28:10', date: '2天前' },
-  { id: 8, title: '宿舍日常：当你的室友是个极客', author: '602寝室', views: '900', duration: '05:40', date: '10分钟前' }
-]);
+const goUpload = () => {
+  if (!isLoggedIn.value) {
+    alert('请先登录')
+    openLoginModal()
+    return
+  }
+  router.push('/creator')
+}
 </script>
 
-<style scoped>
-/* 原有的基础样式保留 */
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #app { height: 100%; }
+
 .app-container {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f9f9f9;
 }
 
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-bottom: 1px solid #eaeaea;
   background: #fff;
+  height: 60px;
+  flex-shrink: 0;
 }
 
 .logo {
   font-size: 20px;
   font-weight: bold;
   color: #1e1e1e;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .search-box {
@@ -284,7 +267,6 @@ const videoList = ref([
   cursor: pointer;
 }
 
-/* 用户操作区样式 */
 .user-actions {
   display: flex;
   align-items: center;
@@ -312,9 +294,7 @@ const videoList = ref([
   transition: background 0.3s;
 }
 
-.login-action-btn:hover {
-  background: #d0d0d0;
-}
+.login-action-btn:hover { background: #d0d0d0; }
 
 .user-profile {
   display: flex;
@@ -350,32 +330,24 @@ const videoList = ref([
   font-size: 12px;
 }
 
-.logout-btn:hover {
-  color: #ff4757;
-  border-color: #ff4757;
-}
+.logout-btn:hover { color: #ff4757; border-color: #ff4757; }
 
-/* 主体内容区样式 */
 .main-layout {
   display: flex;
-  height: calc(100vh - 60px);
+  flex: 1;
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 220px; 
-  background-color: #ffffff; 
-  padding: 16px 0; 
-  border-right: 1px solid #f0f0f0; 
+  width: 220px;
+  background: #fff;
+  padding: 16px 0;
+  border-right: 1px solid #f0f0f0;
   overflow-y: auto;
-  flex-shrink: 0; /* 防止侧边栏被压缩 */
-  transition: all 0.3s ease; /* 添加过渡动画 */
+  flex-shrink: 0;
 }
 
-.nav-links {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.nav-links { list-style: none; padding: 0; margin: 0; }
 
 .nav-links li {
   padding: 12px 24px;
@@ -384,93 +356,28 @@ const videoList = ref([
   transition: background 0.2s;
 }
 
-.nav-links li:hover {
-  background: #eee;
-}
+.nav-links li:hover { background: #eee; }
 
 .nav-links li.active {
-  background-color: #e6f7ff;
+  background: #e6f7ff;
   color: #1890ff;
   font-weight: bold;
 }
 
-.divider {
-  height: 1px;
-  background: #ddd;
-  margin: 15px 0;
-}
+.divider { height: 1px; background: #ddd; margin: 15px 0; }
 
 .content {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
   background: #f9f9f9;
 }
 
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.video-card {
-  background: transparent;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.video-card:hover {
-  transform: translateY(-4px);
-}
-
-.thumbnail {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background-color: #d9d9d9;
-  border-radius: 8px;
-  position: relative;
-}
-
-.duration {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 2px 6px;
-  font-size: 12px;
-  border-radius: 4px;
-}
-
-.info {
-  padding-top: 12px;
-}
-
-.title {
-  font-size: 15px;
-  font-weight: 500;
-  margin: 0 0 8px 0;
-  color: #222;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.author,
-.stats {
-  font-size: 13px;
-  color: #999;
-  margin: 0 0 4px 0;
-}
-
-/* 登录弹窗样式 */
+/* 登录弹窗 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(2px);
   display: flex;
@@ -501,9 +408,7 @@ const videoList = ref([
   margin-bottom: 25px;
 }
 
-.form-group {
-  margin-bottom: 15px;
-}
+.form-group { margin-bottom: 15px; }
 
 .form-group input {
   width: 100%;
@@ -515,9 +420,7 @@ const videoList = ref([
   box-sizing: border-box;
 }
 
-.form-group input:focus {
-  border-color: #1890ff;
-}
+.form-group input:focus { border-color: #1890ff; }
 
 .modal-actions {
   display: flex;
@@ -537,9 +440,7 @@ const videoList = ref([
   font-weight: bold;
 }
 
-.confirm-btn:hover {
-  background: #1166b5;
-}
+.confirm-btn:hover { background: #1166b5; }
 
 .cancel-btn {
   background: #f0f0f0;
@@ -551,18 +452,15 @@ const videoList = ref([
   cursor: pointer;
 }
 
-.cancel-btn:hover {
-  background: #e0e0e0;
-}
+.cancel-btn:hover { background: #e0e0e0; }
 
 .switch-mode { text-align: center; margin-top: 20px; font-size: 13px; }
-.switch-mode a { color: #1890ff; text-decoration: none; transition: color 0.3s; }
+.switch-mode a { color: #1890ff; text-decoration: none; }
 .switch-mode a:hover { color: #096dd9; text-decoration: underline; }
 
-/* 响应式适配 */
-@media screen and (max-width: 1024px) {
-  .search-box {
-    margin: 0 16px;
-  }
+@media screen and (max-width: 768px) {
+  .sidebar { display: none; }
+  .upload-btn { display: none; }
+  .content { padding: 16px; }
 }
 </style>

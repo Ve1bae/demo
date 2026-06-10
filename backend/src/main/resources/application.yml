@@ -3,4 +3,17 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
-    password: 
+    password: 123456
+
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+  web:
+    resources:
+      static-locations: file:./uploads/,classpath:/static/
+
+video:
+  upload-dir: ./uploads
+  chunk-dir: ./uploads/chunks
