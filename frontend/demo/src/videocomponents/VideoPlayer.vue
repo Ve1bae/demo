@@ -28,11 +28,12 @@
             v-for="danmaku in visibleDanmakuList"
             :key="danmaku.displayId"
             class="danmaku-item danmaku-scroll"
-            :class="[`danmaku-color-${danmaku.color}`, { 'user-danmaku': danmaku.isUser }]"
+            :class="{ 'user-danmaku': danmaku.isUser }"
             :style="{ 
               top: (30 + danmaku.track * 40) + 'px', 
               '--duration': danmaku.duration + 's',
-              opacity: danmakuOpacity / 100
+              opacity: danmakuOpacity / 100,
+              color: resolveDanmakuColor(danmaku.color)
             }"
           >
             {{ danmaku.content }}
@@ -376,6 +377,14 @@ const danmakuColors = [
   { value: '#ff00ff', hex: '#ff00ff' }
 ]
 const danmakuColor = ref('#ffffff')
+const danmakuLegacyColorMap = {
+  '1': '#ffffff',
+  '2': '#ff0000',
+  '3': '#ffff00',
+  '4': '#00ff00',
+  '5': '#00a0ff',
+  '6': '#ff00ff'
+}
 // ========== 评论相关变量 ==========
 const commentsList = ref(null)
 const commentsListData = ref([])
@@ -450,6 +459,14 @@ const resolveCommentNickname = (comment) => {
   }
 
   return '匿名用户'
+}
+
+const resolveDanmakuColor = (color) => {
+  if (!color) {
+    return '#ffffff'
+  }
+
+  return danmakuLegacyColorMap[color] || color
 }
 
 // ========== 初始化测试弹幕数据 ==========
@@ -1010,8 +1027,7 @@ const handleMouseMove = () => {
 const sendDanmaku = async () => {
   if (!danmakuInput.value.trim()) return
   
-  const userId = typeof currentUserId !== 'undefined' ? currentUserId :
-                 localStorage.getItem('userId') || 'anonymous'
+  const userId = localStorage.getItem('loginUserId') || 'anonymous'
   
   // 使用视频元素的当前时间（最准确）
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
@@ -1030,6 +1046,7 @@ const sendDanmaku = async () => {
   danmakuList.value.push(newDanmaku)
   danmakuInput.value = ''
   
+  // ✅ 立即显示刚发送的弹幕
   showSingleDanmaku(newDanmaku)
   
   // ✅ 重新排序列表，确保后续播放时弹幕顺序正确
@@ -1096,7 +1113,7 @@ const sendComment = async () => {
   const requestBody = {
     content: commentInput.value,
     parentId: null,
-    userId: currentUserId.value
+    userId: currentUserId.value ? Number(currentUserId.value) : null
   }
   
   try {
