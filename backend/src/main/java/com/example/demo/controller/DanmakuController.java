@@ -87,7 +87,7 @@ public class DanmakuController {
             danmaku.setUserId("anonymous");
         }
         
-        danmaku.setIsUser(true);
+        danmaku.setIsUser(false);
         
         boolean success = danmakuService.saveDanmaku(danmaku);
         if (success) {

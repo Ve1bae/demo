@@ -214,6 +214,7 @@ const handleLogin = async () => {
       currentUserId.value = res.data.id
       
       // 存入小仓库 (localStorage)
+      localStorage.setItem('loginUser', res.data.nickname)
       localStorage.setItem('loginUserNickname', res.data.nickname)
       localStorage.setItem('loginUserId', res.data.id)
       
@@ -231,6 +232,7 @@ const logout = () => {
   isLoggedIn.value = false
   currentUser.value = ''
   currentUserId.value = null
+  localStorage.removeItem('loginUser')
   localStorage.removeItem('loginUserNickname')
   localStorage.removeItem('loginUserId')
 }
