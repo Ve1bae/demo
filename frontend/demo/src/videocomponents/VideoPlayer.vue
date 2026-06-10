@@ -992,9 +992,7 @@ const handleMouseMove = () => {
 const sendDanmaku = async () => {
   if (!danmakuInput.value.trim()) return
   
-  // 获取当前登录用户ID
-  const userId = typeof currentUserId !== 'undefined' ? currentUserId : 
-                 localStorage.getItem('userId') || 'anonymous'
+  const userId = localStorage.getItem('loginUserId') || 'anonymous'
   
   // 使用视频元素的当前时间（最准确）
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
