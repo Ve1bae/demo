@@ -1081,7 +1081,7 @@ const sendComment = async () => {
   const requestBody = {
     content: commentInput.value,
     parentId: null,
-    userId: currentUserId.value
+    userId: currentUserId.value ? Number(currentUserId.value) : null
   }
   
   try {
