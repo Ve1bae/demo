@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <header class="navbar">
+    <header class="navbar" v-show="!showVideoPlayer">
       <div class="logo">🚀 航音视频</div>
 
       <div class="search-box">
@@ -25,7 +25,7 @@
       </div>
     </header>
 
-    <div class="main-layout">
+    <div class="main-layout" v-show="!showVideoPlayer">
       <aside class="sidebar">
         <ul class="nav-links">
           <li class="active">🏠 首页推荐</li>
@@ -40,7 +40,7 @@
 
       <main class="content">
         <div class="video-grid">
-          <div class="video-card" v-for="video in videoList" :key="video.id">
+          <div class="video-card" v-for="video in videoList" :key="video.id" @click="openVideoPlayer(video)">
             <div class="thumbnail">
               <span class="duration">{{ video.duration }}</span>
             </div>
@@ -53,6 +53,8 @@
         </div>
       </main>
     </div>
+
+    <VideoPlayer v-if="showVideoPlayer" :videoData="selectedVideo" @back="showVideoPlayer = false" />
 
     <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
       <div class="modal-content">
@@ -95,12 +97,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
+import VideoPlayer from './videocomponents/VideoPlayer.vue'
 
 // --- 登录/注册 核心状态 ---
 const isLoggedIn = ref(false)
 const showModal = ref(false)
 const isRegisterMode = ref(false)
 const currentUser = ref('')
+const showVideoPlayer = ref(false)
+const selectedVideo = ref(null)
 
 const authForm = reactive({
   username: '',
@@ -137,6 +142,12 @@ const resetForm = () => {
   authForm.username = ''
   authForm.password = ''
   authForm.confirmPassword = ''
+}
+
+const openVideoPlayer = (video) => {
+  selectedVideo.value = video
+  showVideoPlayer.value = true
+  window.scrollTo(0, 0)
 }
 
 // 注册逻辑
@@ -225,18 +236,216 @@ const logout = () => {
 }
 
 // ==========================================
-// 2. 模拟视频列表数据 (为了保证你的主页正常渲染)
+// 2. 从后端 API 获取视频列表
+//    - 视频上传模块（他人负责）会把视频信息写入数据库
+//    - 播放模块（本模块）从数据库读取视频列表
+//    - 如果后端未启动或数据库无数据，使用 fallback 的示例数据
 // ==========================================
-const videoList = ref([
-  { id: 1, title: '【航音】2026届校园十佳歌手总决赛', author: '校学生会', views: '1.2万', duration: '02:15:30', date: '昨天' },
-  { id: 2, title: '软件工程基础大作业避坑指南！', author: '学长小王', views: '8000', duration: '12:05', date: '3天前' },
-  { id: 3, title: 'Vue3 + SpringBoot 从零实战', author: '码农老李', views: '5万', duration: '45:20', date: '1周前' },
-  { id: 4, title: '校园街访：你最喜欢的食堂是哪家？', author: '航音生活圈', views: '3200', duration: '08:45', date: '5小时前' },
-  { id: 5, title: '高数期末突击复习（全集）', author: '数学教研室', views: '10万+', duration: '04:00:00', date: '1个月前' },
-  { id: 6, title: '晚霞绝美！航拍延时摄影', author: '光影社', views: '1500', duration: '03:12', date: '刚刚' },
-  { id: 7, title: '前端CSS Grid布局完全指南', author: 'TechBro', views: '2.3万', duration: '28:10', date: '2天前' },
-  { id: 8, title: '宿舍日常：当你的室友是个极客', author: '602寝室', views: '900', duration: '05:40', date: '10分钟前' }
-]);
+const videoList = ref([]);
+
+// 将后端 Video 实体转换为前端需要的格式（组装 sources 对象）
+// 按照 API 规范处理字段
+const convertVideoFromBackend = (v) => {
+  const sources = {};
+  if (v.url240p) sources['240P'] = v.url240p;
+  if (v.url360p) sources['360P'] = v.url360p;
+  if (v.url480p) sources['480P'] = v.url480p;
+  if (v.url720p) sources['720P'] = v.url720p;
+  if (v.url1080p) sources['1080P'] = v.url1080p;
+  
+  // 使用 videoId 或 id（兼容新旧字段）
+  const videoId = v.videoId || v.id;
+  
+  // 使用 playCount 或 views（兼容新旧字段）
+  const views = v.views || (v.playCount ? formatPlayCount(v.playCount) : '0');
+  
+  return {
+    id: videoId,
+    videoId: videoId,
+    title: v.title,
+    author: v.author || '',
+    views: views,
+    duration: v.duration || '',
+    date: v.createdAt ? formatDate(v.createdAt) : '',
+    videoUrl: v.videoUrl || '',
+    playUrl: v.playUrl || '',
+    coverUrl: v.coverUrl || '',
+    description: v.description || '',
+    sources: sources,
+    defaultQuality: v.defaultQuality || '720P',
+    likeCount: v.likeCount || 0,
+    favoriteCount: v.favoriteCount || 0,
+    commentCount: v.commentCount || 0
+  };
+};
+
+const formatPlayCount = (count) => {
+  if (count >= 10000) {
+    return (count / 10000).toFixed(1) + '万';
+  }
+  return count.toString();
+};
+
+const formatDate = (dateStr) => {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+    if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+    if (diff < 604800) return Math.floor(diff / 86400) + '天前';
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  } catch (e) {
+    return '';
+  }
+};
+
+// Fallback 示例数据（当后端未启动或无数据时使用）
+const fallbackVideos = [
+  {
+    id: 1,
+    title: '【航音】2026届校园十佳歌手总决赛',
+    author: '校学生会',
+    views: '1.2万',
+    duration: '02:15:30',
+    date: '昨天',
+    videoUrl: 'video-singing-contest-2026',
+    sources: {
+      '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '720P'
+  },
+  {
+    id: 2,
+    title: '软件工程基础大作业避坑指南！',
+    author: '学长小王',
+    views: '8000',
+    duration: '12:05',
+    date: '3天前',
+    videoUrl: 'video-se-guide',
+    sources: {
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '480P'
+  },
+  {
+    id: 3,
+    title: 'Vue3 + SpringBoot 从零实战',
+    author: '码农老李',
+    views: '5万',
+    duration: '45:20',
+    date: '1周前',
+    videoUrl: 'video-vue3-springboot-tutorial',
+    sources: {
+      '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '720P'
+  },
+  {
+    id: 4,
+    title: '校园街访：你最喜欢的食堂是哪家？',
+    author: '航音生活圈',
+    views: '3200',
+    duration: '08:45',
+    date: '5小时前',
+    videoUrl: 'video-campus-interview',
+    sources: {
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '480P'
+  },
+  {
+    id: 5,
+    title: '高数期末突击复习（全集）',
+    author: '数学教研室',
+    views: '10万+',
+    duration: '04:00:00',
+    date: '1个月前',
+    videoUrl: 'video-calculus-review',
+    sources: {
+      '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '360P'
+  },
+  {
+    id: 6,
+    title: '晚霞绝美！航拍延时摄影',
+    author: '光影社',
+    views: '1500',
+    duration: '03:12',
+    date: '刚刚',
+    videoUrl: 'video-sunset-timelapse',
+    sources: {
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '1080P'
+  },
+  {
+    id: 7,
+    title: '前端CSS Grid布局完全指南',
+    author: 'TechBro',
+    views: '2.3万',
+    duration: '28:10',
+    date: '2天前',
+    videoUrl: 'video-css-grid-guide',
+    sources: {
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '720P'
+  },
+  {
+    id: 8,
+    title: '宿舍日常：当你的室友是个极客',
+    author: '602寝室',
+    views: '900',
+    duration: '05:40',
+    date: '10分钟前',
+    videoUrl: 'video-dorm-daily',
+    sources: {
+      '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
+      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    defaultQuality: '360P'
+  }
+];
+
+// 从后端加载视频列表（按照 API 规范调用）
+const loadVideoList = async () => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/videos/recommend');
+    // 按照 API 规范，响应格式为 { code, message, data }
+    if (res.data && res.data.code === 200 && res.data.data && res.data.data.length > 0) {
+      videoList.value = res.data.data.map(convertVideoFromBackend);
+      return;
+    }
+  } catch (e) {
+    console.log('从后端加载视频列表失败，使用 fallback 数据');
+  }
+  videoList.value = fallbackVideos;
+};
+
+loadVideoList();
 </script>
 
 <style scoped>
@@ -277,7 +486,7 @@ const videoList = ref([
 
 .search-btn {
   padding: 8px 16px;
-  background: #f4f4f4;
+  background: #f0f0f0;
   border: 1px solid #ccc;
   border-left: none;
   border-radius: 0 4px 4px 0;
@@ -435,7 +644,7 @@ const videoList = ref([
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0,0,0,0.7);
   color: white;
   padding: 2px 6px;
   font-size: 12px;
@@ -459,7 +668,7 @@ const videoList = ref([
 
 .author,
 .stats {
-  font-size: 13px;
+  font-size: 14px;
   color: #999;
   margin: 0 0 4px 0;
 }
@@ -471,7 +680,7 @@ const videoList = ref([
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0,0,0,0.4);
   backdrop-filter: blur(2px);
   display: flex;
   justify-content: center;
@@ -484,7 +693,7 @@ const videoList = ref([
   padding: 40px;
   border-radius: 12px;
   width: 360px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
 
 .modal-content h2 {
