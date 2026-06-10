@@ -9,6 +9,7 @@ import com.example.demo.mapper.UserVideoMapper;
 import com.example.demo.mapper.VideoMapper;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,15 +93,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         Map<String, Object> result = new HashMap<>();
         
         // 获取或创建用户视频关系记录
-        UserVideo userVideo = userVideoMapper.findByUserIdAndVideoId(userId, videoId);
-        if (userVideo == null) {
-            userVideo = new UserVideo();
-            userVideo.setUserId(userId);
-            userVideo.setVideoId(videoId);
-            userVideo.setLiked(false);
-            userVideo.setFavorited(false);
-            userVideoMapper.insert(userVideo);
-        }
+        UserVideo userVideo = getOrCreateUserVideo(userId, videoId);
         
         // 切换点赞状态
         boolean newLiked = !Boolean.TRUE.equals(userVideo.getLiked());
@@ -127,15 +120,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         Map<String, Object> result = new HashMap<>();
         
         // 获取或创建用户视频关系记录
-        UserVideo userVideo = userVideoMapper.findByUserIdAndVideoId(userId, videoId);
-        if (userVideo == null) {
-            userVideo = new UserVideo();
-            userVideo.setUserId(userId);
-            userVideo.setVideoId(videoId);
-            userVideo.setLiked(false);
-            userVideo.setFavorited(false);
-            userVideoMapper.insert(userVideo);
-        }
+        UserVideo userVideo = getOrCreateUserVideo(userId, videoId);
         
         // 切换收藏状态
         boolean newFavorited = !Boolean.TRUE.equals(userVideo.getFavorited());
@@ -200,5 +185,29 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         
         result.put("videoId", videoId);
         return result;
+    }
+
+    private UserVideo getOrCreateUserVideo(Long userId, Long videoId) {
+        UserVideo userVideo = userVideoMapper.findByUserIdAndVideoId(userId, videoId);
+        if (userVideo != null) {
+            return userVideo;
+        }
+
+        UserVideo newUserVideo = new UserVideo();
+        newUserVideo.setUserId(userId);
+        newUserVideo.setVideoId(videoId);
+        newUserVideo.setLiked(false);
+        newUserVideo.setFavorited(false);
+
+        try {
+            userVideoMapper.insert(newUserVideo);
+            return newUserVideo;
+        } catch (DuplicateKeyException ignored) {
+            UserVideo existingUserVideo = userVideoMapper.findByUserIdAndVideoId(userId, videoId);
+            if (existingUserVideo != null) {
+                return existingUserVideo;
+            }
+            throw ignored;
+        }
     }
 }
