@@ -1,0 +1,19 @@
+# IntelliJ IDEA 配置文件
+.idea/
+*.iml
+
+# 编译输出
+target/
+out/
+*.class
+
+# 日志文件
+*.log
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+
+# 前端依赖（如果前端在根目录下）
+node_modules/
+dist/
