@@ -1059,7 +1059,8 @@ const sendDanmaku = async () => {
     const requestBody = {
       content: newDanmaku.content,
       timeSeconds: newDanmaku.time,
-      color: newDanmaku.color
+      color: newDanmaku.color,
+      userId: userId
     }
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus`, {
       method: 'POST',
