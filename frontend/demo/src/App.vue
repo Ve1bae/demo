@@ -144,7 +144,7 @@ const handleRegister = async () => {
   }
 
   try {
-    const res = await axios.post('http://localhost:8080/api/user/register', {
+    const res = await axios.post('http://localhost:9090/api/user/register', {
       username: authForm.username,
       password: authForm.password,
       nickname: authForm.nickname
@@ -170,7 +170,7 @@ const handleLogin = async () => {
   }
 
   try {
-    const res = await axios.post('http://localhost:8080/api/user/login', {
+    const res = await axios.post('http://localhost:9090/api/user/login', {
       username: authForm.username,
       password: authForm.password
     })
