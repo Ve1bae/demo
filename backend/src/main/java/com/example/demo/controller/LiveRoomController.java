@@ -26,7 +26,7 @@ public class LiveRoomController {
             @RequestParam(defaultValue = "1") Long page,
             @RequestParam(defaultValue = "12") Long pageSize,
             @RequestParam(required = false) Long categoryId) {
-        return ApiResponse.success(liveRoomService.listRooms(page, pageSize));
+        return ApiResponse.success(liveRoomService.listRooms(page, pageSize, categoryId));
     }
 
     @PostMapping
@@ -50,9 +50,11 @@ public class LiveRoomController {
     }
 
     @PostMapping("/{roomId}/close")
-    public ApiResponse<LiveRoomVO> closeRoom(@PathVariable Long roomId) {
+    public ApiResponse<LiveRoomVO> closeRoom(
+            @PathVariable Long roomId,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         try {
-            return ApiResponse.success(liveRoomService.closeRoom(roomId));
+            return ApiResponse.success(liveRoomService.closeRoom(roomId, userId));
         } catch (IllegalArgumentException e) {
             return ApiResponse.fail(404, e.getMessage());
         }

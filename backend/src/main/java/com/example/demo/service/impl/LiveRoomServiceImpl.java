@@ -35,13 +35,16 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
     private UserMapper userMapper;
 
     @Override
-    public PageResult<LiveRoomVO> listRooms(Long page, Long pageSize) {
+    public PageResult<LiveRoomVO> listRooms(Long page, Long pageSize, Long categoryId) {
         long current = normalizePositive(page, 1L);
         long size = normalizePositive(pageSize, 12L);
 
         Page<LiveRoom> pageInfo = new Page<>(current, size);
         LambdaQueryWrapper<LiveRoom> wrapper = new LambdaQueryWrapper<LiveRoom>()
                 .orderByDesc(LiveRoom::getCreateTime);
+        if (categoryId != null && categoryId > 0) {
+            wrapper.eq(LiveRoom::getCategoryId, categoryId);
+        }
 
         Page<LiveRoom> result = this.page(pageInfo, wrapper);
         List<LiveRoomVO> rooms = result.getRecords().stream()
@@ -71,6 +74,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         }
 
         room.setUserId(userId);
+        room.setCategoryId(dto.getCategoryId());
         room.setTitle(dto.getTitle());
         room.setPushUrl(joinUrl(rtmpBaseUrl, room.getStreamName()));
         room.setPlayUrl(joinUrl(httpBaseUrl, "live/" + room.getStreamName() + ".flv"));
@@ -92,8 +96,9 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
     }
 
     @Override
-    public LiveRoomVO closeRoom(Long roomId) {
+    public LiveRoomVO closeRoom(Long roomId, Long operatorUserId) {
         LiveRoom room = getExistingRoom(roomId);
+        validateRoomOwner(room, operatorUserId);
         room.setStatus(STATUS_OFFLINE);
         this.updateById(room);
         return toVO(room);
@@ -101,7 +106,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
 
     private LiveRoom getExistingRoom(Long roomId) {
         if (roomId == null || roomId <= 0) {
-            throw new IllegalArgumentException("直播间ID不合法");
+            throw new IllegalArgumentException("直播间 ID 不合法");
         }
         LiveRoom room = this.getById(roomId);
         if (room == null) {
@@ -114,10 +119,16 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         if (headerUserId != null && headerUserId > 0) {
             return headerUserId;
         }
-        if (dto.getUserId() != null && dto.getUserId() > 0) {
-            return dto.getUserId();
+        throw new IllegalArgumentException("请先登录后再开始直播");
+    }
+
+    private void validateRoomOwner(LiveRoom room, Long operatorUserId) {
+        if (operatorUserId == null || operatorUserId <= 0) {
+            throw new IllegalArgumentException("请先登录后再关闭直播");
         }
-        return 1L;
+        if (room.getUserId() == null || !room.getUserId().equals(operatorUserId)) {
+            throw new IllegalArgumentException("只能关闭自己的直播间");
+        }
     }
 
     private LiveRoom findUserRoom(Long userId) {

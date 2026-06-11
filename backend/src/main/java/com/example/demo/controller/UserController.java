@@ -25,9 +25,9 @@ public class UserController {
     @PostMapping("/login")
     public Object login(@RequestBody UserLoginDTO dto) {
         try {
-            return userService.login(dto); // 成功时返回 JSON 对象 {id: 1, username: "xx", nickname: "xxx"}
+            return userService.login(dto);
         } catch (Exception e) {
-            return "登录失败：" + e.getMessage(); // 失败时返回字符串
+            return "登录失败：" + e.getMessage();
         }
     }
 }

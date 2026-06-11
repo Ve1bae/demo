@@ -13,6 +13,7 @@ public class LiveRoom {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
+    private Long categoryId;
     private String title;
     private String streamName;
     private String pushUrl;

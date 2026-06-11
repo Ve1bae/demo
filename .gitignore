@@ -1,0 +1,4 @@
+*.log
+backend/backend/
+backend/uploads/
+frontend/demo/dist/

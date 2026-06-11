@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class LiveRoomVO {
     private Long roomId;
     private Long userId;
+    private Long categoryId;
     private String anchorNickname;
     private String title;
     private String streamName;
@@ -22,6 +23,7 @@ public class LiveRoomVO {
         LiveRoomVO vo = new LiveRoomVO();
         vo.setRoomId(room.getId());
         vo.setUserId(room.getUserId());
+        vo.setCategoryId(room.getCategoryId());
         vo.setTitle(room.getTitle());
         vo.setStreamName(room.getStreamName());
         vo.setPushUrl(room.getPushUrl());
