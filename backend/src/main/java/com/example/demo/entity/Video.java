@@ -15,6 +15,10 @@ public class Video {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    // 前端兼容字段（非数据库字段）
+    @TableField(exist = false)
+    private Long videoId;
+
     private String title;
 
     @TableField("description")
