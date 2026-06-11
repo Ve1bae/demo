@@ -22,3 +22,23 @@ CREATE TABLE live_room (
   status VARCHAR(20) NOT NULL DEFAULT 'offline',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 点赞数
+CREATE TABLE IF NOT EXISTS `room_likes` (
+  `room_id` varchar(50) NOT NULL,
+  `like_count` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`room_id`)
+);
+
+-- 历史弹幕
+CREATE TABLE IF NOT EXISTS `danmu` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `room_id` varchar(50) NOT NULL,
+  `user_id` bigint DEFAULT NULL,
+  `username` varchar(50) DEFAULT NULL,
+  `content` varchar(255) NOT NULL,
+  `color` varchar(20) DEFAULT '#ffffff',
+  `send_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_room_id` (`room_id`)
+);

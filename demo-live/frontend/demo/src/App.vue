@@ -41,7 +41,7 @@
       </aside>
 
       <main class="content">
-        <!-- 直播间页面（含弹幕） -->
+        <!-- 直播间页面 -->
         <section v-if="currentPage === 'live-room' && selectedLiveRoom" class="page-panel">
           <div class="page-header">
             <div>
@@ -52,18 +52,20 @@
           </div>
 
           <div class="live-room-layout">
-            <!-- 视频区域 + 弹幕层（必须放在 player-panel 内部） -->
-            <div class="player-panel">
+            <!-- 视频区域 + 弹幕层 -->
+            <div class="player-panel" ref="playerPanelRef">
               <video ref="liveVideo" class="live-player" controls autoplay muted playsinline></video>
               <div v-if="!selectedLiveRoom.pullUrl" class="player-empty">等待主播推流后即可观看</div>
-              <!-- 视频弹幕飘动层 -->
               <div class="video-danmu-layer"></div>
             </div>
 
-            <!-- 右侧聊天区域（样式完全保留，未改动） -->
-            <aside class="room-side-panel">
+            <!-- 右侧聊天区域 -->
+            <aside class="room-side-panel" ref="sidePanelRef">
               <div class="chat-header">
                 <span>💬 弹幕聊天</span>
+                <div class="like-area">
+                  <button @click="sendLike" class="like-btn">👍 {{ likeCount }}</button>
+                </div>
                 <span class="online-count">{{ onlineCount }} 人在线</span>
               </div>
               <div class="message-list" ref="messageListRef">
@@ -73,6 +75,11 @@
                 </div>
               </div>
               <div class="chat-input-area">
+                <!-- 颜色按钮 -->
+                <label class="color-btn">
+                  颜色
+                  <input type="color" v-model="danmuColor" style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                </label>
                 <input type="text" v-model="inputMsg" @keyup.enter="sendMessage" placeholder="说点什么..." maxlength="100" />
                 <button @click="sendMessage">发送</button>
               </div>
@@ -189,20 +196,57 @@ const selectedLiveRoom = ref(null)
 const liveVideo = ref(null)
 const flvPlayer = ref(null)
 
-// ========== 弹幕聊天相关（右侧列表） ==========
+// ========== 弹幕聊天相关 ==========
 const messages = ref([])
 const inputMsg = ref('')
 const ws = ref(null)
 const messageListRef = ref(null)
 const onlineCount = ref(0)
+const danmuColor = ref('#ffffff')
+const likeCount = ref(0)
 
-// 右侧添加消息并滚动到底部（样式未改动）
-const addMessage = (username, content) => {
+// ========== 同步右侧面板高度的相关引用 ==========
+const playerPanelRef = ref(null)
+const sidePanelRef = ref(null)
+let resizeObserver = null
+
+// 同步右侧面板高度与视频区域高度
+const syncSidePanelHeight = () => {
+  if (playerPanelRef.value && sidePanelRef.value) {
+    const height = playerPanelRef.value.offsetHeight
+    if (height > 0) {
+      sidePanelRef.value.style.height = `${height}px`
+      sidePanelRef.value.style.minHeight = `${height}px`
+    }
+  }
+}
+
+// 监听视频区域尺寸变化
+const observePlayerSize = () => {
+  if (!playerPanelRef.value) return
+  if (resizeObserver) resizeObserver.disconnect()
+  resizeObserver = new ResizeObserver(() => {
+    syncSidePanelHeight()
+  })
+  resizeObserver.observe(playerPanelRef.value)
+}
+
+// 清理 ResizeObserver
+const stopObservingPlayerSize = () => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+}
+
+// ========== 原有弹幕方法 ==========
+const addMessage = (username, content, color = '#409eff') => {
   if (!content || content.trim() === '') return
   messages.value.push({
     id: Date.now() + Math.random(),
     username: username,
-    content: content
+    content: content,
+    color: color
   })
   setTimeout(() => {
     if (messageListRef.value) {
@@ -211,8 +255,7 @@ const addMessage = (username, content) => {
   }, 50)
 }
 
-// ========== 视频上飘动弹幕（纯 JS 动画，不影响其他样式） ==========
-const addFloatingDanmu = (content, username) => {
+const addFloatingDanmu = (content, color = '#ffffff') => {
   if (!content) return
   const layer = document.querySelector('.video-danmu-layer')
   if (!layer) return
@@ -221,24 +264,24 @@ const addFloatingDanmu = (content, username) => {
   danmu.textContent = content
   danmu.style.position = 'absolute'
   danmu.style.whiteSpace = 'nowrap'
-  danmu.style.color = '#fff'
   danmu.style.fontSize = '18px'
   danmu.style.fontWeight = 'bold'
   danmu.style.textShadow = '1px 1px 2px black'
-  danmu.style.backgroundColor = 'transparent';
+  danmu.style.backgroundColor = 'transparent'
+  danmu.style.color = color
   danmu.style.padding = '4px 12px'
   danmu.style.borderRadius = '20px'
   danmu.style.pointerEvents = 'none'
-  danmu.style.left = '100%'                     // 从右侧外部开始
-  danmu.style.top = `${10 + Math.random() * 70}%` // 随机垂直位置
+  danmu.style.left = '100%'
+  danmu.style.top = `${10 + Math.random() * 70}%`
   layer.appendChild(danmu)
 
-  const duration = 15000 // 15 秒
+  const duration = 15000
   const startTime = performance.now()
   const animate = (now) => {
     const elapsed = now - startTime
     const progress = Math.min(elapsed / duration, 1)
-    const left = 100 - progress * 200            // 从 100% 移动到 -100%
+    const left = 100 - progress * 200
     danmu.style.left = `${left}%`
     if (progress < 1) {
       requestAnimationFrame(animate)
@@ -249,7 +292,6 @@ const addFloatingDanmu = (content, username) => {
   requestAnimationFrame(animate)
 }
 
-// 发送弹幕
 const sendMessage = () => {
   if (!inputMsg.value.trim()) return
   if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
@@ -262,13 +304,68 @@ const sendMessage = () => {
     userId: currentUserId.value,
     username: currentUser.value || '游客',
     content: inputMsg.value.trim(),
+    color: danmuColor.value,
     timestamp: Date.now()
   }
   ws.value.send(JSON.stringify(message))
   inputMsg.value = ''
 }
 
-// 连接 WebSocket（正确处理弹幕和在线人数，并调用飘动函数）
+const sendLike = () => {
+  if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
+    console.warn('WebSocket 未连接，无法点赞')
+    return
+  }
+  const message = {
+    type: 'like',
+    roomId: selectedLiveRoom.value?.roomId,
+    userId: currentUserId.value,
+    timestamp: Date.now()
+  }
+  ws.value.send(JSON.stringify(message))
+}
+
+const fetchLikeCount = async (roomId) => {
+  try {
+    const res = await axios.get(`${API_BASE}/live/rooms/${roomId}/like`)
+    console.log('点赞数接口返回:', res.data)
+    let count = 0
+    if (res.data.data && typeof res.data.data.likeCount !== 'undefined') {
+      count = res.data.data.likeCount
+    } else if (res.data.likeCount !== undefined) {
+      count = res.data.likeCount
+    } else if (typeof res.data === 'number') {
+      count = res.data
+    } else if (res.data.count !== undefined) {
+      count = res.data.count
+    }
+    likeCount.value = count
+  } catch (error) {
+    console.error('获取点赞数失败', error)
+    likeCount.value = 0
+  }
+}
+
+// ========== 新增：加载历史弹幕 ==========
+const loadHistoryDanmu = async (roomId) => {
+  try {
+    const res = await axios.get(`${API_BASE}/danmu/history/${roomId}?limit=50`)
+    const history = res.data.data || []
+    // 历史弹幕按时间从旧到新依次添加
+    history.forEach(d => {
+      addMessage(d.username, d.content, d.color || '#409eff')
+    })
+    // 加载完成后滚动到底部
+    setTimeout(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+      }
+    }, 100)
+  } catch (error) {
+    console.error('加载历史弹幕失败', error)
+  }
+}
+
 const connectWebSocket = () => {
   if (ws.value && ws.value.readyState === WebSocket.OPEN) return
   const roomId = selectedLiveRoom.value?.roomId
@@ -283,16 +380,22 @@ const connectWebSocket = () => {
         onlineCount.value = data.count
         return
       }
+      if (data.type === 'like') {
+        likeCount.value = data.likeCount
+        return
+      }
       let username = data.username || '游客'
-      let content = data.content || event.data
-      if (data.type === 'danmu') content = data.content
-      // 飘动弹幕
-      addFloatingDanmu(content, username)
-      // 右侧列表
-      addMessage(username, content)
+      let content = data.content || ''
+      let color = data.color || '#ffffff'
+      if (data.type === 'danmu') {
+        content = data.content
+        color = data.color || '#ffffff'
+      }
+      addFloatingDanmu(content, color)
+      addMessage(username, content, color)
     } catch (e) {
-      addFloatingDanmu(event.data, '游客')
-      addMessage('游客', event.data)
+      addFloatingDanmu(event.data, '#ffffff')
+      addMessage('游客', event.data, '#ffffff')
     }
   }
   ws.value.onerror = (error) => console.error('WebSocket 错误', error)
@@ -309,7 +412,7 @@ const disconnectWebSocket = () => {
   }
 }
 
-// ========== 原有认证和直播逻辑（完全保留，未改动） ==========
+// ========== 以下原有认证和直播逻辑保持不变 ==========
 const authForm = reactive({
   username: '',
   password: '',
@@ -355,12 +458,15 @@ onMounted(async () => {
   restoreLoginState()
   window.addEventListener('hashchange', syncRouteFromHash)
   await syncRouteFromHash()
+  window.addEventListener('resize', syncSidePanelHeight)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRouteFromHash)
+  window.removeEventListener('resize', syncSidePanelHeight)
   destroyLivePlayer()
   disconnectWebSocket()
+  stopObservingPlayerSize()
 })
 
 watch(
@@ -394,6 +500,8 @@ const setPage = async (page, updateRoute = true) => {
   if (currentPage.value === 'live-room' && page !== 'live-room') {
     disconnectWebSocket()
     messages.value = []
+    likeCount.value = 0
+    stopObservingPlayerSize()
   }
   currentPage.value = page
   if (page !== 'live-room') selectedLiveRoom.value = null
@@ -659,7 +767,16 @@ const openLiveRoom = (room) => {
   setRouteHash('live-room', room.roomId)
   setupLivePlayer()
   disconnectWebSocket()
+  // 清空现有消息，加载历史弹幕
+  messages.value = []
+  loadHistoryDanmu(room.roomId)
   connectWebSocket()
+  fetchLikeCount(room.roomId)
+  // 同步右侧面板高度
+  nextTick(() => {
+    syncSidePanelHeight()
+    observePlayerSize()
+  })
 }
 
 const loadLiveRoom = async (roomId) => {
@@ -686,7 +803,14 @@ const loadLiveRoom = async (roomId) => {
   localStorage.setItem('currentPage', 'live-room')
   setupLivePlayer()
   disconnectWebSocket()
+  messages.value = []
+  loadHistoryDanmu(roomId)
   connectWebSocket()
+  fetchLikeCount(roomId)
+  nextTick(() => {
+    syncSidePanelHeight()
+    observePlayerSize()
+  })
 }
 
 const normalizeRoom = (data) => {
@@ -1165,6 +1289,7 @@ const parseViews = (text) => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 22px;
+  /* height 由内容撑开，不要固定高度 */
 }
 
 .player-panel {
@@ -1175,7 +1300,6 @@ const parseViews = (text) => {
   aspect-ratio: 16 / 9;
 }
 
-/* 视频弹幕层（仅定位，不改变其他） */
 .video-danmu-layer {
   position: absolute;
   top: 0;
@@ -1202,7 +1326,6 @@ const parseViews = (text) => {
   font-size: 15px;
 }
 
-/* 右侧聊天面板样式（完全保留原有，未改动） */
 .room-side-panel {
   min-width: 0;
   border: 1px solid #e4e8ed;
@@ -1211,7 +1334,7 @@ const parseViews = (text) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* 高度由 JS 动态设置，这里不设 height 或 min-height */
   overflow: hidden;
 }
 
@@ -1288,7 +1411,46 @@ const parseViews = (text) => {
   background: #66b1ff;
 }
 
-/* 其余原有模态框等样式保持原样（已省略重复，但实际存在） */
+.color-btn {
+  position: relative;
+  display: inline-block;
+  padding: 5px 12px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.color-btn:hover {
+  background: #e0e0e0;
+}
+.color-btn input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.like-area {
+  margin-left: auto;
+  margin-right: 12px;
+}
+.like-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #ff4d4f;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: bold;
+}
+.like-btn:hover {
+  opacity: 0.8;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1469,18 +1631,19 @@ const parseViews = (text) => {
   .video-grid { grid-template-columns: 1fr; }
 }
 
+/* 以下为已有的强制覆盖样式（用户要求不能动） */
 .room-side-panel .message-list .message-item {
   margin: 0 !important;
   margin-bottom: 2px !important;
   padding: 0 !important;
   line-height: 1.2 !important;
-  overflow: visible !important;    /* 确保不会出现内部滚动条 */
+  overflow: visible !important;
 }
 
 .room-side-panel .message-list .message-item * {
   margin: 0 !important;
   padding: 0 !important;
-  overflow: visible !important;    /* 子元素也不产生滚动条 */
+  overflow: visible !important;
 }
 
 .room-side-panel .message-list .message-item .content {
@@ -1488,4 +1651,23 @@ const parseViews = (text) => {
   white-space: normal !important;
 }
 
+/* 新增用于动态高度同步的辅助样式，不破坏原有规则 */
+.page-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.page-panel .live-room-layout {
+  flex: 1;
+  min-height: 0;
+}
+/* 滚动条样式（可选） */
+.message-list::-webkit-scrollbar {
+  width: 6px !important;
+  background: #e0e0e0 !important;
+}
+.message-list::-webkit-scrollbar-thumb {
+  background: #aaa !important;
+  border-radius: 3px !important;
+}
 </style>
