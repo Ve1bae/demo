@@ -104,7 +104,7 @@ public class VideoController {
         }
 
         String url = minioStorageService.completeChunkUpload(video.getPlayUrl(), uploadId, sortedParts);
-        videoService.completeUpload(videoId);
+        videoService.completeUpload(videoId, url);
 
         return R.ok(Map.of(
                 "videoId", videoId,

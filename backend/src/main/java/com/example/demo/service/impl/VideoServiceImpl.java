@@ -44,9 +44,10 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     }
 
     @Override
-    public void completeUpload(Long videoId) {
+    public void completeUpload(Long videoId, String playUrl) {
         Video video = this.getById(videoId);
         if (video == null) return;
+        video.setPlayUrl(playUrl);
         video.setStatus("published");
         video.setUpdatedAt(LocalDateTime.now());
         this.updateById(video);
