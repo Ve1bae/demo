@@ -10,13 +10,14 @@ spring:
       max-file-size: 2GB
       max-request-size: 2GB
 
-  web:
-    resources:
-      static-locations: file:C:/hangyin/uploads,classpath:/static/
-
 server:
   port: 9090
 
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: hangyin-video
+
 video:
-  upload-dir: C:/hangyin/uploads
   chunk-dir: C:/hangyin/chunks
