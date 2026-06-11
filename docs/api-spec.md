@@ -74,7 +74,7 @@ Authorization: Bearer <token>
 ### 2.1 用户注册
 
 ```http
-POST /api/auth/register
+POST /api/user/register
 Content-Type: application/json
 ```
 
@@ -111,7 +111,7 @@ Content-Type: application/json
 ### 2.2 用户登录
 
 ```http
-POST /api/auth/login
+POST /api/user/login
 Content-Type: application/json
 ```
 
@@ -142,7 +142,7 @@ Content-Type: application/json
 ### 2.3 当前用户信息
 
 ```http
-GET /api/auth/me
+GET /api/user/me
 Authorization: Bearer <token>
 ```
 

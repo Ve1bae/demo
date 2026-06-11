@@ -1,0 +1,85 @@
+-- Combined schema for live + videoplayer
+
+-- 1. User table
+CREATE TABLE `sys_user` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  `username` varchar(50) NOT NULL COMMENT 'Username',
+  `password` varchar(100) NOT NULL COMMENT 'Encrypted password',
+  `nickname` varchar(50) DEFAULT NULL COMMENT 'Nickname',
+  `avatar_url` varchar(255) DEFAULT NULL COMMENT 'Avatar URL',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User table';
+
+-- 2. Live room table
+CREATE TABLE `live_room` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `category_id` bigint(20) DEFAULT NULL,
+  `title` varchar(100) NOT NULL,
+  `stream_name` varchar(100) NOT NULL,
+  `push_url` varchar(255) NOT NULL,
+  `play_url` varchar(255) NOT NULL,
+  `cover_url` varchar(255) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'offline',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_live_room_stream_name` (`stream_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Live room table';
+
+-- 3. Video table
+CREATE TABLE `video` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Video ID',
+  `title` varchar(255) NOT NULL COMMENT 'Video title',
+  `description` text DEFAULT NULL COMMENT 'Video description',
+  `cover_url` varchar(500) DEFAULT NULL COMMENT 'Cover URL',
+  `play_url` varchar(500) DEFAULT NULL COMMENT 'Primary play URL',
+  `author` varchar(100) DEFAULT NULL COMMENT 'Author name',
+  `play_count` int(11) DEFAULT '0' COMMENT 'Play count',
+  `like_count` int(11) DEFAULT '0' COMMENT 'Like count',
+  `favorite_count` int(11) DEFAULT '0' COMMENT 'Favorite count',
+  `comment_count` int(11) DEFAULT '0' COMMENT 'Comment count',
+  `video_url` varchar(500) DEFAULT NULL COMMENT 'Original video URL',
+  `url_240p` varchar(500) DEFAULT NULL,
+  `url_360p` varchar(500) DEFAULT NULL,
+  `url_480p` varchar(500) DEFAULT NULL,
+  `url_720p` varchar(500) DEFAULT NULL,
+  `url_1080p` varchar(500) DEFAULT NULL,
+  `default_quality` varchar(20) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  KEY `idx_video_created_at` (`created_at`),
+  KEY `idx_video_video_url` (`video_url`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Video table';
+
+-- 4. Danmaku table
+CREATE TABLE `danmaku` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Danmaku ID',
+  `video_url` varchar(500) NOT NULL COMMENT 'Related video URL',
+  `content` text NOT NULL COMMENT 'Danmaku content',
+  `color` varchar(20) DEFAULT '#ffffff' COMMENT 'Danmaku color',
+  `time` double NOT NULL COMMENT 'Danmaku time in seconds',
+  `user_id` varchar(100) NOT NULL COMMENT 'Sender ID',
+  `is_user` tinyint(1) DEFAULT '0' COMMENT 'Whether sent by current user',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  KEY `idx_danmaku_video_url` (`video_url`),
+  KEY `idx_danmaku_user_id` (`user_id`),
+  KEY `idx_danmaku_time` (`time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Danmaku table';
+
+-- 5. Comment table
+CREATE TABLE `comment` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Comment ID',
+  `video_id` bigint(20) NOT NULL COMMENT 'Related video ID',
+  `user_id` bigint(20) NOT NULL COMMENT 'Comment user ID',
+  `content` text NOT NULL COMMENT 'Comment content',
+  `parent_id` bigint(20) DEFAULT NULL COMMENT 'Parent comment ID',
+  `like_count` int(11) DEFAULT '0' COMMENT 'Like count',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  KEY `idx_comment_video_id` (`video_id`),
+  KEY `idx_comment_user_id` (`user_id`),
+  KEY `idx_comment_parent_id` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Comment table';
