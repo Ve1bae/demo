@@ -1,4 +1,6 @@
 *.log
+.idea/
+frontend/.idea/
 backend/backend/
 backend/uploads/
 frontend/demo/dist/
