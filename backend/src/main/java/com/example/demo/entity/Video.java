@@ -15,9 +15,6 @@ public class Video {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    @TableField(exist = false)
-    private Long videoId;
-
     private String title;
 
     @TableField("description")
@@ -29,7 +26,22 @@ public class Video {
     @TableField("play_url")
     private String playUrl;
 
+    @TableField("video_url")
+    private String videoUrl;
+
     private String author;
+
+    @TableField("user_id")
+    private Long userId;
+
+    @TableField("category_id")
+    private Integer categoryId;
+
+    @TableField("duration")
+    private Integer duration;
+
+    @TableField("status")
+    private String status;
 
     @TableField("play_count")
     private Integer playCount;
@@ -43,11 +55,11 @@ public class Video {
     @TableField("comment_count")
     private Integer commentCount;
 
-    @TableField("video_url")
-    private String videoUrl;
-
     @TableField("created_at")
     private LocalDateTime createdAt;
+
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
 
     // 前端需要的字段（非数据库字段）
     @TableField(exist = false)
@@ -55,9 +67,6 @@ public class Video {
 
     @TableField(exist = false)
     private String defaultQuality;
-
-    @TableField(exist = false)
-    private String duration;
 
     @TableField(exist = false)
     private Boolean liked;
@@ -70,9 +79,6 @@ public class Video {
 
     @TableField(exist = false)
     private Author authorInfo;
-
-    @TableField(exist = false)
-    private Integer categoryId;
 
     @TableField(exist = false)
     private String categoryName;
