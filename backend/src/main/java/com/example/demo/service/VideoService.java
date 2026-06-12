@@ -12,6 +12,18 @@ public interface VideoService extends IService<Video> {
 
     Video getVideoByVideoUrl(String videoUrl);
 
+    List<Video> getVideosByUserId(Long userId);
+
+    List<Video> getFavoriteVideosByUserId(Long userId);
+
+    long countVideosByUserId(Long userId);
+
+    long countFavoriteVideosByUserId(Long userId);
+
+    boolean setVisibility(Long userId, Long videoId, boolean visible);
+
+    boolean deleteOwnVideo(Long userId, Long videoId);
+
     Map<String, Object> toggleLike(Long userId, Long videoId);
 
     Map<String, Object> toggleFavorite(Long userId, Long videoId);

@@ -25,6 +25,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Override
     public List<Video> getAllVideos() {
         QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("status", "public");
         queryWrapper.orderByDesc("created_at");
         List<Video> videos = baseMapper.selectList(queryWrapper);
         videos.forEach(this::decorateVideo);
@@ -49,6 +50,80 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             decorateVideo(video);
         }
         return video;
+    }
+
+    @Override
+    public List<Video> getVideosByUserId(Long userId) {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", userId);
+        queryWrapper.ne("status", "deleted");
+        queryWrapper.orderByDesc("created_at");
+        List<Video> videos = baseMapper.selectList(queryWrapper);
+        videos.forEach(this::decorateVideo);
+        return videos;
+    }
+
+    @Override
+    public List<Video> getFavoriteVideosByUserId(Long userId) {
+        QueryWrapper<UserVideo> relationWrapper = new QueryWrapper<>();
+        relationWrapper.eq("user_id", userId);
+        relationWrapper.eq("favorited", true);
+        List<Long> videoIds = userVideoMapper.selectList(relationWrapper).stream()
+                .map(UserVideo::getVideoId)
+                .toList();
+        if (videoIds.isEmpty()) {
+            return List.of();
+        }
+
+        QueryWrapper<Video> videoWrapper = new QueryWrapper<>();
+        videoWrapper.in("id", videoIds);
+        videoWrapper.eq("status", "public");
+        videoWrapper.orderByDesc("created_at");
+        List<Video> videos = baseMapper.selectList(videoWrapper);
+        videos.forEach(this::decorateVideo);
+        return videos;
+    }
+
+    @Override
+    public long countVideosByUserId(Long userId) {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", userId);
+        queryWrapper.ne("status", "deleted");
+        return baseMapper.selectCount(queryWrapper);
+    }
+
+    @Override
+    public long countFavoriteVideosByUserId(Long userId) {
+        return getFavoriteVideosByUserId(userId).size();
+    }
+
+    @Override
+    @Transactional
+    public boolean setVisibility(Long userId, Long videoId, boolean visible) {
+        Video video = baseMapper.selectById(videoId);
+        if (!isOwnActiveVideo(video, userId)) {
+            return false;
+        }
+        video.setStatus(visible ? "public" : "private");
+        return baseMapper.updateById(video) > 0;
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteOwnVideo(Long userId, Long videoId) {
+        Video video = baseMapper.selectById(videoId);
+        if (!isOwnActiveVideo(video, userId)) {
+            return false;
+        }
+        video.setStatus("deleted");
+        return baseMapper.updateById(video) > 0;
+    }
+
+    private boolean isOwnActiveVideo(Video video, Long userId) {
+        return video != null
+                && userId != null
+                && userId.equals(video.getUserId())
+                && !"deleted".equals(video.getStatus());
     }
 
     private void decorateVideo(Video video) {

@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <header class="navbar" v-show="!showVideoPlayer">
+    <header class="navbar">
       <div class="logo" @click="goHome">航音视频</div>
 
       <div class="search-box">
@@ -8,7 +8,6 @@
           v-model.trim="keyword"
           type="text"
           :placeholder="currentPage === 'live' || currentPage === 'live-room' ? '搜索直播间、主播...' : '搜索感兴趣的视频...'"
-          @keyup.enter="handleSearch"
         />
         <button class="search-btn" @click="handleSearch">搜索</button>
       </div>
@@ -24,8 +23,11 @@
 
         <template v-else>
           <div class="user-profile">
-            <div class="avatar">{{ avatarText }}</div>
-            <span class="username">{{ currentUser }}</span>
+            <div class="avatar" @click="openProfile(currentUserId)">
+              <img v-if="currentUserAvatar" :src="currentUserAvatar" alt="" />
+              <span v-else>{{ avatarText }}</span>
+            </div>
+            <span class="username" @click="openProfile(currentUserId)">{{ currentUser }}</span>
             <button class="logout-btn" @click="logout">退出</button>
           </div>
         </template>
@@ -39,7 +41,7 @@
           <li :class="{ active: currentPage === 'ranking' }" @click="setPage('ranking')">热门排行</li>
           <li :class="{ active: currentPage === 'live' || currentPage === 'live-room' }" @click="setPage('live')">直播大厅</li>
           <div class="divider"></div>
-          <li>我的关注</li>
+          <li :class="{ active: currentPage === 'profile' }" @click="openProfile(currentUserId)">个人主页</li>
           <li>历史记录</li>
           <li :class="{ active: currentPage === 'creator' }" @click="setPage('creator')">创作者中心</li>
         </ul>
@@ -56,20 +58,43 @@
               <button class="refresh-btn" @click="setPage('live')">返回大厅</button>
             </div>
 
-            <div class="live-room-layout">
-              <div class="live-player-panel">
-                <video ref="liveVideoRef" class="live-player" controls autoplay playsinline muted></video>
-                <div v-if="!selectedLiveRoom.pullUrl" class="player-empty">等待主播推流后即可观看</div>
+            <div class='live-room-layout'>
+              <div ref='livePlayerPanelRef' class='live-player-panel'>
+                <video ref='liveVideoRef' class='live-player' controls autoplay playsinline muted></video>
+                <div v-if='!selectedLiveRoom.pullUrl' class='player-empty'>等待主播推流后即可观看</div>
+                <div ref='liveDanmuLayerRef' class='live-danmu-layer'></div>
               </div>
 
-              <aside class="live-side-panel">
-                <div class="room-cover">
-                  <img v-if="selectedLiveRoom.coverUrl" :src="selectedLiveRoom.coverUrl" alt="" />
+              <aside ref='liveChatPanelRef' class='live-chat-panel'>
+                <div class='live-chat-header'>
+                  <div>
+                    <h3>直播互动</h3>
+                    <p>{{ onlineCount }} 人在线</p>
+                  </div>
+                  <button class='live-like-btn' @click='sendLiveLike'>赞 {{ likeCount }}</button>
                 </div>
-                <h3>{{ selectedLiveRoom.title }}</h3>
-                <p>主播：{{ selectedLiveRoom.anchorNickname }}</p>
-                <p>状态：{{ selectedLiveRoom.statusText }}</p>
-                <p class="stream-url">播放地址：{{ selectedLiveRoom.pullUrl || '等待推流' }}</p>
+
+                <div ref='liveMessageListRef' class='live-message-list'>
+                  <div v-for='message in liveMessages' :key='message.id' class='live-message-item'>
+                    <span class='live-message-user'>{{ message.username }}</span>
+                    <span class='live-message-content'>{{ message.content }}</span>
+                  </div>
+                  <div v-if='liveMessages.length === 0' class='live-message-empty'>还没有弹幕，来发第一条</div>
+                </div>
+
+                <div class='live-chat-input'>
+                  <label class='live-color-picker' :style='{ backgroundColor: liveDanmuColor }'>
+                    <input v-model='liveDanmuColor' type='color' aria-label='弹幕颜色' />
+                  </label>
+                  <input
+                    v-model.trim='liveDanmuInput'
+                    type='text'
+                    maxlength='100'
+                    placeholder='说点什么...'
+                    @keyup.enter='sendLiveDanmu'
+                  />
+                  <button @click='sendLiveDanmu'>发送</button>
+                </div>
               </aside>
             </div>
           </section>
@@ -111,6 +136,70 @@
                 </div>
               </div>
             </div>
+          </section>
+        </template>
+
+        <template v-else-if="currentPage === 'profile'">
+          <section class="page-panel profile-page">
+            <div v-if="profileLoading" class="empty-state">正在加载个人主页...</div>
+            <template v-else>
+              <div class="profile-hero">
+                <div class="profile-avatar">
+                  <img v-if="profileData?.avatarUrl" :src="profileData.avatarUrl" alt="" />
+                  <span v-else>{{ (profileData?.nickname || currentUser || '用').slice(0, 1) }}</span>
+                </div>
+                <div class="profile-main">
+                  <h2>{{ profileData?.nickname || currentUser || '用户' }}</h2>
+                  <p>UID {{ profileData?.id || currentUserId || '-' }}</p>
+                </div>
+                <div class="profile-stats">
+                  <div>
+                    <strong>{{ profileData?.followers || 0 }}</strong>
+                    <span>粉丝</span>
+                  </div>
+                  <div>
+                    <strong>{{ profileData?.uploadCount || 0 }}</strong>
+                    <span>投稿</span>
+                  </div>
+                  <div>
+                    <strong>{{ profileData?.favoriteCount || 0 }}</strong>
+                    <span>收藏</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="isOwnProfile" class="profile-editor">
+                <input v-model.trim="avatarForm" type="text" placeholder="输入头像图片 URL" />
+                <button @click="updateAvatar">修改头像</button>
+              </div>
+
+              <div class="profile-tabs">
+                <button :class="{ active: profileTab === 'uploads' }" @click="profileTab = 'uploads'">投稿</button>
+                <button :class="{ active: profileTab === 'favorites' }" @click="profileTab = 'favorites'">收藏</button>
+              </div>
+
+              <div v-if="profileVideos.length === 0" class="empty-state">
+                {{ profileTab === 'uploads' ? '还没有投稿视频' : '还没有收藏视频' }}
+              </div>
+              <div v-else class="video-grid">
+                <div class="video-card" v-for="video in profileVideos" :key="`${profileTab}-${video.id}`" @click="openVideoPlayer(video)">
+                  <div class="thumbnail">
+                    <img v-if="video.coverUrl" class="cover-image" :src="video.coverUrl" alt="" />
+                    <span class="duration">{{ video.duration }}</span>
+                  </div>
+                  <div class="info">
+                    <h3 class="title">{{ video.title }}</h3>
+                    <p class="author">{{ video.author }}</p>
+                    <p class="stats">{{ video.views }} 观看 · {{ video.date }}</p>
+                    <div v-if="isOwnProfile && profileTab === 'uploads'" class="video-manage" @click.stop>
+                      <span class="visibility-tag">{{ video.status === 'private' ? '仅自己可见' : '公开' }}</span>
+                      <button @click="toggleVideoVisibility(video)">{{ video.status === 'private' ? '设为公开' : '仅自己可见' }}</button>
+                      <button class="danger" @click="deleteVideoDraft(video)">删除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </section>
         </template>
 
@@ -302,15 +391,18 @@ import VideoPlayer from './videocomponents/VideoPlayer.vue'
 const API_BASE = 'http://localhost:8080/api'
 
 const keyword = ref('')
+const submittedKeyword = ref('')
 const isLoggedIn = ref(false)
 const showModal = ref(false)
 const isRegisterMode = ref(false)
 const currentUser = ref('')
 const currentUserId = ref(null)
+const currentUserAvatar = ref('')
 const showVideoPlayer = ref(false)
 const selectedVideo = ref(null)
 const currentPage = ref('home')
 const selectedUploadFile = ref(null)
+const selectedUploadDuration = ref(null)
 const uploadingVideo = ref(false)
 const liveLoading = ref(false)
 const liveRooms = ref([])
@@ -321,7 +413,22 @@ const showLiveModal = ref(false)
 const creatingLive = ref(false)
 const createdRoom = ref(null)
 const liveCategoryFilter = ref(0)
-
+const liveMessages = ref([])
+const liveDanmuInput = ref('')
+const liveDanmuColor = ref('#ffffff')
+const livePlayerPanelRef = ref(null)
+const liveChatPanelRef = ref(null)
+const liveDanmuLayerRef = ref(null)
+const liveMessageListRef = ref(null)
+const livePanelResizeObserver = ref(null)
+const liveWs = ref(null)
+const liveReconnectTimer = ref(null)
+const onlineCount = ref(0)
+const likeCount = ref(0)
+const profileLoading = ref(false)
+const profileData = ref(null)
+const profileTab = ref('uploads')
+const avatarForm = ref('')
 const authForm = reactive({
   username: '',
   password: '',
@@ -366,7 +473,7 @@ const videoList = ref([])
 const avatarText = computed(() => currentUser.value?.slice(0, 1) || '用')
 
 const filteredVideos = computed(() => {
-  const lowerKeyword = keyword.value.toLowerCase()
+  const lowerKeyword = submittedKeyword.value.toLowerCase()
   if (!lowerKeyword) {
     return videoList.value
   }
@@ -383,12 +490,21 @@ const displayedVideos = computed(() => {
   return list
 })
 
+const profileVideos = computed(() => {
+  if (!profileData.value) {
+    return []
+  }
+  return profileTab.value === 'favorites' ? profileData.value.favorites || [] : profileData.value.uploads || []
+})
+
+const isOwnProfile = computed(() => Number(profileData.value?.id) === Number(currentUserId.value))
+
 const filteredLiveRooms = computed(() => {
   const selectedCategoryId = Number(liveCategoryFilter.value || 0)
   const categoryFilteredRooms = selectedCategoryId > 0
     ? liveRooms.value.filter((room) => Number(room.categoryId) === selectedCategoryId)
     : liveRooms.value
-  const lowerKeyword = keyword.value.toLowerCase()
+  const lowerKeyword = submittedKeyword.value.toLowerCase()
   if (!lowerKeyword) {
     return categoryFilteredRooms
   }
@@ -421,6 +537,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRouteFromHash)
   destroyLivePlayer()
+  disconnectLiveInteract()
+  stopLivePanelResizeObserver()
 })
 
 watch(
@@ -435,10 +553,12 @@ watch(
 const restoreLoginState = () => {
   const savedNickname = localStorage.getItem('loginUserNickname') || localStorage.getItem('loginUser')
   const savedUserId = localStorage.getItem('loginUserId')
+  const savedAvatar = localStorage.getItem('loginUserAvatar') || ''
   if (savedNickname && savedUserId) {
     isLoggedIn.value = true
     currentUser.value = savedNickname
     currentUserId.value = Number(savedUserId)
+    currentUserAvatar.value = savedAvatar
   }
 }
 
@@ -446,8 +566,13 @@ const goHome = () => {
   setPage('home')
 }
 
-const setRouteHash = (page, roomId = null) => {
-  const nextHash = page === 'live-room' && roomId ? `#/live/${roomId}` : `#/${page}`
+const setRouteHash = (page, id = null) => {
+  let nextHash = `#/${page}`
+  if (page === 'live-room' && id) {
+    nextHash = `#/live/${id}`
+  } else if (page === 'profile' && id) {
+    nextHash = `#/profile/${id}`
+  }
   if (window.location.hash !== nextHash) {
     window.location.hash = nextHash
   }
@@ -464,8 +589,11 @@ const parseRouteFromHash = () => {
   if (page === 'live' && roomId) {
     return { page: 'live-room', roomId }
   }
+  if (page === 'profile') {
+    return { page: 'profile', userId: roomId }
+  }
 
-  if (['home', 'ranking', 'live', 'creator'].includes(page)) {
+  if (['home', 'ranking', 'live', 'creator', 'profile'].includes(page)) {
     return { page }
   }
 
@@ -478,15 +606,23 @@ const syncRouteFromHash = async () => {
     await loadLiveRoom(route.roomId)
     return
   }
+  if (route.page === 'profile') {
+    await loadProfile(route.userId || currentUserId.value, false)
+    return
+  }
   await setPage(route.page, false)
 }
 
 const setPage = async (page, updateRoute = true) => {
   currentPage.value = page
   keyword.value = ''
+  submittedKeyword.value = ''
   if (page !== 'live-room') {
     selectedLiveRoom.value = null
     destroyLivePlayer()
+    disconnectLiveInteract()
+    resetLiveInteractState()
+    stopLivePanelResizeObserver()
   }
   localStorage.setItem('currentPage', page)
   if (updateRoute) {
@@ -529,6 +665,59 @@ const openVideoPlayer = (video) => {
 const closeVideoPlayer = () => {
   showVideoPlayer.value = false
   selectedVideo.value = null
+}
+
+const openProfile = async (userId) => {
+  if (!userId) {
+    openLoginModal()
+    return
+  }
+  await loadProfile(userId)
+}
+
+const loadProfile = async (userId, updateRoute = true) => {
+  if (!userId) {
+    await setPage('home', updateRoute)
+    return
+  }
+
+  profileLoading.value = true
+  showVideoPlayer.value = false
+  selectedVideo.value = null
+  currentPage.value = 'profile'
+  selectedLiveRoom.value = null
+  destroyLivePlayer()
+  disconnectLiveInteract()
+  resetLiveInteractState()
+  stopLivePanelResizeObserver()
+  localStorage.setItem('currentPage', 'profile')
+  if (updateRoute) {
+    setRouteHash('profile', userId)
+  }
+
+  try {
+    const res = await axios.get(`${API_BASE}/user/${userId}/profile`, {
+      params: currentUserId.value ? { viewerId: currentUserId.value } : {}
+    })
+    const data = res.data?.data || {}
+    profileData.value = {
+      ...data,
+      uploads: Array.isArray(data.uploads) ? data.uploads.map(convertVideoFromBackend) : [],
+      favorites: Array.isArray(data.favorites) ? data.favorites.map(convertVideoFromBackend) : []
+    }
+    avatarForm.value = profileData.value.avatarUrl || ''
+  } catch (error) {
+    profileData.value = {
+      id: userId,
+      nickname: currentUser.value || '用户',
+      followers: 0,
+      uploads: [],
+      favorites: []
+    }
+    avatarForm.value = profileData.value.avatarUrl || ''
+  } finally {
+    profileLoading.value = false
+  }
 }
 
 const handleRegister = async () => {
@@ -574,14 +763,16 @@ const normalizeLoginUser = (data) => {
     return {
       id: data.user.userId,
       username: data.user.username,
-      nickname: data.user.nickname
+      nickname: data.user.nickname,
+      avatarUrl: data.user.avatarUrl
     }
   }
   if (data.data?.user?.userId) {
     return {
       id: data.data.user.userId,
       username: data.data.user.username,
-      nickname: data.data.user.nickname
+      nickname: data.data.user.nickname,
+      avatarUrl: data.data.user.avatarUrl
     }
   }
   return null
@@ -604,9 +795,11 @@ const handleLogin = async () => {
       isLoggedIn.value = true
       currentUser.value = loginUser.nickname || loginUser.username
       currentUserId.value = Number(loginUser.id)
+      currentUserAvatar.value = loginUser.avatarUrl || ''
       localStorage.setItem('loginUser', currentUser.value)
       localStorage.setItem('loginUserNickname', currentUser.value)
       localStorage.setItem('loginUserId', String(loginUser.id))
+      localStorage.setItem('loginUserAvatar', currentUserAvatar.value)
       showModal.value = false
       resetForm()
       return
@@ -622,9 +815,11 @@ const logout = () => {
   isLoggedIn.value = false
   currentUser.value = ''
   currentUserId.value = null
+  currentUserAvatar.value = ''
   localStorage.removeItem('loginUser')
   localStorage.removeItem('loginUserNickname')
   localStorage.removeItem('loginUserId')
+  localStorage.removeItem('loginUserAvatar')
 }
 
 const convertVideoFromBackend = (video) => {
@@ -641,10 +836,11 @@ const convertVideoFromBackend = (video) => {
   return {
     id: video.videoId || video.id,
     videoId: video.videoId || video.id,
+    userId: video.userId,
     title: video.title,
     author: video.author || '匿名用户',
     views: video.views || formatPlayCount(video.playCount || 0),
-    duration: video.duration || '00:00',
+    duration: formatDuration(video.duration),
     date: video.createdAt ? formatRelativeDate(video.createdAt) : '刚刚',
     videoUrl: video.videoUrl || `video-${video.id}`,
     playUrl: video.playUrl || '',
@@ -656,6 +852,7 @@ const convertVideoFromBackend = (video) => {
     favoriteCount: video.favoriteCount || 0,
     commentCount: video.commentCount || 0,
     playCount: video.playCount || 0,
+    status: video.status || 'public',
     liked: video.liked || false,
     favorited: video.favorited || false
   }
@@ -682,6 +879,42 @@ const formatPlayCount = (count) => {
     return `${(count / 10000).toFixed(1)}万`
   }
   return String(count)
+}
+
+const formatDuration = (value) => {
+  const seconds = Number(value || 0)
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '00:00'
+  }
+  const totalSeconds = Math.floor(seconds)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const restSeconds = totalSeconds % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(restSeconds).padStart(2, '0')}`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(restSeconds).padStart(2, '0')}`
+}
+
+const readVideoDuration = (file) => {
+  return new Promise((resolve) => {
+    if (!file) {
+      resolve(null)
+      return
+    }
+    const video = document.createElement('video')
+    const objectUrl = URL.createObjectURL(file)
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(Number.isFinite(video.duration) ? Math.round(video.duration) : null)
+    }
+    video.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(null)
+    }
+    video.src = objectUrl
+  })
 }
 
 const formatRelativeDate = (dateString) => {
@@ -721,11 +954,11 @@ const parseViews = (value) => {
 }
 
 const handleSearch = async () => {
+  submittedKeyword.value = keyword.value.trim()
   if (currentPage.value === 'live' || currentPage.value === 'live-room') {
     await fetchLiveRooms()
     return
   }
-  await loadVideoList()
 }
 
 const handlePrimaryAction = async () => {
@@ -747,9 +980,10 @@ const handlePrimaryAction = async () => {
   await setPage('creator')
 }
 
-const handleFileChange = (event) => {
+const handleFileChange = async (event) => {
   const files = event.target.files
   selectedUploadFile.value = files && files[0] ? files[0] : null
+  selectedUploadDuration.value = selectedUploadFile.value ? await readVideoDuration(selectedUploadFile.value) : null
 }
 
 const submitUpload = async () => {
@@ -771,6 +1005,10 @@ const submitUpload = async () => {
   formData.append('description', uploadForm.description)
   formData.append('coverUrl', uploadForm.coverUrl)
   formData.append('author', currentUser.value || '匿名用户')
+  formData.append('userId', currentUserId.value)
+  if (selectedUploadDuration.value) {
+    formData.append('duration', selectedUploadDuration.value)
+  }
   formData.append('file', selectedUploadFile.value)
 
   uploadingVideo.value = true
@@ -797,6 +1035,286 @@ const resetUploadForm = () => {
   uploadForm.description = ''
   uploadForm.coverUrl = ''
   selectedUploadFile.value = null
+  selectedUploadDuration.value = null
+}
+
+
+const syncLiveChatPanelHeight = () => {
+  if (!livePlayerPanelRef.value || !liveChatPanelRef.value) {
+    return
+  }
+  const height = livePlayerPanelRef.value.offsetHeight
+  if (height > 0) {
+    liveChatPanelRef.value.style.height = `${height}px`
+  }
+}
+
+const observeLivePanelSize = () => {
+  stopLivePanelResizeObserver()
+  if (!livePlayerPanelRef.value || typeof ResizeObserver === 'undefined') {
+    syncLiveChatPanelHeight()
+    return
+  }
+  livePanelResizeObserver.value = new ResizeObserver(syncLiveChatPanelHeight)
+  livePanelResizeObserver.value.observe(livePlayerPanelRef.value)
+  syncLiveChatPanelHeight()
+}
+
+const stopLivePanelResizeObserver = () => {
+  if (livePanelResizeObserver.value) {
+    livePanelResizeObserver.value.disconnect()
+    livePanelResizeObserver.value = null
+  }
+  if (liveChatPanelRef.value) {
+    liveChatPanelRef.value.style.height = ''
+  }
+}
+const resetLiveInteractState = () => {
+  liveMessages.value = []
+  liveDanmuInput.value = ''
+  onlineCount.value = 0
+  likeCount.value = 0
+  if (liveDanmuLayerRef.value) {
+    liveDanmuLayerRef.value.innerHTML = ''
+  }
+}
+
+const scrollLiveMessagesToBottom = async () => {
+  await nextTick()
+  if (liveMessageListRef.value) {
+    liveMessageListRef.value.scrollTop = liveMessageListRef.value.scrollHeight
+  }
+}
+
+const appendLiveMessage = (message) => {
+  if (!message?.content) {
+    return
+  }
+  liveMessages.value.push({
+    id: message.id || `${Date.now()}-${Math.random()}`,
+    username: message.username || '游客',
+    content: message.content,
+    color: message.color || '#ffffff',
+    sendTime: message.sendTime || new Date().toISOString()
+  })
+  if (liveMessages.value.length > 200) {
+    liveMessages.value.splice(0, liveMessages.value.length - 200)
+  }
+  scrollLiveMessagesToBottom()
+}
+
+const showFloatingLiveDanmu = (content, color = '#ffffff') => {
+  const layer = liveDanmuLayerRef.value
+  if (!layer || !content) {
+    return
+  }
+
+  const item = document.createElement('div')
+  item.textContent = content
+  item.style.position = 'absolute'
+  item.style.left = '100%'
+  item.style.top = `${12 + Math.random() * 62}%`
+  item.style.whiteSpace = 'nowrap'
+  item.style.fontSize = '22px'
+  item.style.lineHeight = '1.35'
+  item.style.fontWeight = '700'
+  item.style.color = color
+  item.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.9)'
+  item.style.pointerEvents = 'none'
+  item.style.willChange = 'transform'
+  layer.appendChild(item)
+
+  const distance = layer.offsetWidth + item.offsetWidth + 80
+  const animation = item.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: `translateX(-${distance}px)` }
+    ],
+    {
+      duration: 11000,
+      easing: 'linear',
+      fill: 'forwards'
+    }
+  )
+  animation.finished.finally(() => item.remove())
+}
+
+const loadLiveDanmuHistory = async (roomId) => {
+  if (!roomId) {
+    return
+  }
+  try {
+    const res = await axios.get(`${API_BASE}/live/rooms/${roomId}/danmus`, {
+      params: { limit: 50 }
+    })
+    const history = res.data?.data || []
+    liveMessages.value = []
+    history.forEach((item) => {
+      appendLiveMessage({
+        id: item.id,
+        username: item.username,
+        content: item.content,
+        color: item.color,
+        sendTime: item.sendTime
+      })
+    })
+  } catch (error) {
+    liveMessages.value = []
+  }
+}
+
+const fetchLiveLikeCount = async (roomId) => {
+  if (!roomId) {
+    return
+  }
+  try {
+    const res = await axios.get(`${API_BASE}/live/rooms/${roomId}/like`)
+    likeCount.value = Number(res.data?.data?.likeCount || 0)
+  } catch (error) {
+    likeCount.value = 0
+  }
+}
+
+const getLiveWsUrl = (roomId) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//localhost:8080/ws/live/${roomId}`
+}
+
+const connectLiveInteract = (roomId) => {
+  if (!roomId || (liveWs.value && liveWs.value.readyState === WebSocket.OPEN)) {
+    return
+  }
+  disconnectLiveInteract(false)
+  liveWs.value = new WebSocket(getLiveWsUrl(roomId))
+
+  liveWs.value.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'online_count') {
+        onlineCount.value = Number(data.count || 0)
+        return
+      }
+      if (data.type === 'like') {
+        likeCount.value = Number(data.likeCount || 0)
+        return
+      }
+      if (data.type === 'danmu') {
+        appendLiveMessage(data)
+        showFloatingLiveDanmu(data.content, data.color || '#ffffff')
+      }
+    } catch (error) {
+      appendLiveMessage({ username: '游客', content: event.data, color: '#ffffff' })
+      showFloatingLiveDanmu(event.data, '#ffffff')
+    }
+  }
+
+  liveWs.value.onclose = () => {
+    liveWs.value = null
+    if (currentPage.value === 'live-room' && selectedLiveRoom.value?.roomId) {
+      liveReconnectTimer.value = window.setTimeout(() => connectLiveInteract(selectedLiveRoom.value.roomId), 3000)
+    }
+  }
+}
+
+const disconnectLiveInteract = (clearTimer = true) => {
+  if (clearTimer && liveReconnectTimer.value) {
+    window.clearTimeout(liveReconnectTimer.value)
+    liveReconnectTimer.value = null
+  }
+  if (liveWs.value) {
+    liveWs.value.onclose = null
+    liveWs.value.close()
+    liveWs.value = null
+  }
+}
+
+const initializeLiveInteract = async (roomId) => {
+  resetLiveInteractState()
+  await loadLiveDanmuHistory(roomId)
+  await fetchLiveLikeCount(roomId)
+  connectLiveInteract(roomId)
+}
+
+const sendLiveDanmu = () => {
+  const content = liveDanmuInput.value.trim()
+  if (!content) {
+    return
+  }
+  if (!liveWs.value || liveWs.value.readyState !== WebSocket.OPEN) {
+    alert('直播互动连接未建立，请稍后再试')
+    return
+  }
+  liveWs.value.send(JSON.stringify({
+    type: 'danmu',
+    userId: currentUserId.value,
+    username: currentUser.value || '游客',
+    content,
+    color: liveDanmuColor.value
+  }))
+  liveDanmuInput.value = ''
+}
+
+const sendLiveLike = () => {
+  if (!liveWs.value || liveWs.value.readyState !== WebSocket.OPEN) {
+    alert('直播互动连接未建立，请稍后再试')
+    return
+  }
+  liveWs.value.send(JSON.stringify({
+    type: 'like',
+    userId: currentUserId.value
+  }))
+}
+const updateAvatar = async () => {
+  if (!isOwnProfile.value || !currentUserId.value) return
+  try {
+    const res = await axios.put(`${API_BASE}/user/${currentUserId.value}/avatar`, { avatarUrl: avatarForm.value })
+    if (res.data?.code === 200) {
+      profileData.value.avatarUrl = res.data.data?.avatarUrl || avatarForm.value
+      currentUserAvatar.value = profileData.value.avatarUrl || ''
+      localStorage.setItem('loginUserAvatar', currentUserAvatar.value)
+      alert('头像已更新')
+    } else {
+      alert(res.data?.message || '头像更新失败')
+    }
+  } catch (error) {
+    alert(error.response?.data?.message || error.message || '头像更新失败')
+  }
+}
+
+const toggleVideoVisibility = async (video) => {
+  if (!currentUserId.value || !video?.id) return
+  const nextVisible = video.status === 'private'
+  try {
+    const res = await axios.post(`${API_BASE}/videos/${video.id}/visibility`, {
+      userId: currentUserId.value,
+      visible: nextVisible
+    })
+    if (res.data?.code === 200) {
+      video.status = nextVisible ? 'public' : 'private'
+      await loadVideoList()
+    } else {
+      alert(res.data?.message || '操作失败')
+    }
+  } catch (error) {
+    alert(error.response?.data?.message || error.message || '操作失败')
+  }
+}
+
+const deleteVideoDraft = async (video) => {
+  if (!currentUserId.value || !video?.id) return
+  if (!window.confirm('确定删除这个稿件吗？')) return
+  try {
+    const res = await axios.delete(`${API_BASE}/videos/${video.id}`, { data: { userId: currentUserId.value } })
+    if (res.data?.code === 200) {
+      profileData.value.uploads = (profileData.value.uploads || []).filter((item) => item.id !== video.id)
+      profileData.value.uploadCount = Math.max(0, Number(profileData.value.uploadCount || 0) - 1)
+      await loadVideoList()
+    } else {
+      alert(res.data?.message || '删除失败')
+    }
+  } catch (error) {
+    alert(error.response?.data?.message || error.message || '删除失败')
+  }
 }
 
 const normalizeRoom = (data) => {
@@ -932,6 +1450,9 @@ const openLiveRoom = async (room) => {
   setRouteHash('live-room', room.roomId)
   await nextTick()
   setupLivePlayer()
+  await initializeLiveInteract(room.roomId)
+  await nextTick()
+  observeLivePanelSize()
 }
 
 const loadLiveRoom = async (roomId) => {
@@ -961,6 +1482,9 @@ const loadLiveRoom = async (roomId) => {
   localStorage.setItem('currentPage', 'live-room')
   await nextTick()
   setupLivePlayer()
+  await initializeLiveInteract(room.roomId)
+  await nextTick()
+  observeLivePanelSize()
 }
 
 const openLiveModal = () => {
@@ -988,8 +1512,9 @@ const createLiveRoom = async () => {
   }
 
   creatingLive.value = true
+  let res
   try {
-    const res = await axios.post(
+    res = await axios.post(
       `${API_BASE}/live/rooms`,
       {
         title: liveForm.title.trim(),
@@ -1003,7 +1528,17 @@ const createLiveRoom = async () => {
         }
       }
     )
+  } catch (error) {
+    if (error.response) {
+      alert(error.response.data?.message || ('创建直播间失败（HTTP ' + error.response.status + '）'))
+    } else {
+      alert('无法连接后端服务，请确认 Spring Boot 已启动并监听 8080 端口')
+    }
+    creatingLive.value = false
+    return
+  }
 
+  try {
     const room = normalizeRoom(res.data)
     if (!room) {
       alert(res.data?.message || '创建直播间失败')
@@ -1016,7 +1551,8 @@ const createLiveRoom = async () => {
     upsertLiveRoom(room)
     await setPage('live')
   } catch (error) {
-    alert(error.response?.data?.message || '创建直播间失败，请检查后端直播接口是否启动')
+    console.error('创建直播间后的页面更新失败:', error)
+    alert('直播间已创建，但页面刷新失败，请手动刷新直播大厅')
   } finally {
     creatingLive.value = false
   }
@@ -1187,12 +1723,21 @@ const destroyLivePlayer = () => {
   border: 1px solid #ddd;
   font-size: 16px;
   font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .username {
   font-size: 14px;
   font-weight: 500;
   color: #333;
+  cursor: pointer;
 }
 
 .logout-btn {
@@ -1394,6 +1939,152 @@ const destroyLivePlayer = () => {
   text-align: center;
 }
 
+.profile-page {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  min-height: 170px;
+  padding: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7cc8ff, #f7d8ff 55%, #fff2b8);
+  color: #1f2630;
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  height: 86px;
+  border: 4px solid rgba(255, 255, 255, 0.86);
+  border-radius: 50%;
+  background: #fff;
+  color: #1890ff;
+  font-size: 36px;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(24, 144, 255, 0.18);
+  overflow: hidden;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-main h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+}
+
+.profile-main p {
+  margin: 0;
+  color: rgba(31, 38, 48, 0.72);
+  font-size: 14px;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 22px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.profile-stats div {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+.profile-stats strong {
+  font-size: 20px;
+}
+
+.profile-stats span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.profile-editor {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e5e8ef;
+  border-radius: 8px;
+}
+
+.profile-editor input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d9dfe8;
+  border-radius: 6px;
+  padding: 9px 11px;
+  outline: none;
+}
+
+.profile-editor button,
+.video-manage button {
+  border: 0;
+  border-radius: 6px;
+  background: #1890ff;
+  color: #fff;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.video-manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.visibility-tag {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.video-manage button.danger {
+  background: #ff4757;
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e5e8ef;
+}
+
+.profile-tabs button {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  padding: 12px 18px;
+  color: #667085;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.profile-tabs button.active {
+  border-bottom-color: #1890ff;
+  color: #1890ff;
+}
+
 .creator-card,
 .live-side-panel {
   background: #fff;
@@ -1443,6 +2134,7 @@ const destroyLivePlayer = () => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 20px;
+  align-items: start;
 }
 
 .live-player-panel {
@@ -1632,6 +2324,167 @@ const destroyLivePlayer = () => {
 
   .search-box {
     margin: 0 12px;
+  }
+}
+.live-danmu-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.live-floating-danmu {
+  position: absolute;
+  left: 100%;
+  max-width: 70%;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  animation: live-danmu-scroll 12s linear forwards;
+}
+
+@keyframes live-danmu-scroll {
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+.live-chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+  min-height: 320px;
+  background: #fff;
+  border: 1px solid #e4e8ed;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.live-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.live-chat-header h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.live-chat-header p {
+  margin: 0;
+  color: #8a94a3;
+  font-size: 12px;
+}
+
+.live-like-btn {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #ff4757;
+  color: #fff;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.live-message-list {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  padding: 10px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #f8fafc;
+}
+
+.live-message-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.live-message-user {
+  flex-shrink: 0;
+  color: #1890ff;
+  font-weight: 700;
+}
+
+.live-message-content {
+  min-width: 0;
+  word-break: break-word;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+}
+
+.live-message-empty {
+  padding: 24px 0;
+  color: #8a94a3;
+  text-align: center;
+  font-size: 13px;
+}
+
+.live-chat-input {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #eef1f4;
+  background: #fff;
+}
+
+.live-color-picker {
+  width: 28px;
+  height: 28px;
+  align-self: center;
+  border-radius: 50%;
+  border: 2px solid #d8dde3;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.live-color-picker input {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.live-chat-input input[type='text'] {
+  min-width: 0;
+  border: 1px solid #d8dde3;
+  border-radius: 999px;
+  padding: 7px 11px;
+  outline: none;
+}
+
+.live-chat-input input[type='text']:focus {
+  border-color: #1890ff;
+}
+
+.live-chat-input button {
+  border: 0;
+  border-radius: 999px;
+  background: #1890ff;
+  color: #fff;
+  padding: 7px 13px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media screen and (max-width: 960px) {
+  .live-chat-panel {
+    height: 360px;
+    max-height: 360px;
   }
 }
 </style>

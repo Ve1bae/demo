@@ -9,7 +9,9 @@ import com.example.demo.entity.LiveRoom;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.LiveRoomMapper;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.service.LiveDanmuService;
 import com.example.demo.service.LiveRoomService;
+import com.example.demo.service.RoomLikesService;
 import com.example.demo.vo.LiveRoomVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +35,12 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private LiveDanmuService liveDanmuService;
+
+    @Autowired
+    private RoomLikesService roomLikesService;
 
     @Override
     public PageResult<LiveRoomVO> listRooms(Long page, Long pageSize, Long categoryId) {
@@ -86,6 +94,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         } else {
             this.updateById(room);
         }
+        resetRoomInteraction(room.getId());
         return toVO(room);
     }
 
@@ -102,6 +111,11 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         room.setStatus(STATUS_OFFLINE);
         this.updateById(room);
         return toVO(room);
+    }
+
+    private void resetRoomInteraction(Long roomId) {
+        liveDanmuService.clearRoomDanmu(roomId);
+        roomLikesService.resetLikeCount(roomId);
     }
 
     private LiveRoom getExistingRoom(Long roomId) {

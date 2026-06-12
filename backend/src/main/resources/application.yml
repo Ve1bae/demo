@@ -3,7 +3,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: 123456
+    password: mkj162829
   servlet:
     multipart:
       max-file-size: 2GB
@@ -19,6 +19,7 @@ live:
 
 minio:
   endpoint: http://localhost:9000
+  public-base-url: http://localhost:8082/video
   access-key: minioadmin
   secret-key: minioadmin
   bucket: hangyin-video

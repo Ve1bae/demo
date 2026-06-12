@@ -36,6 +36,10 @@ CREATE TABLE `video` (
   `cover_url` varchar(500) DEFAULT NULL COMMENT 'Cover URL',
   `play_url` varchar(500) DEFAULT NULL COMMENT 'Primary play URL',
   `author` varchar(100) DEFAULT NULL COMMENT 'Author name',
+  `user_id` bigint(20) DEFAULT NULL COMMENT 'Uploader user ID',
+  `category_id` int(11) DEFAULT NULL COMMENT 'Category ID',
+  `duration` int(11) DEFAULT NULL COMMENT 'Duration in seconds',
+  `status` varchar(20) DEFAULT 'public' COMMENT 'Video status',
   `play_count` int(11) DEFAULT '0' COMMENT 'Play count',
   `like_count` int(11) DEFAULT '0' COMMENT 'Like count',
   `favorite_count` int(11) DEFAULT '0' COMMENT 'Favorite count',
@@ -48,6 +52,7 @@ CREATE TABLE `video` (
   `url_1080p` varchar(500) DEFAULT NULL,
   `default_quality` varchar(20) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
   PRIMARY KEY (`id`),
   KEY `idx_video_created_at` (`created_at`),
   KEY `idx_video_video_url` (`video_url`)
@@ -98,3 +103,23 @@ CREATE TABLE `user_video` (
   KEY `idx_user_video_user_id` (`user_id`),
   KEY `idx_user_video_video_id` (`video_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User video relation table';
+
+-- Live interaction like counts
+CREATE TABLE IF NOT EXISTS `room_likes` (
+  `room_id` bigint(20) NOT NULL COMMENT 'Live room ID',
+  `like_count` bigint(20) NOT NULL DEFAULT '0' COMMENT 'Live room like count',
+  PRIMARY KEY (`room_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Live room like count table';
+
+-- Live interaction danmu history
+CREATE TABLE IF NOT EXISTS `live_danmu` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Live danmu ID',
+  `room_id` bigint(20) NOT NULL COMMENT 'Live room ID',
+  `user_id` bigint(20) DEFAULT NULL COMMENT 'Sender user ID',
+  `username` varchar(50) DEFAULT NULL COMMENT 'Sender display name',
+  `content` varchar(255) NOT NULL COMMENT 'Danmu content',
+  `color` varchar(20) DEFAULT '#ffffff' COMMENT 'Danmu color',
+  `send_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Send time',
+  PRIMARY KEY (`id`),
+  KEY `idx_live_danmu_room_time` (`room_id`, `send_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Live room danmu table';

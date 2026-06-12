@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.common.ApiResponse;
 import com.example.demo.entity.Video;
+import com.example.demo.service.MinioService;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,11 +18,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +29,10 @@ import java.util.UUID;
 public class VideoController {
 
     private final VideoService videoService;
+    private final MinioService minioService;
 
-    @Value("${app.upload-dir:backend/uploads}")
-    private String uploadDir;
+    @Value("${minio.public-base-url:http://localhost:8082/video}")
+    private String minioPublicBaseUrl;
 
     @GetMapping("/recommend")
     public ResponseEntity<ApiResponse<List<Video>>> getRecommendVideos(
@@ -66,12 +63,49 @@ public class VideoController {
         return ResponseEntity.ok(ApiResponse.success(video));
     }
 
+    @GetMapping("/user/{userId}/uploads")
+    public ResponseEntity<ApiResponse<List<Video>>> getUserUploads(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success(videoService.getVideosByUserId(userId)));
+    }
+
+    @GetMapping("/user/{userId}/favorites")
+    public ResponseEntity<ApiResponse<List<Video>>> getUserFavorites(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success(videoService.getFavoriteVideosByUserId(userId)));
+    }
+
+    @PostMapping("/{videoId}/visibility")
+    public ResponseEntity<ApiResponse<String>> setVisibility(
+            @PathVariable Long videoId,
+            @RequestBody Map<String, Object> requestBody) {
+        Long userId = Long.parseLong(requestBody.get("userId").toString());
+        boolean visible = Boolean.parseBoolean(requestBody.get("visible").toString());
+        boolean success = videoService.setVisibility(userId, videoId, visible);
+        if (!success) {
+            return ResponseEntity.ok(ApiResponse.error(403, "无权操作该视频"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(visible ? "已设为公开" : "已设为仅自己可见"));
+    }
+
+    @DeleteMapping("/{videoId}")
+    public ResponseEntity<ApiResponse<String>> deleteVideo(
+            @PathVariable Long videoId,
+            @RequestBody Map<String, Object> requestBody) {
+        Long userId = Long.parseLong(requestBody.get("userId").toString());
+        boolean success = videoService.deleteOwnVideo(userId, videoId);
+        if (!success) {
+            return ResponseEntity.ok(ApiResponse.error(403, "无权删除该视频"));
+        }
+        return ResponseEntity.ok(ApiResponse.success("删除成功"));
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<Video>> uploadVideo(
             @RequestParam String title,
             @RequestParam(required = false, defaultValue = "") String description,
             @RequestParam(required = false, defaultValue = "") String coverUrl,
             @RequestParam(required = false, defaultValue = "匿名用户") String author,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Integer duration,
             @RequestParam("file") MultipartFile file) {
 
         if (!StringUtils.hasText(title)) {
@@ -85,21 +119,21 @@ public class VideoController {
             String originalName = file.getOriginalFilename();
             String extension = getExtension(originalName);
             String storedName = "video-" + UUID.randomUUID() + extension;
+            String objectName = "videos/" + storedName;
+            minioService.uploadFile(file, objectName);
 
-            Path videoDir = Paths.get(uploadDir, "videos").toAbsolutePath().normalize();
-            Files.createDirectories(videoDir);
-            Path target = videoDir.resolve(storedName);
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
-            String publicUrl = "http://localhost:8080/uploads/videos/" + storedName;
+            String publicUrl = minioPublicBaseUrl.replaceAll("/+$", "") + "/" + objectName;
 
             Video video = new Video();
             video.setTitle(title);
             video.setDescription(description);
             video.setCoverUrl(coverUrl);
             video.setAuthor(author);
+            video.setUserId(userId);
+            video.setDuration(duration);
+            video.setStatus("public");
             video.setPlayUrl(publicUrl);
-            video.setVideoUrl("video-" + UUID.randomUUID());
+            video.setVideoUrl(objectName);
             video.setUrl720p(publicUrl);
             video.setDefaultQuality("720P");
             video.setPlayCount(0);
@@ -111,7 +145,7 @@ public class VideoController {
             videoService.save(video);
             Video savedVideo = videoService.getVideoById(video.getId());
             return ResponseEntity.ok(ApiResponse.success("上传成功", savedVideo));
-        } catch (IOException e) {
+        } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(500, "视频上传失败: " + e.getMessage()));
         }
     }
