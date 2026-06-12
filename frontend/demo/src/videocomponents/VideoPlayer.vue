@@ -502,7 +502,7 @@ const loadDanmakuFromServer = async () => {
   try {
     // 使用 videoId 调用标准 API
     const videoId = props.videoData.id
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus?startTime=0&endTime=${duration.value || 3600}`)
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/danmakus?startTime=0&endTime=${duration.value || 3600}`)
     const result = await response.json()
     
     // 按照 API 规范，响应格式为 { code, message, data }
@@ -674,7 +674,7 @@ const incrementPlayCount = async () => {
 
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/play`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/play`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -697,7 +697,7 @@ const loadUserVideoStatus = async () => {
   
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/status?userId=${currentUserId.value}`)
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/status?userId=${currentUserId.value}`)
     const result = await response.json()
     if (result.code === 200) {
       liked.value = result.data.liked
@@ -713,7 +713,7 @@ const toggleLike = async () => {
   const videoId = props.videoData.id
   try {
     const method = liked.value ? 'DELETE' : 'POST'
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/likes`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/likes`, {
       method: method,
       headers: {
         'Content-Type': 'application/json'
@@ -735,7 +735,7 @@ const toggleFavorite = async () => {
   const videoId = props.videoData.id
   try {
     const method = favorited.value ? 'DELETE' : 'POST'
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/favorites`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/favorites`, {
       method: method,
       headers: {
         'Content-Type': 'application/json'
@@ -1062,7 +1062,7 @@ const sendDanmaku = async () => {
       color: newDanmaku.color,
       userId: userId
     }
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/danmakus`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1087,7 +1087,7 @@ const loadComments = async (page = 1, append = false) => {
   loadingComments.value = true
   try {
     const videoId = props.videoData.id
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
     const result = await response.json()
     
     if (result.code === 200 && result.data) {
@@ -1118,7 +1118,7 @@ const sendComment = async () => {
   }
   
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1144,7 +1144,7 @@ const sendComment = async () => {
 const likeComment = async (commentId) => {
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments/${commentId}/like`, {
+    const response = await fetch(`http://localhost:9090/api/videos/${videoId}/comments/${commentId}/like`, {
       method: 'POST'
     })
     const result = await response.json()

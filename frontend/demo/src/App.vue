@@ -160,7 +160,7 @@ const handleRegister = async () => {
   }
   
   try {
-    const res = await axios.post('http://localhost:8080/api/user/register', {
+    const res = await axios.post('http://localhost:9090/api/user/register', {
       username: authForm.username,
       password: authForm.password,
       nickname: authForm.nickname
@@ -200,7 +200,7 @@ const handleLogin = async () => {
   }
   
   try {
-    const res = await axios.post('http://localhost:8080/api/user/login', {
+    const res = await axios.post('http://localhost:9090/api/user/login', {
       username: authForm.username,
       password: authForm.password
     })
@@ -451,7 +451,7 @@ const fallbackVideos = [
 // 从后端加载视频列表（按照 API 规范调用）
 const loadVideoList = async () => {
   try {
-    const res = await axios.get('http://localhost:8080/api/videos/recommend');
+    const res = await axios.get('http://localhost:9090/api/videos/recommend');
     // 按照 API 规范，响应格式为 { code, message, data }
     if (res.data && res.data.code === 200 && res.data.data && res.data.data.length > 0) {
       videoList.value = res.data.data.map(convertVideoFromBackend);
