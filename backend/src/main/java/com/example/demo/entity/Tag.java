@@ -9,24 +9,17 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_user")
-public class User {
+@TableName("tag")
+public class Tag {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String username;
+    private String name;
 
-    private String password;
+    @TableField("creator_user_id")
+    private Long creatorUserId;
 
-    private String nickname;
-
-    @TableField("avatar_url")
-    private String avatarUrl;
-
-    @TableField("bio")
-    private String bio;
-
-    @TableField("create_time")
-    private LocalDateTime createTime;
+    @TableField("created_at")
+    private LocalDateTime createdAt;
 }

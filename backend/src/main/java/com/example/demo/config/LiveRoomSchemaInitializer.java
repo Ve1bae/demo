@@ -35,6 +35,22 @@ public class LiveRoomSchemaInitializer implements CommandLineRunner {
             if (categoryIdCount == null || categoryIdCount == 0) {
                 jdbcTemplate.execute("ALTER TABLE live_room ADD COLUMN category_id BIGINT DEFAULT NULL");
             }
+
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS danmu (" +
+                    "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
+                    "room_id VARCHAR(64) NOT NULL," +
+                    "user_id BIGINT DEFAULT NULL," +
+                    "username VARCHAR(100) DEFAULT '游客'," +
+                    "content VARCHAR(500) NOT NULL," +
+                    "color VARCHAR(32) DEFAULT '#ffffff'," +
+                    "send_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                    "KEY idx_danmu_room_time (room_id, send_time)" +
+                    ")");
+
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS room_likes (" +
+                    "room_id VARCHAR(64) PRIMARY KEY," +
+                    "like_count BIGINT NOT NULL DEFAULT 0" +
+                    ")");
         } catch (Exception e) {
             log.warn("Skip live_room schema auto update: {}", e.getMessage());
         }

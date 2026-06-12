@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -67,7 +68,7 @@ public class Video {
     @TableField("created_at")
     private LocalDateTime createdAt;
 
-    @TableField(exist = false)
+    @TableField("duration")
     private String duration;
 
     @TableField(exist = false)
@@ -93,6 +94,9 @@ public class Video {
 
     @TableField(exist = false)
     private Map<String, String> sources;
+
+    @TableField(exist = false)
+    private List<Tag> tags;
 
     @Data
     public static class Category {
