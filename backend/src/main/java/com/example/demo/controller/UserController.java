@@ -407,7 +407,7 @@ public class UserController {
             return;
         }
         ids.addAll(jdbcTemplate.queryForList(
-                "SELECT DISTINCT " + selectColumn + " FROM user_follow WHERE " + whereColumn + " = ? AND " + selectColumn + " IS NOT NULL ORDER BY created_at DESC",
+                "SELECT " + selectColumn + " FROM user_follow WHERE " + whereColumn + " = ? AND " + selectColumn + " IS NOT NULL ORDER BY created_at DESC",
                 Long.class,
                 userId
         ));

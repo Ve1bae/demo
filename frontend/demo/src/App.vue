@@ -119,6 +119,165 @@
         </template>
 
         <template v-else-if="currentPage === 'creator'">
+          <section class="page-panel creator-page">
+            <div class="page-header">
+              <div>
+                <h2>创作者中心</h2>
+                <p>查看粉丝、热度和稿件表现，也可以继续发布新作品。</p>
+              </div>
+              <button class="refresh-btn" :disabled="creatorRefreshing" @click="refreshCreatorCenter">
+                {{ creatorRefreshing ? '刷新中...' : '刷新数据' }}
+              </button>
+            </div>
+
+            <div class="creator-dashboard">
+              <section class="creator-overview-card">
+                <div class="creator-overview-profile">
+                  <div class="creator-avatar">
+                    <img v-if="profileData.avatarUrl" :src="profileData.avatarUrl" alt="" />
+                    <span v-else>{{ profileAvatarText }}</span>
+                  </div>
+                  <div>
+                    <h3>{{ profileDisplayName }}</h3>
+                    <p>@{{ profileData.username || currentUser || 'creator' }}</p>
+                  </div>
+                </div>
+
+                <div class="creator-stat-grid">
+                  <div class="creator-stat-card">
+                    <span>粉丝数</span>
+                    <strong>{{ formatCompactNumber(profileData.followerCount || 0) }}</strong>
+                    <small>关注你的人</small>
+                  </div>
+                  <div class="creator-stat-card">
+                    <span>稿件数</span>
+                    <strong>{{ creatorVideos.length }}</strong>
+                    <small>已发布作品</small>
+                  </div>
+                  <div class="creator-stat-card">
+                    <span>总播放</span>
+                    <strong>{{ formatCompactNumber(creatorStats.playCount) }}</strong>
+                    <small>作品累计播放</small>
+                  </div>
+                  <div class="creator-stat-card hot">
+                    <span>综合热度</span>
+                    <strong>{{ formatCompactNumber(creatorStats.hotScore) }}</strong>
+                    <small>播放 + 互动加权</small>
+                  </div>
+                </div>
+              </section>
+
+              <section class="creator-manage-card">
+                <div class="creator-section-head">
+                  <div>
+                    <h3>稿件管理</h3>
+                    <p>管理已发布的视频，查看播放、点赞、收藏和评论表现。</p>
+                  </div>
+                  <span>{{ creatorVideos.length }} 个稿件</span>
+                </div>
+
+                <div v-if="creatorVideos.length === 0" class="creator-empty">
+                  还没有发布稿件，先从右侧投稿开始吧。
+                </div>
+                <div v-else class="creator-manuscript-list">
+                  <div v-for="video in creatorVideos" :key="`creator-video-${video.id}`" class="creator-manuscript-item">
+                    <div class="creator-manuscript-cover" @click="openVideoPlayer(video)">
+                      <img v-if="video.coverUrl" :src="video.coverUrl" alt="" />
+                      <div v-else class="creator-cover-fallback">{{ video.title?.slice(0, 1) || 'V' }}</div>
+                      <span>{{ video.duration || '00:00' }}</span>
+                    </div>
+                    <div class="creator-manuscript-main">
+                      <h4 @click="openVideoPlayer(video)">{{ video.title }}</h4>
+                      <p>{{ video.description || '暂无简介' }}</p>
+                      <div class="creator-manuscript-tags">
+                        <span v-for="tag in normalizeTagNames(video.tags)" :key="`${video.id}-${tag}`"># {{ tag }}</span>
+                      </div>
+                      <div class="creator-manuscript-metrics">
+                        <span>{{ formatCompactNumber(video.playCount || parseViews(video.views)) }} 播放</span>
+                        <span>{{ formatCompactNumber(video.likeCount || 0) }} 点赞</span>
+                        <span>{{ formatCompactNumber(video.favoriteCount || 0) }} 收藏</span>
+                        <span>{{ formatCompactNumber(video.commentCount || 0) }} 评论</span>
+                        <span>热度 {{ formatCompactNumber(calculateHotScore(video)) }}</span>
+                      </div>
+                    </div>
+                    <div class="creator-manuscript-actions">
+                      <button class="outline-btn" @click="openVideoPlayer(video)">查看</button>
+                      <button
+                        class="danger-btn"
+                        :disabled="deletingVideoId === video.id"
+                        @click="deleteCreatorVideo(video)"
+                      >
+                        {{ deletingVideoId === video.id ? '删除中...' : '删除稿件' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="creator-upload-card">
+                <div class="creator-section-head compact">
+                  <div>
+                    <h3>发布新稿件</h3>
+                    <p>上传本地视频，支持自动截取封面。</p>
+                  </div>
+                </div>
+
+                <div class="creator-row">
+                  <label>视频标题</label>
+                  <input v-model.trim="uploadForm.title" type="text" placeholder="请输入视频标题" />
+                </div>
+                <div class="creator-row">
+                  <label>视频简介</label>
+                  <textarea v-model.trim="uploadForm.description" rows="4" placeholder="请输入视频简介"></textarea>
+                </div>
+                <div class="creator-row">
+                  <label>封面地址</label>
+                  <input v-model.trim="uploadForm.coverUrl" type="text" placeholder="可选，留空则自动生成封面" />
+                </div>
+                <div class="creator-row">
+                  <label>自定义标签</label>
+                  <div class="tag-editor">
+                    <input
+                      v-model.trim="uploadTagInput"
+                      type="text"
+                      list="upload-tag-suggestions"
+                      placeholder="输入标签后回车，可用逗号分隔多个标签"
+                      @keydown.enter.prevent="commitUploadTagInput"
+                      @blur="commitUploadTagInput"
+                    />
+                    <datalist id="upload-tag-suggestions">
+                      <option v-for="tag in availableTags" :key="`tag-${tag.id || tag.name}`" :value="tag.name" />
+                    </datalist>
+                    <div v-if="uploadTags.length > 0" class="tag-chip-list">
+                      <button
+                        v-for="tag in uploadTags"
+                        :key="`upload-tag-${tag}`"
+                        type="button"
+                        class="tag-chip"
+                        @click="removeUploadTag(tag)"
+                      >
+                        <span># {{ tag }}</span>
+                        <span>x</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="creator-row">
+                  <label>选择视频</label>
+                  <input type="file" accept="video/mp4,video/webm,video/ogg" @change="handleFileChange" />
+                </div>
+                <div class="creator-actions">
+                  <button class="confirm-btn" :disabled="uploadingVideo" @click="submitUpload">
+                    {{ uploadingVideo ? '上传中...' : '上传视频' }}
+                  </button>
+                </div>
+                <p v-if="selectedUploadFile" class="creator-hint">已选择：{{ selectedUploadFile.name }}</p>
+              </section>
+            </div>
+          </section>
+        </template>
+
+        <template v-else-if="currentPage === 'creator-legacy'">
           <section class="page-panel">
             <div class="page-header">
               <div>
@@ -593,6 +752,8 @@ const selectedVideo = ref(null)
 const currentPage = ref('home')
 const selectedUploadFile = ref(null)
 const uploadingVideo = ref(false)
+const creatorRefreshing = ref(false)
+const deletingVideoId = ref(null)
 const liveLoading = ref(false)
 const liveRooms = ref([])
 const selectedLiveRoom = ref(null)
@@ -841,6 +1002,37 @@ const profileCreatedVideos = computed(() => {
   })
 })
 
+const creatorVideos = computed(() => {
+  const currentId = currentUserId.value == null ? '' : String(currentUserId.value)
+  const names = [currentUser.value, profileData.value.nickname, profileData.value.username]
+    .filter(Boolean)
+    .map((name) => String(name).trim())
+
+  return videoList.value
+    .filter((video) => {
+      const authorUserId = video?.authorInfo?.userId || video?.authorInfo?.id
+      if (currentId && authorUserId != null && String(authorUserId) === currentId) {
+        return true
+      }
+      return names.some((name) => name && String(video.author || '').trim() === name)
+    })
+    .sort((a, b) => calculateHotScore(b) - calculateHotScore(a))
+})
+
+const creatorStats = computed(() => creatorVideos.value.reduce((stats, video) => ({
+  playCount: stats.playCount + Number(video.playCount || parseViews(video.views) || 0),
+  likeCount: stats.likeCount + Number(video.likeCount || 0),
+  favoriteCount: stats.favoriteCount + Number(video.favoriteCount || 0),
+  commentCount: stats.commentCount + Number(video.commentCount || 0),
+  hotScore: stats.hotScore + calculateHotScore(video)
+}), {
+  playCount: 0,
+  likeCount: 0,
+  favoriteCount: 0,
+  commentCount: 0,
+  hotScore: 0
+}))
+
 const filteredVideos = computed(() => {
   const lowerKeyword = keyword.value.toLowerCase()
   if (!lowerKeyword) {
@@ -869,6 +1061,15 @@ const videoMatchesKeyword = (video, lowerKeyword) => {
     video.description,
     tagText
   ].some((value) => String(value || '').toLowerCase().includes(lowerKeyword))
+}
+
+const normalizeTagNames = (tags) => {
+  if (!Array.isArray(tags)) {
+    return []
+  }
+  return tags
+    .map((tag) => String(tag?.name || tag || '').trim())
+    .filter(Boolean)
 }
 
 const filteredLiveRooms = computed(() => {
@@ -966,8 +1167,12 @@ const goHome = () => {
   setPage('home')
 }
 
-const setRouteHash = (page, roomId = null) => {
-  const nextHash = page === 'live-room' && roomId ? `#/live/${roomId}` : `#/${page}`
+const setRouteHash = (page, routeId = null) => {
+  const nextHash = page === 'live-room' && routeId
+    ? `#/live/${routeId}`
+    : page === 'video' && routeId
+      ? `#/video/${routeId}`
+      : `#/${page}`
   if (window.location.hash !== nextHash) {
     window.location.hash = nextHash
   }
@@ -984,6 +1189,9 @@ const parseRouteFromHash = () => {
   if (page === 'live' && roomId) {
     return { page: 'live-room', roomId }
   }
+  if (page === 'video' && roomId) {
+    return { page: 'video', videoId: roomId }
+  }
 
   if (['home', 'ranking', 'live', 'creator', 'profile', 'following', 'history'].includes(page)) {
     return { page }
@@ -996,6 +1204,10 @@ const syncRouteFromHash = async () => {
   const route = parseRouteFromHash()
   if (route.page === 'live-room') {
     await loadLiveRoom(route.roomId)
+    return
+  }
+  if (route.page === 'video') {
+    await openVideoById(route.videoId, false)
     return
   }
   await setPage(route.page, false)
@@ -1025,7 +1237,7 @@ const setPage = async (page, updateRoute = true) => {
     return
   }
   if (page === 'creator') {
-    await fetchAvailableTags()
+    await refreshCreatorCenter()
     return
   }
   if (page === 'profile') {
@@ -1343,12 +1555,48 @@ const recordViewHistory = async (video) => {
   }
 }
 
-const openVideoPlayer = async (video) => {
+const openVideoPlayer = async (video, updateRoute = true) => {
   selectedVideo.value = await ensureVideoAuthorProfile(video)
   showVideoPlayer.value = true
+  if (updateRoute && selectedVideo.value?.id) {
+    setRouteHash('video', selectedVideo.value.id)
+  }
   window.scrollTo(0, 0)
   await recordViewHistory(selectedVideo.value)
   loadRelatedVideos(selectedVideo.value.id)
+}
+
+const openVideoById = async (videoId, updateRoute = true) => {
+  if (!videoId) {
+    await setPage('home')
+    return false
+  }
+  if (showVideoPlayer.value && selectedVideo.value && String(selectedVideo.value.id) === String(videoId)) {
+    return true
+  }
+
+  let video = videoList.value.find((item) => String(item.id) === String(videoId))
+  if (!video) {
+    try {
+      const res = await axios.get(`${API_BASE}/videos/${videoId}`)
+      if (res.data?.code === 200 && res.data.data) {
+        video = convertVideoFromBackend(res.data.data)
+      }
+    } catch (error) {
+      console.warn('打开视频失败', error)
+    }
+  }
+
+  if (!video) {
+    alert('视频不存在或已被删除')
+    showVideoPlayer.value = false
+    selectedVideo.value = null
+    await setPage('home')
+    return false
+  }
+
+  await openVideoPlayer(video, updateRoute)
+  return true
 }
 
 const openSharedVideoFromUrl = async () => {
@@ -1375,7 +1623,7 @@ const openSharedVideoFromUrl = async () => {
     return false
   }
 
-  await openVideoPlayer(video)
+  await openVideoPlayer(video, true)
   return true
 }
 
@@ -1386,6 +1634,9 @@ const closeVideoPlayer = () => {
   if (url.searchParams.has('videoId')) {
     url.searchParams.delete('videoId')
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#/home'}`)
+  }
+  if (window.location.hash.startsWith('#/video/')) {
+    setRouteHash(currentPage.value || 'home')
   }
 }
 
@@ -1749,6 +2000,23 @@ const handlePrimaryAction = async () => {
   }
 
   await setPage('creator')
+}
+
+const refreshCreatorCenter = async () => {
+  if (!ensureLoggedIn('请先登录后进入创作者中心')) {
+    return
+  }
+  creatorRefreshing.value = true
+  try {
+    viewedProfileUserId.value = currentUserId.value
+    await Promise.all([
+      fetchAvailableTags(),
+      fetchCurrentProfile(),
+      loadVideoList()
+    ])
+  } finally {
+    creatorRefreshing.value = false
+  }
 }
 
 const openAvatarUploader = () => {
@@ -2129,6 +2397,39 @@ const resetUploadForm = () => {
   uploadTagInput.value = ''
   uploadTags.value = []
   selectedUploadFile.value = null
+}
+
+const deleteCreatorVideo = async (video) => {
+  if (!video?.id) {
+    return
+  }
+  if (!ensureLoggedIn('请先登录后管理稿件')) {
+    return
+  }
+  if (!confirm(`确定删除《${video.title || '该稿件'}》吗？删除后相关评论、点赞和历史记录也会被清理。`)) {
+    return
+  }
+
+  deletingVideoId.value = video.id
+  try {
+    const res = await axios.delete(`${API_BASE}/videos/${video.id}`, {
+      headers: getAuthHeaders()
+    })
+    if (res.data?.code === 200) {
+      videoList.value = videoList.value.filter((item) => String(item.id) !== String(video.id))
+      historyList.value = historyList.value.filter((history) => String(history?.video?.id || history?.videoId) !== String(video.id))
+      if (selectedVideo.value && String(selectedVideo.value.id) === String(video.id)) {
+        closeVideoPlayer()
+      }
+      alert('稿件已删除')
+      return
+    }
+    alert(res.data?.message || '删除稿件失败')
+  } catch (error) {
+    alert(error.response?.data?.message || error.message || '删除稿件失败')
+  } finally {
+    deletingVideoId.value = null
+  }
 }
 
 const normalizeRoom = (data) => {
@@ -2736,11 +3037,277 @@ const destroyLivePlayer = () => {
 }
 
 .creator-card,
+.creator-overview-card,
+.creator-manage-card,
+.creator-upload-card,
 .live-side-panel {
   background: #fff;
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.creator-page {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(0, 174, 236, 0.12), transparent 34%),
+    radial-gradient(circle at 92% 8%, rgba(255, 102, 153, 0.1), transparent 30%),
+    #f6f8fb;
+}
+
+.creator-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+}
+
+.creator-overview-card,
+.creator-manage-card {
+  grid-column: 1;
+}
+
+.creator-upload-card {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  position: sticky;
+  top: 20px;
+}
+
+.creator-overview-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.creator-overview-profile h3 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  color: #111827;
+}
+
+.creator-overview-profile p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.creator-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dff6ff, #fff0f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b76b7;
+  font-size: 24px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.creator-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.creator-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.creator-stat-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff, #fff);
+  border: 1px solid #eef2f7;
+}
+
+.creator-stat-card.hot {
+  background: linear-gradient(135deg, rgba(0, 174, 236, 0.12), rgba(255, 102, 153, 0.12));
+}
+
+.creator-stat-card span,
+.creator-stat-card small {
+  display: block;
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.creator-stat-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  color: #111827;
+  font-size: 26px;
+}
+
+.creator-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.creator-section-head.compact {
+  align-items: flex-start;
+}
+
+.creator-section-head h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.creator-section-head p {
+  margin: 6px 0 0;
+  color: #8a8f99;
+  font-size: 13px;
+}
+
+.creator-section-head > span {
+  color: #8a8f99;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.creator-empty {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.creator-manuscript-list {
+  display: grid;
+  gap: 14px;
+}
+
+.creator-manuscript-item {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) 104px;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #edf1f5;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.creator-manuscript-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e5e7eb;
+  cursor: pointer;
+}
+
+.creator-manuscript-cover img,
+.creator-cover-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.creator-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe, #ffe4ee);
+  color: #0b76b7;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.creator-manuscript-cover span {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+}
+
+.creator-manuscript-main {
+  min-width: 0;
+}
+
+.creator-manuscript-main h4 {
+  margin: 2px 0 6px;
+  color: #111827;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.creator-manuscript-main p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.creator-manuscript-tags,
+.creator-manuscript-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.creator-manuscript-tags span {
+  color: #0b76b7;
+  font-size: 12px;
+}
+
+.creator-manuscript-metrics span {
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.creator-manuscript-actions {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.outline-btn,
+.danger-btn {
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.outline-btn:hover {
+  border-color: #00aeec;
+  color: #00aeec;
+}
+
+.danger-btn {
+  border-color: #ffd6df;
+  color: #d92d52;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: #fff1f4;
+}
+
+.danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .profile-shell {
