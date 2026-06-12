@@ -74,6 +74,38 @@
                 <p>主播：{{ selectedLiveRoom.anchorNickname }}</p>
                 <p>状态：{{ selectedLiveRoom.statusText }}</p>
                 <p class="stream-url">播放地址：{{ selectedLiveRoom.pullUrl || '等待推流' }}</p>
+
+                <div class="live-interact-panel">
+                  <div class="live-interact-stats">
+                    <span>在线 {{ liveOnlineCount }}</span>
+                    <button class="live-like-btn" type="button" @click="sendLiveLike">点赞 {{ liveLikeCount }}</button>
+                  </div>
+
+                  <div class="live-danmu-list">
+                    <div v-if="liveDanmuMessages.length === 0" class="live-danmu-empty">暂无互动消息</div>
+                    <div v-for="message in liveDanmuMessages" :key="message.id" class="live-danmu-item">
+                      <strong>{{ message.username || '游客' }}</strong>
+                      <span :style="{ color: message.color || '#334155' }">{{ message.content }}</span>
+                    </div>
+                  </div>
+
+                  <div class="live-danmu-form">
+                    <input
+                      v-model.trim="liveDanmuInput"
+                      type="text"
+                      maxlength="120"
+                      placeholder="和直播间聊一句"
+                      @keyup.enter="sendLiveDanmu"
+                    />
+                    <select v-model="liveDanmuColor" aria-label="弹幕颜色">
+                      <option value="#334155">默认</option>
+                      <option value="#e11d48">红色</option>
+                      <option value="#2563eb">蓝色</option>
+                      <option value="#16a34a">绿色</option>
+                    </select>
+                    <button class="confirm-btn small-live-send" type="button" @click="sendLiveDanmu">发送</button>
+                  </div>
+                </div>
               </aside>
             </div>
           </section>
@@ -759,6 +791,12 @@ const liveRooms = ref([])
 const selectedLiveRoom = ref(null)
 const liveVideoRef = ref(null)
 const flvPlayer = ref(null)
+const liveDanmuSocket = ref(null)
+const liveDanmuInput = ref('')
+const liveDanmuColor = ref('#334155')
+const liveDanmuMessages = ref([])
+const liveOnlineCount = ref(0)
+const liveLikeCount = ref(0)
 const showLiveModal = ref(false)
 const creatingLive = ref(false)
 const createdRoom = ref(null)
@@ -1140,6 +1178,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRouteFromHash)
+  disconnectLiveDanmu()
   destroyLivePlayer()
 })
 
@@ -1226,6 +1265,7 @@ const setPage = async (page, updateRoute = true) => {
   keyword.value = ''
   if (page !== 'live-room') {
     selectedLiveRoom.value = null
+    disconnectLiveDanmu()
     destroyLivePlayer()
   }
   localStorage.setItem('currentPage', page)
@@ -2565,6 +2605,7 @@ const openLiveRoom = async (room) => {
   setRouteHash('live-room', room.roomId)
   await nextTick()
   setupLivePlayer()
+  await setupLiveInteract(selectedLiveRoom.value.roomId)
 }
 
 const loadLiveRoom = async (roomId) => {
@@ -2594,6 +2635,7 @@ const loadLiveRoom = async (roomId) => {
   localStorage.setItem('currentPage', 'live-room')
   await nextTick()
   setupLivePlayer()
+  await setupLiveInteract(selectedLiveRoom.value.roomId)
 }
 
 const openLiveModal = () => {
@@ -2689,6 +2731,143 @@ const closeCurrentLiveRoom = async () => {
   } catch (error) {
     alert(error.response?.data?.message || '关闭直播失败')
   }
+}
+
+const liveRoomWsUrl = (roomId) => {
+  const apiUrl = new URL(API_BASE)
+  const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${apiUrl.host}/ws/danmu/${roomId}`
+}
+
+const normalizeLiveDanmu = (message) => ({
+  id: message.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  username: message.username || '游客',
+  content: message.content || '',
+  color: message.color || '#334155',
+  sendTime: message.sendTime || new Date().toISOString()
+})
+
+const appendLiveDanmu = (message) => {
+  if (!message?.content) {
+    return
+  }
+  liveDanmuMessages.value.push(normalizeLiveDanmu(message))
+  if (liveDanmuMessages.value.length > 80) {
+    liveDanmuMessages.value = liveDanmuMessages.value.slice(-80)
+  }
+}
+
+const loadLiveDanmuHistory = async (roomId) => {
+  liveDanmuMessages.value = []
+  if (!roomId) {
+    return
+  }
+  try {
+    const res = await axios.get(`${API_BASE}/danmu/history/${roomId}`, {
+      params: { limit: 50 }
+    })
+    const list = Array.isArray(res.data?.data) ? res.data.data : []
+    liveDanmuMessages.value = list.map(normalizeLiveDanmu)
+  } catch (error) {
+    console.warn('加载直播弹幕历史失败', error)
+  }
+}
+
+const loadLiveLikeCount = async (roomId) => {
+  liveLikeCount.value = 0
+  if (!roomId) {
+    return
+  }
+  try {
+    const res = await axios.get(`${API_BASE}/live/rooms/${roomId}/like`)
+    liveLikeCount.value = Number(res.data?.data?.likeCount || 0)
+  } catch (error) {
+    console.warn('加载直播点赞数失败', error)
+  }
+}
+
+const disconnectLiveDanmu = () => {
+  if (liveDanmuSocket.value) {
+    liveDanmuSocket.value.close()
+    liveDanmuSocket.value = null
+  }
+  liveOnlineCount.value = 0
+}
+
+const connectLiveDanmu = (roomId) => {
+  disconnectLiveDanmu()
+  if (!roomId || typeof WebSocket === 'undefined') {
+    return
+  }
+
+  const socket = new WebSocket(liveRoomWsUrl(roomId))
+  liveDanmuSocket.value = socket
+
+  socket.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data)
+      if (message.type === 'online_count') {
+        liveOnlineCount.value = Number(message.count || 0)
+        return
+      }
+      if (message.type === 'like') {
+        liveLikeCount.value = Number(message.likeCount || 0)
+        return
+      }
+      if (message.type === 'danmu') {
+        appendLiveDanmu(message)
+      }
+    } catch (error) {
+      console.warn('解析直播互动消息失败', error)
+    }
+  }
+
+  socket.onclose = () => {
+    if (liveDanmuSocket.value === socket) {
+      liveDanmuSocket.value = null
+      liveOnlineCount.value = 0
+    }
+  }
+}
+
+const setupLiveInteract = async (roomId) => {
+  await Promise.all([
+    loadLiveDanmuHistory(roomId),
+    loadLiveLikeCount(roomId)
+  ])
+  connectLiveDanmu(roomId)
+}
+
+const sendLiveLike = () => {
+  if (liveDanmuSocket.value?.readyState === WebSocket.OPEN) {
+    liveDanmuSocket.value.send(JSON.stringify({ type: 'like' }))
+    return
+  }
+  if (selectedLiveRoom.value?.roomId) {
+    connectLiveDanmu(selectedLiveRoom.value.roomId)
+  }
+}
+
+const sendLiveDanmu = () => {
+  const content = liveDanmuInput.value.trim()
+  if (!content) {
+    return
+  }
+  if (liveDanmuSocket.value?.readyState !== WebSocket.OPEN) {
+    alert('直播互动连接中，请稍后再试')
+    if (selectedLiveRoom.value?.roomId) {
+      connectLiveDanmu(selectedLiveRoom.value.roomId)
+    }
+    return
+  }
+  liveDanmuSocket.value.send(JSON.stringify({
+    type: 'danmu',
+    content,
+    color: liveDanmuColor.value,
+    username: currentUser.value || '游客',
+    userId: currentUserId.value
+  }))
+  liveDanmuInput.value = ''
 }
 
 const setupLivePlayer = () => {
@@ -3843,6 +4022,85 @@ const destroyLivePlayer = () => {
 
 .stream-url {
   word-break: break-all;
+}
+
+.live-interact-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #edf1f5;
+}
+
+.live-interact-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.live-like-btn {
+  border: 1px solid #ffd6df;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fff1f4;
+  color: #d92d52;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.live-danmu-list {
+  display: grid;
+  gap: 8px;
+  min-height: 168px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.live-danmu-empty {
+  align-self: center;
+  justify-self: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.live-danmu-item {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.live-danmu-item strong {
+  color: #475569;
+  font-size: 12px;
+}
+
+.live-danmu-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 58px;
+  gap: 8px;
+}
+
+.live-danmu-form input,
+.live-danmu-form select {
+  min-width: 0;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+.small-live-send {
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .modal-overlay {
