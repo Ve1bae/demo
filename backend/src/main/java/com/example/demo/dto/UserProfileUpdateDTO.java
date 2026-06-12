@@ -1,11 +1,9 @@
-package com.example.demo.vo;
+package com.example.demo.dto;
 
 import lombok.Data;
 
 @Data
-public class LoginUserVO {
-    private Long id;
-    private String username;
+public class UserProfileUpdateDTO {
     private String nickname;
     private String avatarUrl;
     private String bio;

@@ -4,3 +4,11 @@ frontend/.idea/
 backend/backend/
 backend/uploads/
 frontend/demo/dist/
+.tmp/
+.codex-vite-temp/
+frontend/demo/scripts/
+scripts/dev-backend.mjs
+scripts/dev-frontend.mjs
+scripts/start-backend.cmd
+scripts/start-dev-services.cmd
+scripts/start-frontend.cmd

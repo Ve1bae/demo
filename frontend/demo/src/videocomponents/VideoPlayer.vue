@@ -4,292 +4,303 @@
       <span class="back-icon">←</span> 返回
     </div>
 
-    <div class="player-wrapper">
-      <div class="video-area" ref="videoArea" @mousemove="handleMouseMove" @click="handleVideoClick">
-        <video
-          ref="videoRef"
-          class="main-video"
-          :src="currentSrc"
-          playsinline
-          preload="auto"
-          @timeupdate="onTimeUpdate"
-          @play="onPlay"
-          @pause="onPause"
-          @ended="onEnded"
-          @volumechange="onVolumeChange"
-          @loadedmetadata="onLoadedMetadata"
-          @canplay="onCanPlay"
-          @error="onVideoError"
-          @waiting="onWaiting"
-        ></video>
-
-        <div class="danmaku-container" :class="{ hidden: !danmakuEnabled }" ref="danmakuContainer">
-          <div
-            v-for="danmaku in visibleDanmakuList"
-            :key="danmaku.displayId"
-            class="danmaku-item danmaku-scroll"
-            :class="{ 'user-danmaku': danmaku.isUser }"
-            :style="{
-              top: (30 + danmaku.track * 40) + 'px',
-              '--duration': danmaku.duration + 's',
-              opacity: danmakuOpacity / 100,
-              color: resolveDanmakuColor(danmaku.color)
-            }"
-          >
-            {{ danmaku.content }}
+    <div class="player-content-layout">
+      <div class="video-main-column">
+        <div class="video-header-section">
+          <div class="video-title-row">
+            <div class="video-title">{{ videoData.title }}</div>
+          </div>
+          <div class="video-meta title-meta">
+            <span>{{ formatNumber(playCount) }} 播放</span>
+            <span class="meta-divider">|</span>
+            <span>{{ videoData.date }}</span>
           </div>
         </div>
+        <div class="player-wrapper">
+          <div class="video-area" ref="videoArea" @mousemove="handleMouseMove" @click="handleVideoClick">
+            <video
+              ref="videoRef"
+              class="main-video"
+              :src="currentSrc"
+              playsinline
+              preload="auto"
+              @timeupdate="onTimeUpdate"
+              @play="onPlay"
+              @pause="onPause"
+              @ended="onEnded"
+              @volumechange="onVolumeChange"
+              @loadedmetadata="onLoadedMetadata"
+              @canplay="onCanPlay"
+              @error="onVideoError"
+              @waiting="onWaiting"
+            ></video>
 
-        <div class="controls-overlay" :class="{ 'show-controls': showControls, 'hide-controls': !showControls && isPlaying }">
-          <div class="progress-area">
-            <div
-              class="progress-bar"
-              @mousedown="startDragProgress"
-              @click="seekVideo"
-            >
-              <div class="progress-bg"></div>
-              <div class="progress-buffered" :style="{ width: bufferedProgress + '%' }"></div>
-              <div class="progress-played" :style="{ width: currentProgress + '%' }">
-                <div class="progress-thumb"></div>
+            <div class="danmaku-container" :class="{ hidden: !danmakuEnabled }" ref="danmakuContainer">
+              <div
+                v-for="danmaku in visibleDanmakuList"
+                :key="danmaku.displayId"
+                class="danmaku-item danmaku-scroll"
+                :class="{ 'user-danmaku': danmaku.isUser }"
+                :style="{
+                  top: (30 + danmaku.track * 40) + 'px',
+                  '--duration': danmaku.duration + 's',
+                  opacity: danmakuOpacity / 100,
+                  color: resolveDanmakuColor(danmaku.color)
+                }"
+              >
+                {{ danmaku.content }}
               </div>
             </div>
-          </div>
 
-          <div class="danmaku-input-area">
-            <button
-              :class="['danmaku-toggle', { disabled: !danmakuEnabled }]"
-              @click="toggleDanmaku"
-            >
-              弹幕
-            </button>
-            <button class="danmaku-settings-btn" title="弹幕设置" @click="toggleDanmakuSettings">
-              <span>⚙</span>
-            </button>
-            <div class="danmaku-settings-panel" v-if="showDanmakuSettings">
-              <div class="setting-item">
-                <span class="setting-label">透明度</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  v-model="danmakuOpacity"
-                  class="setting-slider"
-                />
-                <span class="setting-value">{{ danmakuOpacity }}%</span>
-              </div>
-              <div class="setting-item">
-                <span class="setting-label">速度</span>
-                <div class="speed-options">
-                  <button
-                    :class="['speed-btn', { active: danmakuSpeed === 0.6 }]"
-                    @click="danmakuSpeed = 0.6"
-                  >慢</button>
-                  <button
-                    :class="['speed-btn', { active: danmakuSpeed === 1 }]"
-                    @click="danmakuSpeed = 1"
-                  >中</button>
-                  <button
-                    :class="['speed-btn', { active: danmakuSpeed === 1.4 }]"
-                    @click="danmakuSpeed = 1.4"
-                  >快</button>
+            <div class="controls-overlay" :class="{ 'show-controls': showControls, 'hide-controls': !showControls && isPlaying }">
+              <div class="progress-area">
+                <div class="progress-bar" @mousedown="startDragProgress" @click="seekVideo">
+                  <div class="progress-bg"></div>
+                  <div class="progress-buffered" :style="{ width: bufferedProgress + '%' }"></div>
+                  <div class="progress-played" :style="{ width: currentProgress + '%' }">
+                    <div class="progress-thumb"></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="danmaku-color-picker">
-              <button
-                v-for="color in danmakuColors"
-                :key="color.value"
-                :class="['color-btn', { active: danmakuColor === color.value }]"
-                :style="{ backgroundColor: color.hex }"
-                @click="danmakuColor = color.value"
-              ></button>
-            </div>
-            <input
-              v-model="danmakuInput"
-              class="danmaku-input"
-              placeholder="在这里输入弹幕..."
-              @keyup.enter="sendDanmaku"
-            />
-            <button class="send-danmaku-btn" @click="sendDanmaku">发送</button>
-          </div>
 
-          <div class="bottom-controls">
-            <div class="left-controls">
-              <button class="control-btn" @click="togglePlay">
-                {{ isPlaying ? '⏸' : '▶' }}
-              </button>
-
-              <div class="volume-control">
-                <button class="control-btn" @click="toggleMute">
-                  {{ isMuted ? '🔇' : '🔊' }}
+              <div class="danmaku-input-area">
+                <button :class="['danmaku-toggle', { disabled: !danmakuEnabled }]" title="弹幕" @click="toggleDanmaku">弹</button>
+                <button class="danmaku-settings-btn" title="弹幕设置" @click="toggleDanmakuSettings">
+                  <span>⚙</span>
                 </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  v-model="volume"
-                  @input="onVolumeInput"
-                  class="volume-slider"
-                />
+                <div class="danmaku-settings-panel" v-if="showDanmakuSettings">
+                  <div class="setting-item">
+                    <span class="setting-label">透明度</span>
+                    <input type="range" min="0" max="100" v-model="danmakuOpacity" class="setting-slider" />
+                    <span class="setting-value">{{ danmakuOpacity }}%</span>
+                  </div>
+                  <div class="setting-item">
+                    <span class="setting-label">速度</span>
+                    <div class="speed-options">
+                      <button :class="['speed-btn', { active: danmakuSpeed === 0.6 }]" @click="danmakuSpeed = 0.6">慢</button>
+                      <button :class="['speed-btn', { active: danmakuSpeed === 1 }]" @click="danmakuSpeed = 1">正常</button>
+                      <button :class="['speed-btn', { active: danmakuSpeed === 1.4 }]" @click="danmakuSpeed = 1.4">快</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="danmaku-color-picker">
+                  <button
+                    v-for="color in danmakuColors"
+                    :key="color.value"
+                    :class="['color-btn', { active: danmakuColor === color.value }]"
+                    :style="{ backgroundColor: color.hex }"
+                    @click="danmakuColor = color.value"
+                  ></button>
+                </div>
+                <input v-model="danmakuInput" class="danmaku-input" placeholder="发一条弹幕..." @keyup.enter="sendDanmaku" />
+                <button class="send-danmaku-btn" @click="sendDanmaku">发送</button>
               </div>
 
-              <span class="time-display">
-                {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
-              </span>
-            </div>
-
-            <div class="right-controls">
-              <div class="speed-control">
-                <button class="control-btn small" @click="toggleSpeedDropdown">
-                  <span class="speed-label">倍速</span>
-                  <span class="speed-value">{{ playbackRate }}x</span>
-                </button>
-                <div class="speed-dropdown" :class="{ 'show-speed-dropdown': showSpeedDropdown }">
-                  <button
-                    v-for="speed in [0.5, 0.75, 1, 1.25, 1.5, 2]"
-                    :key="speed"
-                    class="speed-option"
-                    :class="{ 'active': playbackRate === speed }"
-                    @click="changeSpeed(speed)"
-                  >
-                    {{ speed }}x
+              <div class="bottom-controls">
+                <div class="left-controls">
+                  <button class="control-btn icon-control" :title="isPlaying ? '暂停' : '播放'" @click="togglePlay">
+                    {{ isPlaying ? '⏸' : '▶' }}
                   </button>
+                  <div class="volume-control">
+                    <button class="control-btn icon-control" :title="isMuted ? '取消静音' : '静音'" @click="toggleMute">
+                      {{ isMuted ? '🔇' : '🔊' }}
+                    </button>
+                    <input type="range" min="0" max="1" step="0.1" v-model="volume" @input="onVolumeInput" class="volume-slider" />
+                  </div>
+                  <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+                </div>
+
+                <div class="right-controls">
+                  <div class="speed-control">
+                    <button class="control-btn small" @click="toggleSpeedDropdown">
+                      <span class="speed-label">倍速</span>
+                      <span class="speed-value">{{ playbackRate }}x</span>
+                    </button>
+                    <div class="speed-dropdown" :class="{ 'show-speed-dropdown': showSpeedDropdown }">
+                      <button
+                        v-for="speed in [0.5, 0.75, 1, 1.25, 1.5, 2]"
+                        :key="speed"
+                        class="speed-option"
+                        :class="{ active: playbackRate === speed }"
+                        @click="changeSpeed(speed)"
+                      >
+                        {{ speed }}x
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="quality-control">
+                    <button class="control-btn small" @click="toggleQualityDropdown">
+                      <span class="quality-label">清晰度</span>
+                      <span class="quality-value">{{ currentQuality }}</span>
+                    </button>
+                    <div class="quality-dropdown" :class="{ 'show-quality-dropdown': showQualityDropdown }">
+                      <button
+                        v-for="q in qualities"
+                        :key="q"
+                        class="quality-option"
+                        :class="{ active: currentQuality === q }"
+                        @click="changeQuality(q)"
+                      >
+                        {{ q }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button class="control-btn icon-control" title="全屏" @click="toggleFullscreen">⛶</button>
                 </div>
               </div>
+            </div>
 
-              <div class="quality-control">
-                <button class="control-btn small" @click="toggleQualityDropdown">
-                  <span class="quality-label">清晰度</span>
-                  <span class="quality-value">{{ currentQuality }}</span>
-                </button>
-                <div class="quality-dropdown" :class="{ 'show-quality-dropdown': showQualityDropdown }">
-                  <button
-                    v-for="q in qualities"
-                    :key="q"
-                    class="quality-option"
-                    :class="{ 'active': currentQuality === q }"
-                    @click="changeQuality(q)"
-                  >
-                    {{ q }}
-                  </button>
-                </div>
-              </div>
+            <div class="play-button-overlay" v-show="currentTime === 0 && !isPlaying && !showControls" @click="togglePlay">
+              <div class="big-play-btn">▶</div>
+            </div>
 
-              <button class="control-btn" @click="toggleFullscreen">
-                ⛶
-              </button>
+            <div class="loading-overlay" v-show="isLoading">
+              <div class="loading-spinner"></div>
+              <span class="loading-text">正在切换到 {{ currentQuality }}...</span>
             </div>
           </div>
         </div>
 
-        <div class="play-button-overlay" v-show="currentTime === 0 && !isPlaying && !showControls" @click="togglePlay">
-          <div class="big-play-btn">▶</div>
-        </div>
-
-        <div class="loading-overlay" v-show="isLoading">
-          <div class="loading-spinner"></div>
-          <span class="loading-text">正在切换 {{ currentQuality }}...</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="video-info-area">
-      <div class="video-title-row">
-        <div class="video-title">{{ videoData.title }}</div>
-        <div class="video-actions">
-          <button
-            :class="['action-btn', 'like-btn', { active: liked }]"
-            @click="toggleLike"
-          >
-            <span class="action-icon">{{ liked ? '❤️' : '🤍' }}</span>
-            <span class="action-text">{{ formatNumber(likeCount) }}</span>
-          </button>
-          <button
-            :class="['action-btn', 'favorite-btn', { active: favorited }]"
-            @click="toggleFavorite"
-          >
-            <span class="action-icon">{{ favorited ? '⭐' : '☆' }}</span>
-            <span class="action-text">{{ formatNumber(favoriteCount) }}</span>
-          </button>
-        </div>
-      </div>
-      <div class="video-meta">
-        <span>{{ formatNumber(playCount) }} 播放</span>
-        <span class="meta-divider">·</span>
-        <span>{{ formatNumber(likeCount) }} 点赞</span>
-        <span class="meta-divider">·</span>
-        <span>{{ formatNumber(favoriteCount) }} 收藏</span>
-        <span class="meta-divider">·</span>
-        <span>{{ videoData.date }}</span>
-      </div>
-      <div class="video-author">
-        <div class="author-avatar">👨‍💻</div>
-        <div class="author-name">{{ videoData.author }}</div>
-        <button class="follow-btn">+ 关注</button>
-      </div>
-    </div>
-
-    <div class="like-animation" v-if="showLikeAnimation">❤️</div>
-
-    <div class="comments-area">
-      <div class="comments-header">
-        <h3>评论</h3>
-        <span class="comments-count">{{ commentsTotal }} 条</span>
-      </div>
-
-      <div class="comment-input-area">
-        <input
-          v-model="commentInput"
-          class="comment-input"
-          placeholder="写下你的评论..."
-          @keyup.enter="sendComment"
-        />
-        <button class="send-comment-btn" @click="sendComment">发送</button>
-      </div>
-
-      <div class="comments-list" ref="commentsList">
-        <div
-          v-for="comment in commentsListData"
-          :key="comment.commentId"
-          class="comment-item"
-        >
-          <div class="comment-avatar">👤</div>
-          <div class="comment-content">
-            <div class="comment-header">
-              <span class="comment-nickname">{{ resolveCommentNickname(comment) }}</span>
-              <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
-            </div>
-            <p class="comment-text">{{ comment.content }}</p>
-            <div class="comment-actions">
-              <button class="comment-action-btn" @click="likeComment(comment.commentId)">
-                <span>👍</span>
-                <span>{{ comment.likeCount || 0 }}</span>
+        <div class="video-info-area">
+          <div class="video-stats-actions">
+            <div class="video-actions">
+              <button :class="['action-btn', 'like-btn', { active: liked }]" @click="toggleLike">
+                <span class="action-icon" v-html="liked ? iconThumbFilled : iconThumbOutline"></span>
+                <span class="action-text">{{ formatNumber(likeCount) }}</span>
               </button>
-              <button class="comment-action-btn" @click="replyComment(comment)">
-                <span>💬</span>
-                <span>回复</span>
+              <button :class="['action-btn', 'favorite-btn', { active: favorited }]" @click="toggleFavorite">
+                <span class="action-icon" v-html="favorited ? iconStarFilled : iconStarOutline"></span>
+                <span class="action-text">{{ formatNumber(favoriteCount) }}</span>
+              </button>
+              <button class="action-btn share-btn" @click="shareVideo">
+                <span class="action-icon" v-html="iconShare"></span>
+                <span class="action-text">{{ shareCopied ? '已复制' : '分享' }}</span>
               </button>
             </div>
           </div>
+          <div class="video-description" v-if="videoData.description">{{ videoData.description }}</div>
+          <div class="video-tags" v-if="videoTags.length > 0">
+            <span v-for="tag in videoTags" :key="tag.id || tag.name" class="video-tag"># {{ tag.name }}</span>
+          </div>
+
+          <div class="comments-area">
+            <div class="comments-header">
+              <h3>评论</h3>
+              <span class="comments-count">{{ commentsTotal }}</span>
+            </div>
+
+            <div class="comment-input-area">
+              <div v-if="replyTarget" class="reply-target-bar">
+                正在回复 {{ resolveCommentNickname(replyTarget) }}
+                <button @click="clearReplyTarget">取消</button>
+              </div>
+              <input v-model="commentInput" class="comment-input" placeholder="发表评论..." @keyup.enter="sendComment" />
+              <button class="send-comment-btn" @click="sendComment">发送</button>
+            </div>
+
+            <div class="comments-list" ref="commentsList">
+              <div v-for="comment in commentsListData" :key="comment.commentId" class="comment-item">
+                <div class="comment-avatar clickable-avatar" @click="openCommentUserProfile(comment)">
+                  <img v-if="resolveCommentAvatar(comment)" :src="resolveCommentAvatar(comment)" alt="" class="comment-avatar-image" />
+                  <span v-else>{{ resolveCommentAvatarFallback(comment) }}</span>
+                </div>
+                <div class="comment-content">
+                  <div class="comment-header">
+                    <span class="comment-nickname clickable-user" @click="openCommentUserProfile(comment)">{{ resolveCommentNickname(comment) }}</span>
+                    <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
+                    <button v-if="canDeleteComment(comment)" class="comment-delete-btn" @click="deleteComment(comment.commentId)">删除</button>
+                  </div>
+                  <p class="comment-text">{{ comment.content }}</p>
+                  <div class="comment-actions">
+                    <button :class="['comment-action-btn', { active: comment.liked }]" @click="handleCommentLike(comment.commentId)">
+                      <span v-html="comment.liked ? iconThumbFilled : iconThumbOutline"></span>
+                      <span>{{ comment.likeCount || 0 }}</span>
+                    </button>
+                    <button class="comment-action-btn" @click="replyComment(comment)">
+                      <span>回复</span>
+                    </button>
+                  </div>
+                  <div v-if="comment.replies?.length" class="comment-replies">
+                    <div v-for="reply in comment.replies" :key="reply.commentId" class="reply-item">
+                      <div class="reply-avatar clickable-avatar" @click="openCommentUserProfile(reply)">
+                        <img v-if="resolveCommentAvatar(reply)" :src="resolveCommentAvatar(reply)" alt="" class="comment-avatar-image" />
+                        <span v-else>{{ resolveCommentAvatarFallback(reply) }}</span>
+                      </div>
+                      <div class="reply-content">
+                        <div class="reply-line">
+                          <span class="comment-nickname clickable-user" @click="openCommentUserProfile(reply)">{{ resolveCommentNickname(reply) }}</span>
+                          <span v-if="reply.replyToUser" class="reply-to">回复 {{ resolveReplyToNickname(reply) }}</span>
+                          <span class="comment-time">{{ formatDate(reply.createdAt) }}</span>
+                          <button v-if="canDeleteComment(reply)" class="comment-delete-btn" @click="deleteComment(reply.commentId)">删除</button>
+                        </div>
+                        <p class="comment-text reply-text">{{ reply.content }}</p>
+                        <div class="comment-actions">
+                          <button :class="['comment-action-btn', { active: reply.liked }]" @click="handleCommentLike(reply.commentId)">
+                            <span v-html="reply.liked ? iconThumbFilled : iconThumbOutline"></span>
+                            <span>{{ reply.likeCount || 0 }}</span>
+                          </button>
+                          <button class="comment-action-btn" @click="replyComment(reply)">
+                            <span>回复</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="hasMoreComments" class="load-more">
+                <button class="load-more-btn" @click="loadMoreComments">加载更多</button>
+              </div>
+
+              <div v-if="commentsListData.length === 0 && !loadingComments" class="no-comments">
+                <p>还没有评论。</p>
+              </div>
+
+              <div v-if="loadingComments" class="loading-comments">
+                <span>正在加载...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="video-sidebar-column">
+        <div class="video-author">
+          <div class="author-avatar clickable-avatar" @click="openAuthorProfile">
+            <img v-if="authorAvatarUrl" :src="authorAvatarUrl" alt="" class="author-avatar-image" />
+            <span v-else>{{ authorInitial }}</span>
+          </div>
+          <div class="author-meta clickable-user" @click="openAuthorProfile">
+            <div class="author-name">{{ authorDisplayName }}</div>
+            <div class="author-subtitle">{{ authorSubtitle }}</div>
+          </div>
+          <button v-if="canFollowAuthor" class="follow-btn" @click.stop="triggerFollowAuthor">
+            {{ authorProfileTarget.following ? '已关注' : '+ 关注' }}
+          </button>
         </div>
 
-        <div v-if="hasMoreComments" class="load-more">
-          <button class="load-more-btn" @click="loadMoreComments">加载更多</button>
-        </div>
-
-        <div v-if="commentsListData.length === 0 && !loadingComments" class="no-comments">
-          <p>暂无评论，快来发表第一条评论吧！</p>
-        </div>
-
-        <div v-if="loadingComments" class="loading-comments">
-          <span>加载中...</span>
+        <div class="related-videos">
+          <div class="related-header">相关推荐</div>
+          <div v-if="relatedVideos.length === 0" class="related-empty">暂无相关推荐</div>
+          <button v-for="item in relatedVideos" :key="item.id" class="related-item" @click="openRelatedVideo(item)">
+            <img v-if="item.coverUrl" :src="item.coverUrl" alt="" class="related-cover" />
+            <div v-else class="related-cover related-cover-fallback">{{ item.title?.slice(0, 1) || 'V' }}</div>
+            <div class="related-info">
+              <div class="related-title">{{ item.title }}</div>
+              <div class="related-author">{{ item.author }}</div>
+              <div class="related-meta">{{ item.duration }} | {{ formatNumber(item.playCount || 0) }} 播放</div>
+            </div>
+          </button>
         </div>
       </div>
     </div>
+
+    <div class="like-animation" v-if="showLikeAnimation">点赞</div>
   </div>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
@@ -316,7 +327,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['back'])
+const emit = defineEmits(['back', 'open-video', 'open-profile', 'toggle-follow'])
 
 const videoRef = ref(null)
 const videoArea = ref(null)
@@ -326,6 +337,17 @@ const isLoggedIn = ref(!!localStorage.getItem('loginUserNickname'))
 const currentUserId = ref(localStorage.getItem('loginUserId'))
 const getCurrentLoginUserId = () => localStorage.getItem('loginUserId')
 const getCurrentLoginNickname = () => localStorage.getItem('loginUserNickname') || localStorage.getItem('loginUser')
+const getAuthHeaders = (includeJson = false) => {
+  const headers = {}
+  const loginUserId = getCurrentLoginUserId()
+  if (includeJson) {
+    headers['Content-Type'] = 'application/json'
+  }
+  if (loginUserId) {
+    headers['X-User-Id'] = loginUserId
+  }
+  return headers
+}
 
 const isPlaying = ref(false)
 const isVideoReady = ref(false)
@@ -376,6 +398,7 @@ const danmakuLegacyColorMap = {
 const commentsList = ref(null)
 const commentsListData = ref([])
 const commentInput = ref('')
+const replyTarget = ref(null)
 const commentsTotal = ref(0)
 const currentCommentPage = ref(1)
 const commentPageSize = 20
@@ -388,7 +411,10 @@ const likeCount = ref(props.videoData.likeCount || 0)
 const favoriteCount = ref(props.videoData.favoriteCount || 0)
 const playCount = ref(props.videoData.playCount || 0)
 const showLikeAnimation = ref(false)
+const shareCopied = ref(false)
 const hasIncrementedPlayCount = ref(false)
+const resumeApplied = ref(false)
+const lastSavedProgressSeconds = ref(-1)
 
 const danmakuList = ref([])
 const visibleDanmakuList = ref([])
@@ -399,8 +425,51 @@ const displayedDanmakuIds = new Set()
 let rafId = null
 let danmakuListSorted = []
 let danmakuIndex = 0
+let progressSaveTimer = null
+let shareCopiedTimer = null
+
+const iconThumbOutline = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 21H5.2a2 2 0 0 1-2-2v-7.2a2 2 0 0 1 2-2h3.3V21Zm0-11.2 4.2-7.1c.4-.7 1.3-.9 2-.5.7.4 1 1.2.7 1.9l-1.1 3.2h4.2c1.6 0 2.8 1.4 2.5 3l-1.2 7.7a3.6 3.6 0 0 1-3.6 3H8.5V9.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+const iconThumbFilled = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 21H5.2a2 2 0 0 1-2-2v-7.2a2 2 0 0 1 2-2h3.3V21Zm1.8 0V9.8l4.2-7.1c.4-.7 1.3-.9 2-.5.7.4 1 1.2.7 1.9l-1.1 3.2h4.2c1.6 0 2.8 1.4 2.5 3l-1.2 7.7a3.6 3.6 0 0 1-3.6 3h-7.7Z" fill="currentColor"/></svg>'
+const iconStarOutline = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.2 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9L6.6 20l1-6.1-4.4-4.3 6.1-.9L12 3.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+const iconStarFilled = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5-4.7-4.6 6.5-.9L12 2.8Z" fill="currentColor"/></svg>'
+const iconShare = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 12.7 15.2 16m-.1-8L8.8 11.3M18 6.4a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4ZM6 14.7a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4Zm12 8.3a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 
 const videoUrl = computed(() => props.videoData.videoUrl || props.videoData.id || 'video-' + Date.now())
+const resumeProgressSeconds = computed(() => Number(props.videoData?.historyProgressSeconds || 0))
+const videoTags = computed(() => Array.isArray(props.videoData?.tags) ? props.videoData.tags : [])
+const relatedVideos = computed(() => Array.isArray(props.videoData?.relatedVideos) ? props.videoData.relatedVideos : [])
+const loginUserAvatar = computed(() => localStorage.getItem('loginUserAvatar') || '')
+const authorDisplayName = computed(() => props.videoData?.authorInfo?.nickname || props.videoData?.authorInfo?.username || props.videoData?.author || 'UP')
+const authorProfileTarget = computed(() => {
+  const authorInfo = props.videoData?.authorInfo || {}
+  return {
+    id: authorInfo.userId || authorInfo.id || null,
+    userId: authorInfo.userId || authorInfo.id || null,
+    username: authorInfo.username || '',
+    nickname: authorInfo.nickname || props.videoData?.author || '',
+    avatarUrl: authorInfo.avatarUrl || '',
+    bio: authorInfo.bio || '',
+    following: Boolean(authorInfo.following)
+  }
+})
+const authorAvatarUrl = computed(() => {
+  const authorInfo = props.videoData?.authorInfo
+  if (authorInfo?.avatarUrl) {
+    return authorInfo.avatarUrl
+  }
+  const authorUserId = authorInfo?.userId || authorInfo?.id
+  if (authorUserId != null && String(authorUserId) === String(getCurrentLoginUserId() || '')) {
+    return loginUserAvatar.value
+  }
+  return ''
+})
+const authorSubtitle = computed(() => props.videoData?.authorInfo?.bio || '创作者')
+const authorInitial = computed(() => String(authorDisplayName.value || 'UP').slice(0, 1))
+const isOwnAuthorProfile = computed(() => {
+  const authorUserId = authorProfileTarget.value.userId || authorProfileTarget.value.id
+  return authorUserId != null && String(authorUserId) === String(getCurrentLoginUserId() || '')
+})
+const canFollowAuthor = computed(() => !isOwnAuthorProfile.value && Boolean(authorProfileTarget.value.userId || authorProfileTarget.value.nickname))
 
 const currentSrc = computed(() => {
   const sources = props.videoData?.sources || {}
@@ -427,6 +496,79 @@ const resolveCommentNickname = (comment) => {
     return getCurrentLoginNickname() || '匿名用户'
   }
   return '匿名用户'
+}
+
+const resolveReplyToNickname = (comment) => {
+  if (comment?.replyToUser?.nickname) {
+    return comment.replyToUser.nickname
+  }
+  if (comment?.replyToUser?.username) {
+    return comment.replyToUser.username
+  }
+  return '对方'
+}
+
+const resolveCommentAvatar = (comment) => {
+  if (comment?.user?.avatarUrl) {
+    return comment.user.avatarUrl
+  }
+  if (comment?.userId != null && String(comment.userId) === String(getCurrentLoginUserId() || '')) {
+    return loginUserAvatar.value
+  }
+  return ''
+}
+
+const resolveCommentAvatarFallback = (comment) => {
+  const nickname = resolveCommentNickname(comment)
+  return String(nickname || 'U').slice(0, 1).toUpperCase()
+}
+
+const openAuthorProfile = () => {
+  emit('open-profile', authorProfileTarget.value)
+}
+
+const openCommentUserProfile = (comment) => {
+  emit('open-profile', {
+    id: comment?.userId || comment?.user?.id || null,
+    userId: comment?.userId || comment?.user?.id || null,
+    username: comment?.user?.username || '',
+    nickname: comment?.user?.nickname || resolveCommentNickname(comment),
+    avatarUrl: comment?.user?.avatarUrl || resolveCommentAvatar(comment) || ''
+  })
+}
+
+const triggerFollowAuthor = () => {
+  emit('toggle-follow', authorProfileTarget.value)
+}
+
+const buildShareUrl = () => {
+  const url = new URL(window.location.href)
+  url.searchParams.set('videoId', props.videoData.id)
+  url.hash = '#/home'
+  return url.toString()
+}
+
+const shareVideo = async () => {
+  const shareUrl = buildShareUrl()
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl)
+    } else {
+      const input = document.createElement('input')
+      input.value = shareUrl
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+    }
+    shareCopied.value = true
+    clearTimeout(shareCopiedTimer)
+    shareCopiedTimer = setTimeout(() => {
+      shareCopied.value = false
+    }, 1800)
+  } catch (error) {
+    alert(`复制分享链接失败：${error.message}`)
+  }
 }
 
 const resolveDanmakuColor = (color) => {
@@ -615,7 +757,7 @@ const incrementPlayCount = async () => {
   try {
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/play`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: getAuthHeaders(true)
     })
     const result = await response.json()
     if (result.code === 200) {
@@ -632,7 +774,9 @@ const loadUserVideoStatus = async () => {
   }
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/status?userId=${currentUserId.value}`)
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/status`, {
+      headers: getAuthHeaders()
+    })
     const result = await response.json()
     if (result.code === 200) {
       liked.value = result.data.liked
@@ -653,13 +797,14 @@ const toggleLike = async () => {
     const method = liked.value ? 'DELETE' : 'POST'
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/likes`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUserId.value })
+      headers: getAuthHeaders()
     })
     const result = await response.json()
     if (result.code === 200) {
-      liked.value = !liked.value
+      liked.value = result.data.liked
       likeCount.value = result.data.likeCount
+    } else if (result.message) {
+      alert(result.message)
     }
   } catch (error) {
     console.error('点赞失败:', error)
@@ -676,13 +821,14 @@ const toggleFavorite = async () => {
     const method = favorited.value ? 'DELETE' : 'POST'
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/favorites`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUserId.value })
+      headers: getAuthHeaders()
     })
     const result = await response.json()
     if (result.code === 200) {
-      favorited.value = !favorited.value
+      favorited.value = result.data.favorited
       favoriteCount.value = result.data.favoriteCount
+    } else if (result.message) {
+      alert(result.message)
     }
   } catch (error) {
     console.error('收藏失败:', error)
@@ -710,6 +856,7 @@ const onPause = () => {
   isPlaying.value = false
   showControls.value = true
   stopDanmakuSync()
+  saveWatchProgress(true)
 }
 
 const onEnded = () => {
@@ -718,11 +865,22 @@ const onEnded = () => {
   currentProgress.value = 0
   showControls.value = true
   stopDanmakuSync()
+  saveWatchProgress(true, 0)
 }
 
 const onLoadedMetadata = () => {
   if (videoRef.value) {
     duration.value = videoRef.value.duration
+    const resumeSeconds = resumeProgressSeconds.value
+    const videoDuration = Number(videoRef.value.duration || 0)
+    if (!resumeApplied.value && resumeSeconds > 0) {
+      const targetTime = videoDuration > 1 ? Math.min(resumeSeconds, Math.max(videoDuration - 1, 0)) : resumeSeconds
+      videoRef.value.currentTime = Math.max(targetTime, 0)
+      currentTime.value = videoRef.value.currentTime
+      currentProgress.value = duration.value ? (currentTime.value / duration.value) * 100 : 0
+      resumeApplied.value = true
+      lastSavedProgressSeconds.value = Math.floor(currentTime.value)
+    }
   }
 }
 
@@ -754,6 +912,58 @@ const onTimeUpdate = () => {
     bufferedProgress.value = (buffered.end(buffered.length - 1) / duration.value) * 100
   }
   isLoading.value = false
+  saveWatchProgress()
+}
+
+const saveWatchProgress = async (force = false, explicitSeconds = null) => {
+  if (!currentUserId.value || !props.videoData?.id) {
+    return
+  }
+
+  const nextSeconds = explicitSeconds == null
+    ? Math.max(0, Math.floor(videoRef.value?.currentTime || currentTime.value || 0))
+    : Math.max(0, Math.floor(explicitSeconds))
+
+  if (!force && nextSeconds <= 0) {
+    return
+  }
+
+  if (!force && nextSeconds === lastSavedProgressSeconds.value) {
+    return
+  }
+
+  if (!force && progressSaveTimer) {
+    return
+  }
+
+  const doSave = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/videos/${props.videoData.id}/history/progress?progressSeconds=${nextSeconds}`, {
+        method: 'PUT',
+        headers: getAuthHeaders()
+      })
+      const result = await response.json()
+      if (result.code === 200) {
+        lastSavedProgressSeconds.value = nextSeconds
+      }
+    } catch (error) {
+      console.warn('保存观看进度失败:', error)
+    }
+  }
+
+  if (force) {
+    if (progressSaveTimer) {
+      clearTimeout(progressSaveTimer)
+      progressSaveTimer = null
+    }
+    await doSave()
+    return
+  }
+
+  progressSaveTimer = setTimeout(async () => {
+    progressSaveTimer = null
+    await doSave()
+  }, 5000)
 }
 
 const onVolumeInput = () => {
@@ -966,7 +1176,7 @@ const sendDanmaku = async () => {
     }
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
       body: JSON.stringify(requestBody)
     })
     const result = await response.json()
@@ -979,22 +1189,34 @@ const sendDanmaku = async () => {
 }
 
 const goBack = () => {
+  saveWatchProgress(true)
   emit('back')
+}
+
+const openRelatedVideo = (video) => {
+  if (!video?.id) {
+    return
+  }
+  saveWatchProgress(true)
+  emit('open-video', video)
 }
 
 const loadComments = async (page = 1, append = false) => {
   loadingComments.value = true
   try {
     const videoId = props.videoData.id
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`, {
+      headers: getAuthHeaders()
+    })
     const result = await response.json()
 
     if (result.code === 200 && result.data) {
       const data = result.data
+      const normalizedList = normalizeCommentTree(data.list || [])
       if (append) {
-        commentsListData.value = [...commentsListData.value, ...data.list]
+        commentsListData.value = normalizeCommentTree([...commentsListData.value, ...normalizedList])
       } else {
-        commentsListData.value = data.list
+        commentsListData.value = normalizedList
       }
       commentsTotal.value = data.total
       currentCommentPage.value = data.page
@@ -1010,21 +1232,25 @@ const sendComment = async () => {
   if (!commentInput.value.trim()) return
 
   const videoId = props.videoData.id
+  const targetParentId = replyTarget.value
+    ? (replyTarget.value.rootId || replyTarget.value.parentId || replyTarget.value.parent_id || replyTarget.value.commentId || replyTarget.value.id)
+    : null
   const requestBody = {
     content: commentInput.value,
-    parentId: null,
+    parentId: targetParentId,
     userId: currentUserId.value ? Number(currentUserId.value) : null
   }
 
   try {
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
       body: JSON.stringify(requestBody)
     })
     const result = await response.json()
     if (result.code === 200) {
       commentInput.value = ''
+      replyTarget.value = null
       currentCommentPage.value = 1
       loadComments(1, false)
     } else {
@@ -1035,32 +1261,167 @@ const sendComment = async () => {
   }
 }
 
-const likeComment = async (commentId) => {
+const handleCommentLike = async (commentId) => {
+  if (!currentUserId.value) {
+    alert('请先登录')
+    return
+  }
+
   const videoId = props.videoData.id
   try {
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments/${commentId}/like`, {
-      method: 'POST'
+      method: 'POST',
+      headers: getAuthHeaders()
     })
     const result = await response.json()
     if (result.code === 200) {
-      const comment = commentsListData.value.find(c => c.commentId === commentId)
-      if (comment) {
-        comment.likeCount = (comment.likeCount || 0) + 1
+      const comment = findCommentInTree(commentId)
+      if (comment && result.data) {
+        comment.likeCount = result.data.likeCount
+        comment.liked = result.data.liked
       }
+    } else {
+      alert(result.message || '评论点赞失败')
     }
   } catch (error) {
-    console.error('点赞失败:', error)
+    alert(`评论点赞失败: ${error.message}`)
   }
 }
 
 const replyComment = (comment) => {
-  commentInput.value = `@${resolveCommentNickname(comment)} `
+  replyTarget.value = comment
+  commentInput.value = ''
+}
+
+const clearReplyTarget = () => {
+  replyTarget.value = null
+}
+
+const canDeleteComment = (comment) => {
+  if (!currentUserId.value || !comment?.userId) {
+    return false
+  }
+  return String(comment.userId) === String(currentUserId.value)
+}
+
+const deleteComment = async (commentId) => {
+  if (!currentUserId.value) {
+    alert('请先登录')
+    return
+  }
+  if (!confirm('确定删除这条评论吗？')) {
+    return
+  }
+
+  const videoId = props.videoData.id
+  try {
+    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      const removedRootComment = removeCommentFromTree(commentId)
+      if (removedRootComment) {
+        commentsTotal.value = Math.max((commentsTotal.value || 0) - 1, 0)
+      }
+    } else {
+      alert(result.message || '删除评论失败')
+    }
+  } catch (error) {
+    alert(`删除评论失败: ${error.message}`)
+  }
 }
 
 const loadMoreComments = () => {
   if (hasMoreComments.value && !loadingComments.value) {
     loadComments(currentCommentPage.value + 1, true)
   }
+}
+
+const getCommentId = (comment) => comment?.commentId || comment?.id
+
+const normalizeCommentTree = (list) => {
+  const source = Array.isArray(list) ? list : []
+  const flattened = []
+  source.forEach((comment) => {
+    flattened.push({
+      ...comment,
+      commentId: getCommentId(comment),
+      replies: []
+    })
+    ;(comment.replies || []).forEach((reply) => {
+      flattened.push({
+        ...reply,
+        commentId: getCommentId(reply),
+        parentId: reply.parentId || reply.parent_id || getCommentId(comment),
+        replies: []
+      })
+    })
+  })
+
+  const map = new Map()
+  flattened.forEach((comment) => {
+    const id = getCommentId(comment)
+    if (id != null) {
+      map.set(String(id), {
+        ...comment,
+        commentId: id,
+        replies: []
+      })
+    }
+  })
+
+  const roots = []
+  map.forEach((comment) => {
+    const parentId = comment.parentId || comment.parent_id
+    const parent = parentId != null ? map.get(String(parentId)) : null
+    if (parent) {
+      comment.replyToUser = comment.replyToUser || parent.user || null
+      parent.replies.push(comment)
+      parent.replyCount = parent.replies.length
+    } else {
+      roots.push(comment)
+    }
+  })
+
+  roots.forEach((comment) => {
+    comment.replies = (comment.replies || []).sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+    comment.replyCount = comment.replies.length
+  })
+
+  return roots.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+}
+
+const findCommentInTree = (commentId) => {
+  for (const comment of commentsListData.value) {
+    if (String(comment.commentId) === String(commentId)) {
+      return comment
+    }
+    const reply = (comment.replies || []).find(item => String(item.commentId) === String(commentId))
+    if (reply) {
+      return reply
+    }
+  }
+  return null
+}
+
+const removeCommentFromTree = (commentId) => {
+  const beforeRootCount = commentsListData.value.length
+  commentsListData.value = commentsListData.value.filter(comment => String(comment.commentId) !== String(commentId))
+  if (commentsListData.value.length !== beforeRootCount) {
+    return true
+  }
+
+  commentsListData.value = commentsListData.value.map((comment) => {
+    const removedReply = (comment.replies || []).some(reply => String(reply.commentId) === String(commentId))
+    return {
+      ...comment,
+      replies: (comment.replies || []).filter(reply => String(reply.commentId) !== String(commentId)),
+      replyCount: Math.max(Number(comment.replyCount || 0) - (removedReply ? 1 : 0), 0)
+    }
+  })
+  return false
 }
 
 const formatDate = (dateString) => {
@@ -1096,7 +1457,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  saveWatchProgress(true)
   clearTimeout(hideControlsTimer.value)
+  if (progressSaveTimer) {
+    clearTimeout(progressSaveTimer)
+    progressSaveTimer = null
+  }
+  if (shareCopiedTimer) {
+    clearTimeout(shareCopiedTimer)
+    shareCopiedTimer = null
+  }
   document.removeEventListener('mousemove', handleGlobalMouseMove)
   document.removeEventListener('mouseup', stopDragProgress)
   document.removeEventListener('keydown', handleKeyDown)
@@ -1113,8 +1483,8 @@ const handleGlobalMouseMove = (e) => {
 
 <style scoped>
 .video-player-container {
-  padding: 20px;
-  max-width: 1200px;
+  padding: 20px 28px 32px;
+  max-width: 1680px;
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -1483,6 +1853,16 @@ const handleGlobalMouseMove = (e) => {
   transition: background 0.2s;
 }
 
+.icon-control {
+  width: 38px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  line-height: 1;
+}
+
 .control-btn:hover {
   background: rgba(255,255,255,0.1);
 }
@@ -1586,7 +1966,7 @@ const handleGlobalMouseMove = (e) => {
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 36px;
+  font-size: 34px;
   transition: background 0.2s;
 }
 
@@ -1627,28 +2007,94 @@ const handleGlobalMouseMove = (e) => {
   font-size: 14px;
 }
 
+.video-header-section {
+  padding: 0 0 14px;
+}
+
+.player-content-layout {
+  display: grid;
+  grid-template-columns: minmax(720px, 1fr) 360px;
+  gap: 30px;
+  align-items: start;
+}
+
+.video-main-column {
+  min-width: 0;
+}
+
 .video-info-area {
-  padding: 24px 0;
+  padding: 16px 0 0;
+}
+
+.video-stats-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 16px 0 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.video-sidebar-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 20px;
 }
 
 .video-title-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 
 .video-title {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 24px;
+  font-weight: 700;
   color: #1e1e1e;
   flex: 1;
+  line-height: 1.45;
 }
 
 .video-meta {
-  font-size: 14px;
+  font-size: 13px;
   color: #999;
-  margin-bottom: 20px;
+}
+
+.title-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-description {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #444;
+  margin-bottom: 16px;
+}
+
+.video-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.video-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f3f6fb;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .meta-divider {
@@ -1657,16 +2103,18 @@ const handleGlobalMouseMove = (e) => {
 
 .video-author {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid #eef2f7;
+  background: transparent;
 }
 
 .author-avatar {
-  font-size: 36px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
   border-radius: 50%;
   width: 48px;
   height: 48px;
@@ -1674,63 +2122,179 @@ const handleGlobalMouseMove = (e) => {
   align-items: center;
   justify-content: center;
   color: #fff;
+  overflow: hidden;
+}
+
+.author-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.author-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.clickable-avatar,
+.clickable-user {
+  cursor: pointer;
 }
 
 .author-name {
   font-size: 16px;
   font-weight: 500;
   color: #333;
-  flex: 1;
+  line-height: 1.4;
+}
+
+.author-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 .follow-btn {
-  padding: 8px 24px;
-  background: #ff4757;
+  padding: 9px 24px;
+  background: #00aeec;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
   font-size: 14px;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .follow-btn:hover {
-  background: #e63946;
+  background: #0098d8;
+}
+
+.related-videos {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.related-header {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 14px;
+}
+
+.related-empty {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.related-item {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.related-item + .related-item {
+  border-top: 1px solid #f1f5f9;
+}
+
+.related-cover {
+  width: 132px;
+  height: 74px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.related-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.related-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.related-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.related-author,
+.related-meta {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .video-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 12px 0;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
+  gap: 8px;
+  background: #f6f8fb;
+  border: 1px solid transparent;
   cursor: pointer;
-  padding: 6px 12px;
-  transition: all 0.2s;
-  border-radius: 20px;
+  padding: 10px 16px;
+  transition: all 0.2s ease;
+  border-radius: 999px;
+  color: #61666d;
 }
 
 .action-btn:hover {
-  background: #f5f5f5;
+  background: #eef7ff;
+  color: #00aeec;
+  transform: translateY(-1px);
 }
 
 .action-icon {
-  font-size: 20px;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon :deep(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .action-text {
   font-size: 14px;
-  color: #666;
-  font-weight: 500;
+  color: inherit;
+  font-weight: 700;
 }
 
-.action-btn.active .action-text {
-  color: #ff4757;
+.action-btn.active {
+  background: #e8f7ff;
+  border-color: rgba(0, 174, 236, 0.18);
+  color: #00aeec;
 }
 
 .like-btn.active .action-icon {
@@ -1739,6 +2303,10 @@ const handleGlobalMouseMove = (e) => {
 
 .favorite-btn.active .action-icon {
   animation: favorite-glow 0.3s ease;
+}
+
+.share-btn {
+  color: #6b7280;
 }
 
 @keyframes like-bounce {
@@ -1783,6 +2351,26 @@ const handleGlobalMouseMove = (e) => {
   border-top: 1px solid #f0f0f0;
 }
 
+@media (max-width: 960px) {
+  .player-content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .video-stats-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .video-sidebar-column {
+    position: static;
+  }
+
+  .related-cover {
+    width: 112px;
+    height: 64px;
+  }
+}
+
 .comments-header {
   display: flex;
   align-items: center;
@@ -1803,9 +2391,30 @@ const handleGlobalMouseMove = (e) => {
 }
 
 .comment-input-area {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+.reply-target-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: #eef7ff;
+  color: #32749d;
+  font-size: 13px;
+}
+
+.reply-target-bar button {
+  border: none;
+  background: transparent;
+  color: #00aeec;
+  cursor: pointer;
+  font-weight: 700;
 }
 
 .comment-input {
@@ -1859,6 +2468,16 @@ const handleGlobalMouseMove = (e) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.comment-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .comment-content {
@@ -1884,6 +2503,19 @@ const handleGlobalMouseMove = (e) => {
   color: #999;
 }
 
+.comment-delete-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #ff4d4f;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.comment-delete-btn:hover {
+  color: #cf1322;
+}
+
 .comment-text {
   font-size: 14px;
   color: #1e1e1e;
@@ -1894,13 +2526,13 @@ const handleGlobalMouseMove = (e) => {
 
 .comment-actions {
   display: flex;
-  gap: 24px;
+  gap: 18px;
 }
 
 .comment-action-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background: transparent;
   border: none;
   color: #999;
@@ -1909,8 +2541,69 @@ const handleGlobalMouseMove = (e) => {
   transition: color 0.2s;
 }
 
+.comment-action-btn :deep(svg) {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.comment-action-btn.active {
+  color: #00aeec;
+}
+
 .comment-action-btn:hover {
-  color: #1890ff;
+  color: #00aeec;
+}
+
+.comment-replies {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  display: grid;
+  gap: 12px;
+}
+
+.reply-item {
+  display: flex;
+  gap: 10px;
+}
+
+.reply-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.reply-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.reply-to {
+  color: #8a8f99;
+  font-size: 12px;
+}
+
+.reply-text {
+  margin-bottom: 8px;
 }
 
 .load-more {

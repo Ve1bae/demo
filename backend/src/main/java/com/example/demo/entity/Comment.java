@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("comment")
@@ -25,6 +26,12 @@ public class Comment {
     @TableField("parent_id")
     private Long parentId;
 
+    @TableField(exist = false)
+    private Long rootId;
+
+    @TableField(exist = false)
+    private Long replyToUserId;
+
     @TableField("like_count")
     private Integer likeCount;
 
@@ -36,4 +43,16 @@ public class Comment {
 
     @TableField(exist = false)
     private User user;
+
+    @TableField(exist = false)
+    private User replyToUser;
+
+    @TableField(exist = false)
+    private Boolean liked;
+
+    @TableField(exist = false)
+    private List<Comment> replies;
+
+    @TableField(exist = false)
+    private Integer replyCount;
 }
