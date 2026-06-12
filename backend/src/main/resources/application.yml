@@ -6,9 +6,22 @@ spring:
     password: 123456
   servlet:
     multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+app:
+  upload-dir: backend/uploads
+
 live:
   srs:
     rtmp-base-url: rtmp://localhost/live
     http-base-url: http://localhost:8081
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: hangyin-video
+
+video:
+  chunk-dir: C:/hangyin/chunks

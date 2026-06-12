@@ -80,7 +80,9 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             sources.put("720P", video.getPlayUrl());
         }
         video.setSources(sources);
-        video.setDefaultQuality(video.getDefaultQuality() != null ? video.getDefaultQuality() : (sources.containsKey("720P") ? "720P" : sources.keySet().stream().findFirst().orElse("720P")));
+        video.setDefaultQuality(video.getDefaultQuality() != null
+                ? video.getDefaultQuality()
+                : (sources.containsKey("720P") ? "720P" : sources.keySet().stream().findFirst().orElse("720P")));
     }
 
     @Override

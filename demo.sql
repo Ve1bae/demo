@@ -83,3 +83,18 @@ CREATE TABLE `comment` (
   KEY `idx_comment_user_id` (`user_id`),
   KEY `idx_comment_parent_id` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Comment table';
+
+-- 6. User-video relation table
+CREATE TABLE `user_video` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  `user_id` bigint(20) NOT NULL COMMENT 'User ID',
+  `video_id` bigint(20) NOT NULL COMMENT 'Video ID',
+  `liked` tinyint(1) DEFAULT '0' COMMENT 'Liked flag',
+  `favorited` tinyint(1) DEFAULT '0' COMMENT 'Favorited flag',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_video` (`user_id`, `video_id`),
+  KEY `idx_user_video_user_id` (`user_id`),
+  KEY `idx_user_video_video_id` (`video_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User video relation table';

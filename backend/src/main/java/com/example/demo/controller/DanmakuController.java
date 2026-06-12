@@ -7,7 +7,14 @@ import com.example.demo.service.DanmakuService;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
@@ -73,5 +80,35 @@ public class DanmakuController {
             return ResponseEntity.ok(ApiResponse.success("弹幕发送成功", null));
         }
         return ResponseEntity.ok(ApiResponse.error(500, "弹幕发送失败"));
+    }
+
+    @GetMapping("/danmaku/video")
+    public ResponseEntity<ApiResponse<List<Danmaku>>> getDanmakuByVideoUrl(@RequestParam String videoUrl) {
+        List<Danmaku> danmakuList = danmakuService.getDanmakuByVideoUrl(videoUrl);
+        return ResponseEntity.ok(ApiResponse.success(danmakuList));
+    }
+
+    @PostMapping("/danmaku")
+    public ResponseEntity<ApiResponse<String>> saveDanmakuOld(@RequestBody Danmaku danmaku) {
+        boolean success = danmakuService.saveDanmaku(danmaku);
+        if (success) {
+            return ResponseEntity.ok(ApiResponse.success("弹幕发送成功"));
+        }
+        return ResponseEntity.ok(ApiResponse.error(500, "弹幕发送失败"));
+    }
+
+    @GetMapping("/danmaku/user")
+    public ResponseEntity<ApiResponse<List<Danmaku>>> getDanmakuByUserId(@RequestParam String userId) {
+        List<Danmaku> danmakuList = danmakuService.getDanmakuByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.success(danmakuList));
+    }
+
+    @DeleteMapping("/danmaku/{id}")
+    public ResponseEntity<ApiResponse<String>> deleteDanmaku(@PathVariable Long id) {
+        boolean success = danmakuService.deleteDanmaku(id);
+        if (success) {
+            return ResponseEntity.ok(ApiResponse.success("弹幕删除成功"));
+        }
+        return ResponseEntity.ok(ApiResponse.error(500, "弹幕删除失败"));
     }
 }

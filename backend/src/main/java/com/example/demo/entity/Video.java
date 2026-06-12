@@ -15,6 +15,7 @@ public class Video {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    // 前端兼容字段（非数据库字段）
     @TableField(exist = false)
     private Long videoId;
 
@@ -28,20 +29,6 @@ public class Video {
 
     @TableField("play_url")
     private String playUrl;
-
-    private String author;
-
-    @TableField("play_count")
-    private Integer playCount;
-
-    @TableField("like_count")
-    private Integer likeCount;
-
-    @TableField("favorite_count")
-    private Integer favoriteCount;
-
-    @TableField("comment_count")
-    private Integer commentCount;
 
     @TableField("video_url")
     private String videoUrl;
@@ -61,14 +48,44 @@ public class Video {
     @TableField("url_1080p")
     private String url1080p;
 
-    @TableField("default_quality")
-    private String defaultQuality;
+    private String author;
+
+    @TableField("user_id")
+    private Long userId;
+
+    @TableField("category_id")
+    private Integer categoryId;
+
+    @TableField("duration")
+    private Integer duration;
+
+    @TableField("status")
+    private String status;
+
+    @TableField("play_count")
+    private Integer playCount;
+
+    @TableField("like_count")
+    private Integer likeCount;
+
+    @TableField("favorite_count")
+    private Integer favoriteCount;
+
+    @TableField("comment_count")
+    private Integer commentCount;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
 
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
+
+    // 前端需要的字段（非数据库字段）
     @TableField(exist = false)
-    private String duration;
+    private Map<String, String> sources;
+
+    @TableField("default_quality")
+    private String defaultQuality;
 
     @TableField(exist = false)
     private Boolean liked;
@@ -83,16 +100,10 @@ public class Video {
     private Author authorInfo;
 
     @TableField(exist = false)
-    private Integer categoryId;
-
-    @TableField(exist = false)
     private String categoryName;
 
     @TableField(exist = false)
     private String views;
-
-    @TableField(exist = false)
-    private Map<String, String> sources;
 
     @Data
     public static class Category {
