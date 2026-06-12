@@ -30,9 +30,10 @@ public class Video {
     @TableField("play_url")
     private String playUrl;
 
-    @TableField("video_url")
+    @TableField(exist = false)
     private String videoUrl;
 
+    @TableField(exist = false)
     private String author;
 
     @TableField("user_id")

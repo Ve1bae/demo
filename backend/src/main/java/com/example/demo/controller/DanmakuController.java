@@ -35,7 +35,9 @@ public class DanmakuController {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
         }
         
-        List<Danmaku> danmakuList = danmakuService.getDanmakuByVideoUrl(video.getVideoUrl());
+        // 使用 playUrl 作为弹幕关联字段
+        String videoIdentifier = video.getPlayUrl();
+        List<Danmaku> danmakuList = danmakuService.getDanmakuByVideoUrl(videoIdentifier);
         
         if (startTime != null || endTime != null) {
             danmakuList = danmakuList.stream()
@@ -61,8 +63,11 @@ public class DanmakuController {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
         }
         
+        // 使用 playUrl 作为弹幕关联字段
+        String videoIdentifier = video.getPlayUrl();
+        
         Danmaku danmaku = new Danmaku();
-        danmaku.setVideoUrl(video.getVideoUrl());
+        danmaku.setVideoUrl(videoIdentifier);
         danmaku.setContent((String) requestBody.get("content"));
         
         // 支持 API 规范中的 timeSeconds 字段
