@@ -5,7 +5,13 @@
     </div>
 
     <div class="player-wrapper">
-      <div class="video-area" ref="videoArea" @mousemove="handleMouseMove" @click="handleVideoClick">
+      <div
+        class="video-area"
+        ref="videoArea"
+        @mousemove="handleMouseMove"
+        @mouseleave="handleMouseLeave"
+        @click="handleVideoClick"
+      >
         <video
           ref="videoRef"
           class="main-video"
@@ -107,7 +113,9 @@
             <input
               v-model="danmakuInput"
               class="danmaku-input"
-              placeholder="在这里输入弹幕..."
+              :placeholder="isLoggedIn ? '在这里输入弹幕...' : '登录后才能发送弹幕'"
+              :readonly="!isLoggedIn"
+              @focus="requireLoginForDanmaku"
               @keyup.enter="sendDanmaku"
             />
             <button class="send-danmaku-btn" @click="sendDanmaku">发送</button>
@@ -224,9 +232,26 @@
         <span>{{ videoData.date }}</span>
       </div>
       <div class="video-author">
-        <div class="author-avatar">👨‍💻</div>
-        <div class="author-name">{{ videoData.author }}</div>
-        <button class="follow-btn">+ 关注</button>
+        <div class="author-avatar" @click="openAuthorProfile">
+          <img v-if="authorAvatarUrl" :src="authorAvatarUrl" alt="" />
+          <span v-else>{{ authorAvatarText }}</span>
+        </div>
+        <div class="author-name" @click="openAuthorProfile">{{ videoData.author }}</div>
+        <button
+          v-if="authorUserId && String(authorUserId) !== String(currentUserId)"
+          class="follow-btn"
+          :class="{ followed: videoData.authorInfo?.following }"
+          @click="emitToggleFollow"
+        >
+          {{ videoData.authorInfo?.following ? '已关注' : '+ 关注' }}
+        </button>
+      </div>
+
+      <div class="video-description-panel">
+        <p class="video-description-text">{{ videoDescription }}</p>
+        <div v-if="videoTags.length" class="video-tag-list">
+          <span v-for="tag in videoTags" :key="`video-tag-${tag}`">{{ tag }}</span>
+        </div>
       </div>
     </div>
 
@@ -242,10 +267,12 @@
         <input
           v-model="commentInput"
           class="comment-input"
-          placeholder="写下你的评论..."
+          :placeholder="isLoggedIn ? '写下你的评论...' : '登录后才能发表评论'"
+          :readonly="!isLoggedIn"
+          @focus="requireLoginForComment"
           @keyup.enter="sendComment"
         />
-        <button class="send-comment-btn" @click="sendComment">发送</button>
+        <button class="send-comment-btn" @click="sendComment">{{ isLoggedIn ? '发送' : '去登录' }}</button>
       </div>
 
       <div class="comments-list" ref="commentsList">
@@ -254,7 +281,10 @@
           :key="comment.commentId"
           class="comment-item"
         >
-          <div class="comment-avatar">👤</div>
+          <div class="comment-avatar">
+            <img v-if="resolveCommentAvatar(comment)" :src="resolveCommentAvatar(comment)" alt="" />
+            <span v-else>{{ resolveCommentAvatarText(comment) }}</span>
+          </div>
           <div class="comment-content">
             <div class="comment-header">
               <span class="comment-nickname">{{ resolveCommentNickname(comment) }}</span>
@@ -297,35 +327,35 @@ const props = defineProps({
   videoData: {
     type: Object,
     default: () => ({
-      id: 1,
-      title: '【航音】2026届校园十佳歌手总决赛',
-      author: '校学生会',
-      views: '1.2万',
-      duration: '02:15:30',
-      date: '昨天',
-      videoUrl: 'video-demo-bigbuckbunny',
-      sources: {
-        '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-        '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-        '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-        '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-        '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
-      },
+      id: null,
+      title: '',
+      author: '',
+      views: '0',
+      duration: '00:00',
+      date: '',
+      videoUrl: '',
+      sources: {},
       defaultQuality: '720P'
     })
   }
 })
 
-const emit = defineEmits(['back'])
+const emit = defineEmits(['back', 'login-required', 'open-profile', 'toggle-follow'])
 
 const videoRef = ref(null)
 const videoArea = ref(null)
 const danmakuContainer = ref(null)
 
-const isLoggedIn = ref(!!localStorage.getItem('loginUserNickname'))
+const isLoggedIn = ref(!!localStorage.getItem('loginUserId'))
 const currentUserId = ref(localStorage.getItem('loginUserId'))
 const getCurrentLoginUserId = () => localStorage.getItem('loginUserId')
 const getCurrentLoginNickname = () => localStorage.getItem('loginUserNickname') || localStorage.getItem('loginUser')
+const getCurrentLoginAvatar = () => localStorage.getItem('loginUserAvatar') || ''
+
+const syncLoginState = () => {
+  currentUserId.value = localStorage.getItem('loginUserId')
+  isLoggedIn.value = !!currentUserId.value
+}
 
 const isPlaying = ref(false)
 const isVideoReady = ref(false)
@@ -402,6 +432,47 @@ let danmakuIndex = 0
 
 const videoUrl = computed(() => props.videoData.videoUrl || props.videoData.id || 'video-' + Date.now())
 
+const authorAvatarUrl = computed(() => props.videoData.authorAvatarUrl || props.videoData.authorInfo?.avatarUrl || '')
+const authorAvatarText = computed(() => (props.videoData.author || '用').slice(0, 1))
+const authorUserId = computed(() => props.videoData.authorInfo?.id || props.videoData.authorInfo?.userId || props.videoData.userId)
+const videoDescription = computed(() => {
+  const description = String(props.videoData.description || '').trim()
+  return description || '我没有简介T_T'
+})
+const videoTags = computed(() => {
+  if (Array.isArray(props.videoData.tags)) {
+    return props.videoData.tags.map((tag) => String(tag).trim()).filter(Boolean)
+  }
+  if (Array.isArray(props.videoData.tagList)) {
+    return props.videoData.tagList.map((tag) => String(tag).trim()).filter(Boolean)
+  }
+  return String(props.videoData.tags || '')
+    .split(/[,，\s]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+})
+
+const openAuthorProfile = () => {
+  if (authorUserId.value) {
+    emit('open-profile', authorUserId.value)
+  }
+}
+
+const emitToggleFollow = () => {
+  if (!isLoggedIn.value) {
+    emit('login-required')
+    return
+  }
+  emit('toggle-follow', {
+    id: authorUserId.value,
+    userId: authorUserId.value,
+    nickname: props.videoData.author,
+    avatarUrl: authorAvatarUrl.value,
+    following: !!props.videoData.authorInfo?.following,
+    followerCount: props.videoData.authorInfo?.followerCount || 0
+  })
+}
+
 const currentSrc = computed(() => {
   const sources = props.videoData?.sources || {}
   return sources[currentQuality.value] || sources['720P'] || Object.values(sources)[0] || ''
@@ -429,38 +500,41 @@ const resolveCommentNickname = (comment) => {
   return '匿名用户'
 }
 
+const resolveCommentAvatar = (comment) => {
+  if (comment.user?.avatarUrl) {
+    return comment.user.avatarUrl
+  }
+  if (comment.userId != null && String(comment.userId) === String(getCurrentLoginUserId())) {
+    return getCurrentLoginAvatar()
+  }
+  return ''
+}
+
+const resolveCommentAvatarText = (comment) => resolveCommentNickname(comment).slice(0, 1) || '用'
+
+const requireLoginForComment = () => {
+  syncLoginState()
+  if (isLoggedIn.value) {
+    return false
+  }
+  emit('login-required')
+  return true
+}
+
+const requireLoginForDanmaku = () => {
+  syncLoginState()
+  if (isLoggedIn.value) {
+    return false
+  }
+  emit('login-required')
+  return true
+}
+
 const resolveDanmakuColor = (color) => {
   if (!color) {
     return '#ffffff'
   }
   return danmakuLegacyColorMap[color] || color
-}
-
-const initMockDanmaku = () => {
-  const mockDanmakuData = [
-    { time: 1, content: '开始了开始了！', color: '1' },
-    { time: 3, content: '前排！', color: '2' },
-    { time: 5, content: '这届选手很强啊', color: '3' },
-    { time: 8, content: '加油加油！', color: '4' },
-    { time: 10, content: '神仙打架', color: '5' },
-    { time: 12, content: '太好听了！', color: '6' },
-    { time: 15, content: '期待冠军', color: '1' },
-    { time: 20, content: '666666', color: '2' }
-  ]
-
-  mockDanmakuData.forEach(mock => {
-    if (!danmakuList.value.find(d => d.time === mock.time && d.content === mock.content)) {
-      const newDanmaku = {
-        id: danmakuIdCounter++,
-        content: mock.content,
-        color: mock.color,
-        time: mock.time,
-        isUser: false
-      }
-      danmakuList.value.push(newDanmaku)
-    }
-  })
-  sortDanmakuByTime()
 }
 
 const loadDanmakuFromServer = async () => {
@@ -487,7 +561,6 @@ const loadDanmakuFromServer = async () => {
     sortDanmakuByTime()
   } catch (error) {
     console.error('加载弹幕失败:', error)
-    initMockDanmaku()
   }
 }
 
@@ -615,7 +688,10 @@ const incrementPlayCount = async () => {
   try {
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/play`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        ...(currentUserId.value ? { 'X-User-Id': currentUserId.value } : {})
+      }
     })
     const result = await response.json()
     if (result.code === 200) {
@@ -882,18 +958,23 @@ const changeQuality = (quality) => {
   const savedTime = currentTime.value
   const wasPlaying = isPlaying.value
   videoRef.value.pause()
-  setTimeout(() => {
-    currentQuality.value = quality
-    videoRef.value.src = currentSrc.value
-    videoRef.value.load()
-    videoRef.value.currentTime = savedTime
-    setTimeout(() => {
+
+  const applySavedPosition = () => {
+    if (!videoRef.value) return
+    videoRef.value.removeEventListener('loadedmetadata', applySavedPosition)
+    videoRef.value.currentTime = Math.min(savedTime, videoRef.value.duration || savedTime)
+    requestAnimationFrame(() => {
       if (wasPlaying) {
         videoRef.value.play().catch(() => {})
       }
       isLoading.value = false
-    }, 500)
-  }, 300)
+    })
+  }
+
+  currentQuality.value = quality
+  videoRef.value.addEventListener('loadedmetadata', applySavedPosition)
+  videoRef.value.src = currentSrc.value
+  videoRef.value.load()
   showQualityDropdown.value = false
 }
 
@@ -930,17 +1011,54 @@ const resetHideTimer = () => {
   }, 3000)
 }
 
-const handleMouseMove = () => {
-  if (isPlaying.value) {
+const isPointerNearPlayerEdge = (event) => {
+  const rect = videoArea.value?.getBoundingClientRect()
+  if (!rect) return false
+
+  const edgeSize = Math.min(96, Math.max(42, Math.min(rect.width, rect.height) * 0.14))
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  return (
+    x <= edgeSize ||
+    rect.width - x <= edgeSize ||
+    y <= edgeSize ||
+    rect.height - y <= edgeSize
+  )
+}
+
+const handleMouseMove = (event) => {
+  if (!isPlaying.value) {
+    showControls.value = true
+    return
+  }
+
+  if (isPointerNearPlayerEdge(event)) {
     showControls.value = true
     resetHideTimer()
+    return
+  }
+
+  clearTimeout(hideControlsTimer.value)
+  if (!isDraggingProgress.value && !showSpeedDropdown.value && !showQualityDropdown.value) {
+    showControls.value = false
+  }
+}
+
+const handleMouseLeave = () => {
+  clearTimeout(hideControlsTimer.value)
+  if (isPlaying.value && !isDraggingProgress.value && !showSpeedDropdown.value && !showQualityDropdown.value) {
+    showControls.value = false
   }
 }
 
 const sendDanmaku = async () => {
   if (!danmakuInput.value.trim()) return
+  if (requireLoginForDanmaku()) {
+    return
+  }
 
-  const userId = localStorage.getItem('loginUserId') || 'anonymous'
+  const userId = getCurrentLoginUserId()
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
   const newDanmaku = {
     id: Date.now(),
@@ -1007,6 +1125,7 @@ const loadComments = async (page = 1, append = false) => {
 }
 
 const sendComment = async () => {
+  if (requireLoginForComment()) return
   if (!commentInput.value.trim()) return
 
   const videoId = props.videoData.id
@@ -1019,7 +1138,10 @@ const sendComment = async () => {
   try {
     const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': currentUserId.value
+      },
       body: JSON.stringify(requestBody)
     })
     const result = await response.json()
@@ -1659,13 +1781,12 @@ const handleGlobalMouseMove = (e) => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .author-avatar {
-  font-size: 36px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 50%;
   width: 48px;
@@ -1674,6 +1795,16 @@ const handleGlobalMouseMove = (e) => {
   align-items: center;
   justify-content: center;
   color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.author-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .author-name {
@@ -1681,6 +1812,7 @@ const handleGlobalMouseMove = (e) => {
   font-weight: 500;
   color: #333;
   flex: 1;
+  cursor: pointer;
 }
 
 .follow-btn {
@@ -1696,6 +1828,49 @@ const handleGlobalMouseMove = (e) => {
 
 .follow-btn:hover {
   background: #e63946;
+}
+
+.follow-btn.followed {
+  background: #eef4ff;
+  color: #2563eb;
+}
+
+.follow-btn.followed:hover {
+  background: #dbeafe;
+}
+
+.video-description-panel {
+  padding: 4px 0 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.video-description-text {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.video-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.video-tag-list span {
+  max-width: 160px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #5f6673;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-actions {
@@ -1850,7 +2025,6 @@ const handleGlobalMouseMove = (e) => {
 }
 
 .comment-avatar {
-  font-size: 28px;
   background: #f0f0f0;
   border-radius: 50%;
   width: 40px;
@@ -1859,6 +2033,16 @@ const handleGlobalMouseMove = (e) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: #667085;
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.comment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .comment-content {

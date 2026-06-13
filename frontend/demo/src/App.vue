@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <header class="navbar">
-      <div class="logo" @click="goHome">航音视频</div>
+      <div class="logo" @click="goHome">🚀航音视频</div>
 
       <div class="search-box">
         <input
@@ -42,7 +42,8 @@
           <li :class="{ active: currentPage === 'live' || currentPage === 'live-room' }" @click="setPage('live')">直播大厅</li>
           <div class="divider"></div>
           <li :class="{ active: currentPage === 'profile' }" @click="openProfile(currentUserId)">个人主页</li>
-          <li>历史记录</li>
+          <li :class="{ active: currentPage === 'following' }" @click="openFollowingPage">我的关注</li>
+          <li :class="{ active: currentPage === 'history' }" @click="openHistoryPage">历史记录</li>
           <li :class="{ active: currentPage === 'creator' }" @click="setPage('creator')">创作者中心</li>
         </ul>
       </aside>
@@ -59,9 +60,101 @@
             </div>
 
             <div class='live-room-layout'>
-              <div ref='livePlayerPanelRef' class='live-player-panel'>
-                <video ref='liveVideoRef' class='live-player' controls autoplay playsinline muted></video>
+              <div
+                ref='livePlayerPanelRef'
+                class='live-player-panel'
+                @mousemove="handleLiveMouseMove"
+                @mouseleave="handleLiveMouseLeave"
+              >
+                <video
+                  ref='liveVideoRef'
+                  class='live-player'
+                  autoplay
+                  playsinline
+                  muted
+                  @play="onLivePlay"
+                  @pause="onLivePause"
+                  @volumechange="onLiveVolumeChange"
+                  @click="toggleLivePlay"
+                ></video>
+                <div class="live-player-topbar" :class="{ 'show-controls': showLiveControls, 'hide-controls': !showLiveControls && livePlaying }">
+                  <span class="live-player-badge">LIVE</span>
+                  <span>{{ liveQuality }}</span>
+                </div>
                 <div v-if='!selectedLiveRoom.pullUrl' class='player-empty'>等待主播推流后即可观看</div>
+                <button v-if="!livePlaying && selectedLiveRoom.pullUrl" class="live-big-play-btn" @click="toggleLivePlay">▶</button>
+                <div class="live-controls-overlay" :class="{ 'show-controls': showLiveControls, 'hide-controls': !showLiveControls && livePlaying }" @click.stop>
+                  <div class="live-controls-row">
+                    <div class="live-left-controls">
+                      <button class="live-control-btn icon-btn" :title="livePlaying ? '暂停' : '播放'" @click="toggleLivePlay">
+                        <svg v-if="livePlaying" viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+                        </svg>
+                        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M8 5v14l11-7z"></path>
+                        </svg>
+                      </button>
+                      <div class="live-volume-control">
+                        <button class="live-control-btn icon-btn" :title="liveMuted ? '取消静音' : '静音'" @click="toggleLiveMute">
+                          <svg v-if="liveMuted || liveVolume === 0" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
+                            <path d="M17 9l4 4m0-4l-4 4"></path>
+                          </svg>
+                          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
+                            <path d="M16 8c1.3 1 2 2.4 2 4s-.7 3-2 4"></path>
+                            <path d="M18.5 5.5A8 8 0 0 1 21 12a8 8 0 0 1-2.5 6.5"></path>
+                          </svg>
+                        </button>
+                        <input
+                          class="live-volume-slider"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          :value="liveMuted ? 0 : liveVolume"
+                          aria-label="直播音量"
+                          @input="setLiveVolume"
+                        />
+                      </div>
+                      <span class="live-status-dot" title="直播中"></span>
+                    </div>
+                    <div class="live-right-controls">
+                      <div v-if="liveQualityOptions.length > 1" class="live-quality-control">
+                        <button class="live-control-btn quality-btn" title="清晰度" @click="toggleLiveQualityMenu">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7h10"></path>
+                            <path d="M18 7h2"></path>
+                            <circle cx="16" cy="7" r="2"></circle>
+                            <path d="M4 17h2"></path>
+                            <path d="M10 17h10"></path>
+                            <circle cx="8" cy="17" r="2"></circle>
+                          </svg>
+                          <strong>{{ liveQuality }}</strong>
+                        </button>
+                        <div class="live-quality-dropdown" :class="{ show: showLiveQualityMenu }">
+                          <button
+                            v-for="quality in liveQualityOptions"
+                            :key="quality"
+                            :class="{ active: liveQuality === quality }"
+                            @click="changeLiveQuality(quality)"
+                          >
+                            {{ quality }}
+                          </button>
+                        </div>
+                      </div>
+                      <button class="live-control-btn icon-btn" title="全屏" @click="toggleLiveFullscreen">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M8 4H4v4"></path>
+                          <path d="M16 4h4v4"></path>
+                          <path d="M20 16v4h-4"></path>
+                          <path d="M4 16v4h4"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div ref='liveDanmuLayerRef' class='live-danmu-layer'></div>
               </div>
 
@@ -90,7 +183,9 @@
                     v-model.trim='liveDanmuInput'
                     type='text'
                     maxlength='100'
-                    placeholder='说点什么...'
+                    :placeholder="isLoggedIn ? '说点什么...' : '登录后才能发送弹幕'"
+                    :readonly="!isLoggedIn"
+                    @focus="requireLoginForLiveDanmu"
                     @keyup.enter='sendLiveDanmu'
                   />
                   <button @click='sendLiveDanmu'>发送</button>
@@ -154,8 +249,12 @@
                 </div>
                 <div class="profile-stats">
                   <div>
-                    <strong>{{ profileData?.followers || 0 }}</strong>
+                    <strong>{{ profileData?.followerCount ?? profileData?.followers ?? 0 }}</strong>
                     <span>粉丝</span>
+                  </div>
+                  <div>
+                    <strong>{{ profileData?.followingCount || 0 }}</strong>
+                    <span>关注</span>
                   </div>
                   <div>
                     <strong>{{ profileData?.uploadCount || 0 }}</strong>
@@ -166,6 +265,14 @@
                     <span>收藏</span>
                   </div>
                 </div>
+                <button
+                  v-if="!isOwnProfile"
+                  class="profile-follow-btn"
+                  :class="{ followed: profileData?.following }"
+                  @click="toggleFollowUser(profileData)"
+                >
+                  {{ profileData?.following ? '已关注' : '+ 关注' }}
+                </button>
               </div>
 
               <div v-if="isOwnProfile" class="profile-editor">
@@ -190,11 +297,14 @@
                   <div class="info">
                     <h3 class="title">{{ video.title }}</h3>
                     <p class="author">{{ video.author }}</p>
+                    <div v-if="video.tags?.length" class="video-tags">
+                      <span v-for="tag in video.tags" :key="`${video.id}-${tag}`">{{ tag }}</span>
+                    </div>
                     <p class="stats">{{ video.views }} 观看 · {{ video.date }}</p>
                     <div v-if="isOwnProfile && profileTab === 'uploads'" class="video-manage" @click.stop>
                       <span class="visibility-tag">{{ video.status === 'private' ? '仅自己可见' : '公开' }}</span>
                       <button @click="toggleVideoVisibility(video)">{{ video.status === 'private' ? '设为公开' : '仅自己可见' }}</button>
-                      <button class="danger" @click="deleteVideoDraft(video)">删除</button>
+                      <button class="danger" @click="deleteCreatorVideo(video)">删除</button>
                     </div>
                   </div>
                 </div>
@@ -203,38 +313,238 @@
           </section>
         </template>
 
+        <template v-else-if="currentPage === 'following'">
+          <section class="page-panel social-page">
+            <div class="page-header">
+              <div>
+                <h2>我的关注</h2>
+                <p>查看你关注的人和关注你的用户。</p>
+              </div>
+              <button class="refresh-btn" @click="fetchSocialData">刷新</button>
+            </div>
+
+            <div v-if="socialLoading" class="empty-state">正在加载关注列表...</div>
+            <div v-else class="social-grid">
+              <section class="social-list">
+                <h3>关注的人</h3>
+                <div v-if="followingList.length === 0" class="empty-state">还没有关注任何用户</div>
+                <div v-for="user in followingList" :key="`following-${user.id}`" class="social-user">
+                  <div class="social-avatar" @click="openProfile(user.id)">
+                    <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+                    <span v-else>{{ (user.nickname || user.username || '用').slice(0, 1) }}</span>
+                  </div>
+                  <div class="social-main" @click="openProfile(user.id)">
+                    <strong>{{ user.nickname || user.username || '用户' }}</strong>
+                    <span>{{ user.followerCount || 0 }} 粉丝</span>
+                  </div>
+                  <button class="profile-follow-btn followed" @click="toggleFollowUser(user)">已关注</button>
+                </div>
+              </section>
+
+              <section class="social-list">
+                <h3>关注我的人</h3>
+                <div v-if="followerList.length === 0" class="empty-state">暂时还没有粉丝</div>
+                <div v-for="user in followerList" :key="`follower-${user.id}`" class="social-user">
+                  <div class="social-avatar" @click="openProfile(user.id)">
+                    <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+                    <span v-else>{{ (user.nickname || user.username || '用').slice(0, 1) }}</span>
+                  </div>
+                  <div class="social-main" @click="openProfile(user.id)">
+                    <strong>{{ user.nickname || user.username || '用户' }}</strong>
+                    <span>{{ user.followerCount || 0 }} 粉丝</span>
+                  </div>
+                  <button
+                    v-if="Number(user.id) !== Number(currentUserId)"
+                    class="profile-follow-btn"
+                    :class="{ followed: user.following }"
+                    @click="toggleFollowUser(user)"
+                  >
+                    {{ user.following ? '已关注' : '+ 关注' }}
+                  </button>
+                </div>
+              </section>
+            </div>
+          </section>
+        </template>
+
+        <template v-else-if="currentPage === 'history'">
+          <section class="page-panel history-page">
+            <div class="page-header">
+              <div>
+                <h2>历史记录</h2>
+                <p>按最近观看时间排列，继续看你刚才浏览过的视频。</p>
+              </div>
+              <button class="refresh-btn" @click="fetchHistoryData">刷新</button>
+            </div>
+
+            <div v-if="historyLoading" class="empty-state">正在加载历史记录...</div>
+            <div v-else-if="historyList.length === 0" class="creator-empty">还没有观看历史，去首页看看感兴趣的视频吧。</div>
+            <div v-else class="creator-manuscript-list history-manuscript-list">
+              <div v-for="item in historyList" :key="`history-${item.id || item.videoId}`" class="creator-manuscript-item history-manuscript-item">
+                <div class="creator-manuscript-cover" @click="openVideoPlayer(item.video)">
+                  <img v-if="item.video?.coverUrl" :src="item.video.coverUrl" alt="" />
+                  <div v-else class="creator-cover-fallback">{{ item.video?.title?.slice(0, 1) || 'V' }}</div>
+                  <span>{{ item.video?.duration || '00:00' }}</span>
+                </div>
+
+                <div class="creator-manuscript-main">
+                  <h4 @click="openVideoPlayer(item.video)">{{ item.video?.title || '已失效视频' }}</h4>
+                  <p>{{ item.video?.description || '暂无简介' }}</p>
+                  <div v-if="item.video?.tags?.length" class="video-tags">
+                    <span v-for="tag in item.video.tags" :key="`history-${item.video.id}-${tag}`">{{ tag }}</span>
+                  </div>
+                  <div class="creator-manuscript-metrics">
+                    <span>{{ item.video?.author || '匿名用户' }}</span>
+                    <span>{{ formatCompactNumber(item.video?.playCount || parseViews(item.video?.views)) }} 播放</span>
+                    <span>{{ item.viewCount || 1 }} 次观看</span>
+                    <span>上次观看 {{ formatHistoryDate(item.lastViewedAt) }}</span>
+                  </div>
+                </div>
+
+                <div class="creator-manuscript-actions">
+                  <button class="outline-btn" :disabled="!item.video" @click="openVideoPlayer(item.video)">继续观看</button>
+                  <button class="outline-btn" :disabled="!item.video?.userId" @click="openProfile(item.video?.userId)">作者主页</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </template>
+
         <template v-else-if="currentPage === 'creator'">
-          <section class="page-panel">
+          <section class="page-panel creator-page">
             <div class="page-header">
               <div>
                 <h2>创作者中心</h2>
-                <p>上传本地视频，加入站内列表。</p>
+                <p>查看稿件表现，管理已发布视频，也可以继续发布新作品。</p>
               </div>
+              <button class="refresh-btn" :disabled="creatorRefreshing" @click="refreshCreatorCenter">
+                {{ creatorRefreshing ? '刷新中...' : '刷新数据' }}
+              </button>
             </div>
 
-            <div class="creator-card">
-              <div class="creator-row">
-                <label>视频标题</label>
-                <input v-model.trim="uploadForm.title" type="text" placeholder="请输入视频标题" />
-              </div>
-              <div class="creator-row">
-                <label>视频简介</label>
-                <textarea v-model.trim="uploadForm.description" rows="4" placeholder="请输入视频简介"></textarea>
-              </div>
-              <div class="creator-row">
-                <label>封面地址</label>
-                <input v-model.trim="uploadForm.coverUrl" type="text" placeholder="可选，填写封面图片 URL" />
-              </div>
-              <div class="creator-row">
-                <label>选择视频</label>
-                <input type="file" accept="video/mp4,video/webm,video/ogg" @change="handleFileChange" />
-              </div>
-              <div class="creator-actions">
-                <button class="confirm-btn" :disabled="uploadingVideo" @click="submitUpload">
-                  {{ uploadingVideo ? '上传中...' : '上传视频' }}
-                </button>
-              </div>
-              <p v-if="selectedUploadFile" class="creator-hint">已选择：{{ selectedUploadFile.name }}</p>
+            <div class="creator-dashboard">
+              <section class="creator-overview-card">
+                <div class="creator-overview-profile">
+                  <div class="creator-avatar">
+                    <img v-if="currentUserAvatar" :src="currentUserAvatar" alt="" />
+                    <span v-else>{{ avatarText }}</span>
+                  </div>
+                  <div>
+                    <h3>{{ currentUser || '创作者' }}</h3>
+                    <p>UID {{ currentUserId || '-' }}</p>
+                  </div>
+                </div>
+
+                <div class="creator-stat-grid">
+                  <div class="creator-stat-card">
+                    <span>粉丝数</span>
+                    <strong>{{ formatCompactNumber(profileData?.followerCount ?? profileData?.followers ?? 0) }}</strong>
+                    <small>关注你的人</small>
+                  </div>
+                  <div class="creator-stat-card">
+                    <span>稿件数</span>
+                    <strong>{{ creatorVideos.length }}</strong>
+                    <small>已发布作品</small>
+                  </div>
+                  <div class="creator-stat-card">
+                    <span>总播放</span>
+                    <strong>{{ formatCompactNumber(creatorStats.playCount) }}</strong>
+                    <small>作品累计播放</small>
+                  </div>
+                  <div class="creator-stat-card hot">
+                    <span>综合热度</span>
+                    <strong>{{ formatCompactNumber(creatorStats.hotScore) }}</strong>
+                    <small>播放 + 互动加权</small>
+                  </div>
+                </div>
+              </section>
+
+              <section class="creator-manage-card">
+                <div class="creator-section-head">
+                  <div>
+                    <h3>稿件管理</h3>
+                    <p>管理已发布的视频，查看播放、点赞、收藏和评论表现。</p>
+                  </div>
+                  <span>{{ creatorVideos.length }} 个稿件</span>
+                </div>
+
+                <div v-if="creatorVideos.length === 0" class="creator-empty">
+                  还没有发布稿件，先从右侧投稿开始吧。
+                </div>
+                <div v-else class="creator-manuscript-list">
+                  <div v-for="video in creatorVideos" :key="`creator-video-${video.id}`" class="creator-manuscript-item">
+                    <div class="creator-manuscript-cover" @click="openVideoPlayer(video)">
+                      <img v-if="video.coverUrl" :src="video.coverUrl" alt="" />
+                      <div v-else class="creator-cover-fallback">{{ video.title?.slice(0, 1) || 'V' }}</div>
+                      <span>{{ video.duration || '00:00' }}</span>
+                    </div>
+                    <div class="creator-manuscript-main">
+                      <h4 @click="openVideoPlayer(video)">{{ video.title }}</h4>
+                      <p>{{ video.description || '暂无简介' }}</p>
+                      <div v-if="video.tags?.length" class="video-tags">
+                        <span v-for="tag in video.tags" :key="`creator-${video.id}-${tag}`">{{ tag }}</span>
+                      </div>
+                      <div class="creator-manuscript-metrics">
+                        <span>{{ formatCompactNumber(video.playCount || parseViews(video.views)) }} 播放</span>
+                        <span>{{ formatCompactNumber(video.likeCount || 0) }} 点赞</span>
+                        <span>{{ formatCompactNumber(video.favoriteCount || 0) }} 收藏</span>
+                        <span>{{ formatCompactNumber(video.commentCount || 0) }} 评论</span>
+                        <span>热度 {{ formatCompactNumber(calculateHotScore(video)) }}</span>
+                      </div>
+                    </div>
+                    <div class="creator-manuscript-actions">
+                      <button class="outline-btn" @click="openVideoPlayer(video)">查看</button>
+                      <button
+                        class="danger-btn"
+                        :disabled="deletingVideoId === video.id"
+                        @click="deleteCreatorVideo(video)"
+                      >
+                        {{ deletingVideoId === video.id ? '删除中...' : '删除稿件' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="creator-upload-card">
+                <div class="creator-section-head compact">
+                  <div>
+                    <h3>发布新稿件</h3>
+                    <p>上传本地视频，加入站内列表。</p>
+                  </div>
+                </div>
+
+                <div class="creator-row">
+                  <label>视频标题</label>
+                  <input v-model.trim="uploadForm.title" type="text" placeholder="请输入视频标题" />
+                </div>
+                <div class="creator-row">
+                  <label>视频简介</label>
+                  <textarea v-model.trim="uploadForm.description" rows="4" placeholder="请输入视频简介"></textarea>
+                </div>
+                <div class="creator-row">
+                  <label>封面地址</label>
+                  <input v-model.trim="uploadForm.coverUrl" type="text" placeholder="可选，填写封面图片 URL" />
+                  <div v-if="generatedUploadCoverUrl && !uploadForm.coverUrl" class="auto-cover-preview">
+                    <img :src="generatedUploadCoverUrl" alt="" />
+                    <span>已自动截取视频首帧作为封面</span>
+                  </div>
+                </div>
+                <div class="creator-row">
+                  <label>视频标签</label>
+                  <input v-model.trim="uploadForm.tags" type="text" placeholder="例如：音乐 校园 舞台，可用空格或逗号分隔" />
+                </div>
+                <div class="creator-row">
+                  <label>选择视频</label>
+                  <input type="file" accept="video/mp4,video/webm,video/ogg" @change="handleFileChange" />
+                </div>
+                <div class="creator-actions">
+                  <button class="confirm-btn" :disabled="uploadingVideo" @click="submitUpload">
+                    {{ uploadingVideo ? '上传中...' : '上传视频' }}
+                  </button>
+                </div>
+                <p v-if="selectedUploadFile" class="creator-hint">已选择：{{ selectedUploadFile.name }}</p>
+              </section>
             </div>
           </section>
         </template>
@@ -248,7 +558,11 @@
               </div>
             </div>
 
-            <div class="video-grid">
+            <div v-if="displayedVideos.length === 0" class="empty-state">
+              {{ currentPage === 'ranking' ? '暂无可排行的视频' : '暂无视频，去创作者中心上传第一条作品吧。' }}
+            </div>
+
+            <div v-else class="video-grid">
               <div class="video-card" v-for="video in displayedVideos" :key="video.id" @click="openVideoPlayer(video)">
                 <div class="thumbnail">
                   <img v-if="video.coverUrl" class="cover-image" :src="video.coverUrl" alt="" />
@@ -257,6 +571,9 @@
                 <div class="info">
                   <h3 class="title">{{ video.title }}</h3>
                   <p class="author">{{ video.author }}</p>
+                  <div v-if="video.tags?.length" class="video-tags">
+                    <span v-for="tag in video.tags" :key="`feed-${video.id}-${tag}`">{{ tag }}</span>
+                  </div>
                   <p class="stats">{{ video.views }} 观看 · {{ video.date }}</p>
                 </div>
               </div>
@@ -266,7 +583,14 @@
       </main>
     </div>
 
-    <VideoPlayer v-if="showVideoPlayer" :videoData="selectedVideo" @back="closeVideoPlayer" />
+    <VideoPlayer
+      v-if="showVideoPlayer"
+      :videoData="selectedVideo"
+      @back="closeVideoPlayer"
+      @login-required="openLoginModal"
+      @open-profile="openProfile"
+      @toggle-follow="toggleFollowUser"
+    />
 
     <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
       <div class="modal-content">
@@ -403,7 +727,10 @@ const selectedVideo = ref(null)
 const currentPage = ref('home')
 const selectedUploadFile = ref(null)
 const selectedUploadDuration = ref(null)
+const generatedUploadCoverUrl = ref('')
 const uploadingVideo = ref(false)
+const creatorRefreshing = ref(false)
+const deletingVideoId = ref(null)
 const liveLoading = ref(false)
 const liveRooms = ref([])
 const selectedLiveRoom = ref(null)
@@ -413,6 +740,13 @@ const showLiveModal = ref(false)
 const creatingLive = ref(false)
 const createdRoom = ref(null)
 const liveCategoryFilter = ref(0)
+const liveQuality = ref('原画')
+const livePlaying = ref(false)
+const liveMuted = ref(true)
+const liveVolume = ref(1)
+const showLiveQualityMenu = ref(false)
+const showLiveControls = ref(true)
+const liveControlsTimer = ref(null)
 const liveMessages = ref([])
 const liveDanmuInput = ref('')
 const liveDanmuColor = ref('#ffffff')
@@ -428,6 +762,11 @@ const likeCount = ref(0)
 const profileLoading = ref(false)
 const profileData = ref(null)
 const profileTab = ref('uploads')
+const socialLoading = ref(false)
+const followingList = ref([])
+const followerList = ref([])
+const historyLoading = ref(false)
+const historyList = ref([])
 const avatarForm = ref('')
 const authForm = reactive({
   username: '',
@@ -439,7 +778,8 @@ const authForm = reactive({
 const uploadForm = reactive({
   title: '',
   description: '',
-  coverUrl: ''
+  coverUrl: '',
+  tags: ''
 })
 
 const liveForm = reactive({
@@ -447,26 +787,6 @@ const liveForm = reactive({
   categoryId: 1,
   coverUrl: ''
 })
-
-const fallbackVideos = [
-  {
-    id: 1,
-    title: '【航音】2026届校园十佳歌手总决赛',
-    author: '校学生会',
-    views: '1.2万',
-    duration: '02:15:30',
-    date: '昨天',
-    videoUrl: 'video-singing-contest-2026',
-    sources: {
-      '240P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-      '360P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-      '480P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-      '720P': 'https://www.w3schools.com/html/mov_bbb.mp4',
-      '1080P': 'https://www.w3schools.com/html/mov_bbb.mp4'
-    },
-    defaultQuality: '720P'
-  }
-]
 
 const videoList = ref([])
 
@@ -499,6 +819,38 @@ const profileVideos = computed(() => {
 
 const isOwnProfile = computed(() => Number(profileData.value?.id) === Number(currentUserId.value))
 
+const creatorVideos = computed(() => {
+  const uploads = Array.isArray(profileData.value?.uploads) ? profileData.value.uploads : []
+  if (uploads.length > 0) {
+    return [...uploads].sort((a, b) => calculateHotScore(b) - calculateHotScore(a))
+  }
+
+  const currentId = currentUserId.value == null ? '' : String(currentUserId.value)
+  const currentName = String(currentUser.value || '').trim()
+  return videoList.value
+    .filter((video) => {
+      if (currentId && video.userId != null && String(video.userId) === currentId) {
+        return true
+      }
+      return currentName && String(video.author || '').trim() === currentName
+    })
+    .sort((a, b) => calculateHotScore(b) - calculateHotScore(a))
+})
+
+const creatorStats = computed(() => creatorVideos.value.reduce((stats, video) => ({
+  playCount: stats.playCount + Number(video.playCount || parseViews(video.views) || 0),
+  likeCount: stats.likeCount + Number(video.likeCount || 0),
+  favoriteCount: stats.favoriteCount + Number(video.favoriteCount || 0),
+  commentCount: stats.commentCount + Number(video.commentCount || 0),
+  hotScore: stats.hotScore + calculateHotScore(video)
+}), {
+  playCount: 0,
+  likeCount: 0,
+  favoriteCount: 0,
+  commentCount: 0,
+  hotScore: 0
+}))
+
 const filteredLiveRooms = computed(() => {
   const selectedCategoryId = Number(liveCategoryFilter.value || 0)
   const categoryFilteredRooms = selectedCategoryId > 0
@@ -520,6 +872,11 @@ const currentUserLiveRoom = computed(() => {
   return liveRooms.value.find((room) => Number(room.userId) === Number(currentUserId.value) && room.status !== 'offline') || null
 })
 
+const liveQualityOptions = computed(() => {
+  const urls = selectedLiveRoom.value?.qualityUrls || {}
+  return Object.keys(urls).filter((quality) => urls[quality])
+})
+
 const primaryActionText = computed(() => {
   if (currentPage.value === 'live' || currentPage.value === 'live-room') {
     return currentUserLiveRoom.value ? '关闭直播' : '开始直播'
@@ -536,6 +893,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRouteFromHash)
+  clearLiveControlsTimer()
   destroyLivePlayer()
   disconnectLiveInteract()
   stopLivePanelResizeObserver()
@@ -547,6 +905,13 @@ watch(
     if (currentPage.value === 'live-room') {
       setupLivePlayer()
     }
+  }
+)
+
+watch(
+  () => selectedLiveRoom.value?.roomId,
+  () => {
+    liveQuality.value = '原画'
   }
 )
 
@@ -593,7 +958,7 @@ const parseRouteFromHash = () => {
     return { page: 'profile', userId: roomId }
   }
 
-  if (['home', 'ranking', 'live', 'creator', 'profile'].includes(page)) {
+  if (['home', 'ranking', 'live', 'creator', 'profile', 'following', 'history'].includes(page)) {
     return { page }
   }
 
@@ -631,6 +996,15 @@ const setPage = async (page, updateRoute = true) => {
   if (page === 'live') {
     await fetchLiveRooms()
   }
+  if (page === 'creator') {
+    await refreshCreatorCenter()
+  }
+  if (page === 'following') {
+    await fetchSocialData()
+  }
+  if (page === 'history') {
+    await fetchHistoryData()
+  }
 }
 
 const openLoginModal = () => {
@@ -657,6 +1031,9 @@ const resetForm = () => {
 }
 
 const openVideoPlayer = (video) => {
+  if (!video) {
+    return
+  }
   selectedVideo.value = video
   showVideoPlayer.value = true
   window.scrollTo(0, 0)
@@ -673,6 +1050,120 @@ const openProfile = async (userId) => {
     return
   }
   await loadProfile(userId)
+}
+
+const openFollowingPage = async () => {
+  if (!isLoggedIn.value || !currentUserId.value) {
+    openLoginModal()
+    return
+  }
+  await setPage('following')
+}
+
+const openHistoryPage = async () => {
+  if (!isLoggedIn.value || !currentUserId.value) {
+    openLoginModal()
+    return
+  }
+  await setPage('history')
+}
+
+const getAuthHeaders = () => (
+  currentUserId.value ? { 'X-User-Id': currentUserId.value } : {}
+)
+
+const fetchHistoryData = async () => {
+  if (!isLoggedIn.value || !currentUserId.value) {
+    historyList.value = []
+    return
+  }
+
+  historyLoading.value = true
+  try {
+    const res = await axios.get(`${API_BASE}/user/${currentUserId.value}/history`)
+    const list = Array.isArray(res.data?.data) ? res.data.data : []
+    historyList.value = list
+      .filter((item) => item.video)
+      .map((item) => ({
+        ...item,
+        video: convertVideoFromBackend(item.video)
+      }))
+  } catch (error) {
+    historyList.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const fetchSocialData = async () => {
+  if (!isLoggedIn.value || !currentUserId.value) {
+    followingList.value = []
+    followerList.value = []
+    return
+  }
+
+  socialLoading.value = true
+  try {
+    const [followingRes, followerRes] = await Promise.all([
+      axios.get(`${API_BASE}/user/${currentUserId.value}/following`),
+      axios.get(`${API_BASE}/user/${currentUserId.value}/followers`)
+    ])
+    followingList.value = Array.isArray(followingRes.data?.data) ? followingRes.data.data : []
+    followerList.value = Array.isArray(followerRes.data?.data) ? followerRes.data.data : []
+  } catch (error) {
+    followingList.value = []
+    followerList.value = []
+  } finally {
+    socialLoading.value = false
+  }
+}
+
+const toggleFollowUser = async (user) => {
+  const targetId = user?.id || user?.userId || user?.authorInfo?.id || user?.authorInfo?.userId
+  if (!targetId) {
+    return
+  }
+  if (!isLoggedIn.value || !currentUserId.value) {
+    openLoginModal()
+    return
+  }
+  if (Number(targetId) === Number(currentUserId.value)) {
+    return
+  }
+
+  const alreadyFollowing = !!user.following
+  try {
+    if (alreadyFollowing) {
+      await axios.delete(`${API_BASE}/user/${targetId}/follow`, {
+        headers: getAuthHeaders()
+      })
+    } else {
+      await axios.post(`${API_BASE}/user/${targetId}/follow`, null, {
+        headers: getAuthHeaders()
+      })
+    }
+    user.following = !alreadyFollowing
+    const delta = user.following ? 1 : -1
+    user.followerCount = Math.max(0, Number(user.followerCount || 0) + delta)
+    if (profileData.value && Number(profileData.value.id) === Number(targetId)) {
+      profileData.value.following = user.following
+      profileData.value.followerCount = Math.max(0, Number(profileData.value.followerCount || profileData.value.followers || 0) + delta)
+      profileData.value.followers = profileData.value.followerCount
+    }
+    if (selectedVideo.value && Number(selectedVideo.value.userId) === Number(targetId)) {
+      selectedVideo.value.authorInfo = {
+        ...(selectedVideo.value.authorInfo || {}),
+        following: user.following,
+        followerCount: user.followerCount
+      }
+    }
+    if (currentPage.value === 'following') {
+      await fetchSocialData()
+    }
+    await loadVideoList()
+  } catch (error) {
+    alert(error.response?.data?.message || '关注操作失败')
+  }
 }
 
 const loadProfile = async (userId, updateRoute = true) => {
@@ -802,6 +1293,7 @@ const handleLogin = async () => {
       localStorage.setItem('loginUserAvatar', currentUserAvatar.value)
       showModal.value = false
       resetForm()
+      await loadVideoList()
       return
     }
 
@@ -820,6 +1312,10 @@ const logout = () => {
   localStorage.removeItem('loginUserNickname')
   localStorage.removeItem('loginUserId')
   localStorage.removeItem('loginUserAvatar')
+  followingList.value = []
+  followerList.value = []
+  historyList.value = []
+  loadVideoList()
 }
 
 const convertVideoFromBackend = (video) => {
@@ -838,7 +1334,12 @@ const convertVideoFromBackend = (video) => {
     videoId: video.videoId || video.id,
     userId: video.userId,
     title: video.title,
-    author: video.author || '匿名用户',
+    author: video.authorInfo?.nickname || video.author || '匿名用户',
+    authorInfo: video.authorInfo || null,
+    authorAvatarUrl: video.authorInfo?.avatarUrl || '',
+    tags: Array.isArray(video.tagList)
+      ? video.tagList
+      : String(video.tags || '').split(/[,，\s]+/).map((tag) => tag.trim()).filter(Boolean),
     views: video.views || formatPlayCount(video.playCount || 0),
     duration: formatDuration(video.duration),
     date: video.createdAt ? formatRelativeDate(video.createdAt) : '刚刚',
@@ -860,7 +1361,15 @@ const convertVideoFromBackend = (video) => {
 
 const loadVideoList = async () => {
   try {
-    const res = await axios.get(`${API_BASE}/videos/recommend`)
+    const res = await axios.get(`${API_BASE}/videos/recommend`, {
+      params: {
+        page: 1,
+        pageSize: 50,
+        categoryId: 0,
+        keyword: submittedKeyword.value || undefined
+      },
+      headers: getAuthHeaders()
+    })
     if (res.data?.code === 200 && Array.isArray(res.data.data) && res.data.data.length > 0) {
       videoList.value = res.data.data
         .map(convertVideoFromBackend)
@@ -868,10 +1377,8 @@ const loadVideoList = async () => {
       return
     }
   } catch (error) {
-    console.log('加载视频失败，使用示例数据')
+    videoList.value = []
   }
-
-  videoList.value = fallbackVideos
 }
 
 const formatPlayCount = (count) => {
@@ -917,6 +1424,52 @@ const readVideoDuration = (file) => {
   })
 }
 
+const captureVideoFirstFrame = (file) => {
+  return new Promise((resolve) => {
+    if (!file) {
+      resolve('')
+      return
+    }
+
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    const objectUrl = URL.createObjectURL(file)
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl)
+      video.removeAttribute('src')
+      video.load()
+    }
+
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.onloadedmetadata = () => {
+      video.currentTime = Math.min(0.1, Math.max(0, (video.duration || 1) - 0.01))
+    }
+    video.onseeked = () => {
+      const width = video.videoWidth || 1280
+      const height = video.videoHeight || 720
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        cleanup()
+        resolve('')
+        return
+      }
+      context.drawImage(video, 0, 0, width, height)
+      cleanup()
+      resolve(canvas.toDataURL('image/jpeg', 0.78))
+    }
+    video.onerror = () => {
+      cleanup()
+      resolve('')
+    }
+    video.src = objectUrl
+  })
+}
+
 const formatRelativeDate = (dateString) => {
   const date = new Date(dateString)
   const now = new Date()
@@ -927,6 +1480,21 @@ const formatRelativeDate = (dateString) => {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+}
+
+const formatHistoryDate = (dateString) => {
+  if (!dateString) {
+    return '刚刚'
+  }
+  const relative = formatRelativeDate(dateString)
+  if (relative !== '刚刚') {
+    return relative
+  }
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) {
+    return '刚刚'
+  }
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 const formatLiveDate = (value) => {
@@ -953,12 +1521,71 @@ const parseViews = (value) => {
   return number
 }
 
+const syncAuthorAvatar = (userId, avatarUrl) => {
+  const patchVideo = (video) => {
+    if (!video || String(video.userId) !== String(userId)) {
+      return
+    }
+    video.authorAvatarUrl = avatarUrl || ''
+    video.authorInfo = {
+      ...(video.authorInfo || {}),
+      userId,
+      avatarUrl: avatarUrl || ''
+    }
+  }
+
+  videoList.value.forEach(patchVideo)
+  profileData.value?.uploads?.forEach(patchVideo)
+  profileData.value?.favorites?.forEach(patchVideo)
+  patchVideo(selectedVideo.value)
+}
+
+const formatCompactNumber = (value) => {
+  const number = Number(value || 0)
+  if (!Number.isFinite(number)) {
+    return '0'
+  }
+  if (number >= 10000) {
+    return `${(number / 10000).toFixed(1)}万`
+  }
+  return String(Math.round(number))
+}
+
+const calculateHotScore = (video) => {
+  return Number(video?.playCount || parseViews(video?.views) || 0)
+    + Number(video?.likeCount || 0) * 5
+    + Number(video?.favoriteCount || 0) * 8
+    + Number(video?.commentCount || 0) * 10
+}
+
+const refreshCreatorCenter = async () => {
+  if (!isLoggedIn.value) {
+    alert('请先登录后进入创作者中心')
+    openLoginModal()
+    return
+  }
+
+  creatorRefreshing.value = true
+  try {
+    await Promise.all([
+      loadVideoList(),
+      loadProfile(currentUserId.value, false)
+    ])
+    currentPage.value = 'creator'
+    localStorage.setItem('currentPage', 'creator')
+    setRouteHash('creator')
+  } finally {
+    creatorRefreshing.value = false
+  }
+}
+
 const handleSearch = async () => {
   submittedKeyword.value = keyword.value.trim()
   if (currentPage.value === 'live' || currentPage.value === 'live-room') {
     await fetchLiveRooms()
     return
   }
+  await loadVideoList()
 }
 
 const handlePrimaryAction = async () => {
@@ -984,6 +1611,11 @@ const handleFileChange = async (event) => {
   const files = event.target.files
   selectedUploadFile.value = files && files[0] ? files[0] : null
   selectedUploadDuration.value = selectedUploadFile.value ? await readVideoDuration(selectedUploadFile.value) : null
+  if (selectedUploadFile.value && !uploadForm.coverUrl.trim()) {
+    generatedUploadCoverUrl.value = await captureVideoFirstFrame(selectedUploadFile.value)
+  } else {
+    generatedUploadCoverUrl.value = ''
+  }
 }
 
 const submitUpload = async () => {
@@ -1001,9 +1633,11 @@ const submitUpload = async () => {
   }
 
   const formData = new FormData()
+  const autoCoverUrl = uploadForm.coverUrl.trim() || generatedUploadCoverUrl.value || await captureVideoFirstFrame(selectedUploadFile.value)
   formData.append('title', uploadForm.title)
   formData.append('description', uploadForm.description)
-  formData.append('coverUrl', uploadForm.coverUrl)
+  formData.append('coverUrl', autoCoverUrl)
+  formData.append('tags', uploadForm.tags)
   formData.append('author', currentUser.value || '匿名用户')
   formData.append('userId', currentUserId.value)
   if (selectedUploadDuration.value) {
@@ -1017,9 +1651,7 @@ const submitUpload = async () => {
     if (res.data?.code === 200 && res.data.data) {
       alert('上传成功，已加入视频列表')
       resetUploadForm()
-      await loadVideoList()
-      currentPage.value = 'home'
-      setRouteHash('home')
+      await refreshCreatorCenter()
     } else {
       alert(res.data?.message || '上传失败')
     }
@@ -1034,8 +1666,10 @@ const resetUploadForm = () => {
   uploadForm.title = ''
   uploadForm.description = ''
   uploadForm.coverUrl = ''
+  uploadForm.tags = ''
   selectedUploadFile.value = null
   selectedUploadDuration.value = null
+  generatedUploadCoverUrl.value = ''
 }
 
 
@@ -1103,25 +1737,19 @@ const appendLiveMessage = (message) => {
   scrollLiveMessagesToBottom()
 }
 
-const showFloatingLiveDanmu = (content, color = '#ffffff') => {
+const showFloatingLiveDanmu = (content, color = '#ffffff', isSelf = false) => {
   const layer = liveDanmuLayerRef.value
   if (!layer || !content) {
     return
   }
 
   const item = document.createElement('div')
+  item.className = isSelf ? 'live-danmu-float live-danmu-self' : 'live-danmu-float'
   item.textContent = content
   item.style.position = 'absolute'
   item.style.left = '100%'
   item.style.top = `${12 + Math.random() * 62}%`
-  item.style.whiteSpace = 'nowrap'
-  item.style.fontSize = '22px'
-  item.style.lineHeight = '1.35'
-  item.style.fontWeight = '700'
   item.style.color = color
-  item.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.9)'
-  item.style.pointerEvents = 'none'
-  item.style.willChange = 'transform'
   layer.appendChild(item)
 
   const distance = layer.offsetWidth + item.offsetWidth + 80
@@ -1200,7 +1828,7 @@ const connectLiveInteract = (roomId) => {
       }
       if (data.type === 'danmu') {
         appendLiveMessage(data)
-        showFloatingLiveDanmu(data.content, data.color || '#ffffff')
+        showFloatingLiveDanmu(data.content, data.color || '#ffffff', String(data.userId) === String(currentUserId.value))
       }
     } catch (error) {
       appendLiveMessage({ username: '游客', content: event.data, color: '#ffffff' })
@@ -1235,7 +1863,18 @@ const initializeLiveInteract = async (roomId) => {
   connectLiveInteract(roomId)
 }
 
+const requireLoginForLiveDanmu = () => {
+  if (isLoggedIn.value && currentUserId.value) {
+    return false
+  }
+  openLoginModal()
+  return true
+}
+
 const sendLiveDanmu = () => {
+  if (requireLoginForLiveDanmu()) {
+    return
+  }
   const content = liveDanmuInput.value.trim()
   if (!content) {
     return
@@ -1272,6 +1911,7 @@ const updateAvatar = async () => {
       profileData.value.avatarUrl = res.data.data?.avatarUrl || avatarForm.value
       currentUserAvatar.value = profileData.value.avatarUrl || ''
       localStorage.setItem('loginUserAvatar', currentUserAvatar.value)
+      syncAuthorAvatar(currentUserId.value, currentUserAvatar.value)
       alert('头像已更新')
     } else {
       alert(res.data?.message || '头像更新失败')
@@ -1300,20 +1940,37 @@ const toggleVideoVisibility = async (video) => {
   }
 }
 
-const deleteVideoDraft = async (video) => {
-  if (!currentUserId.value || !video?.id) return
-  if (!window.confirm('确定删除这个稿件吗？')) return
+const deleteCreatorVideo = async (video) => {
+  if (!currentUserId.value || !video?.id) {
+    return
+  }
+  if (!window.confirm(`确定删除《${video.title || '该稿件'}》吗？删除后将不会再出现在列表中。`)) {
+    return
+  }
+
+  deletingVideoId.value = video.id
   try {
-    const res = await axios.delete(`${API_BASE}/videos/${video.id}`, { data: { userId: currentUserId.value } })
+    const res = await axios.delete(`${API_BASE}/videos/${video.id}`, {
+      data: { userId: currentUserId.value },
+      headers: { 'X-User-Id': currentUserId.value }
+    })
     if (res.data?.code === 200) {
-      profileData.value.uploads = (profileData.value.uploads || []).filter((item) => item.id !== video.id)
-      profileData.value.uploadCount = Math.max(0, Number(profileData.value.uploadCount || 0) - 1)
-      await loadVideoList()
+      videoList.value = videoList.value.filter((item) => String(item.id) !== String(video.id))
+      if (profileData.value?.uploads) {
+        profileData.value.uploads = profileData.value.uploads.filter((item) => String(item.id) !== String(video.id))
+        profileData.value.uploadCount = Math.max(0, Number(profileData.value.uploadCount || 0) - 1)
+      }
+      if (selectedVideo.value && String(selectedVideo.value.id) === String(video.id)) {
+        closeVideoPlayer()
+      }
+      alert('稿件已删除')
     } else {
-      alert(res.data?.message || '删除失败')
+      alert(res.data?.message || '删除稿件失败')
     }
   } catch (error) {
-    alert(error.response?.data?.message || error.message || '删除失败')
+    alert(error.response?.data?.message || error.message || '删除稿件失败')
+  } finally {
+    deletingVideoId.value = null
   }
 }
 
@@ -1331,6 +1988,7 @@ const normalizeRoom = (data) => {
     title: raw.title || '未命名直播间',
     pushUrl: raw.pushUrl || '',
     pullUrl: raw.pullUrl || raw.playUrl || '',
+    qualityUrls: normalizeLiveQualityUrls(raw),
     coverUrl: raw.coverUrl || loadRoomCover(raw.roomId || raw.id),
     status: raw.status || 'online',
     createdAt: raw.createdAt || raw.createTime || new Date().toISOString()
@@ -1343,6 +2001,22 @@ const withRoomDisplayFields = (room) => ({
   statusText: room.status === 'online' ? '直播中' : '已结束',
   createdAtText: formatLiveDate(room.createdAt)
 })
+
+const normalizeLiveQualityUrls = (raw) => {
+  const pullUrl = raw.pullUrl || raw.playUrl || ''
+  const qualityUrls = raw.qualityUrls || raw.liveSources || {}
+  const result = {}
+  if (pullUrl) {
+    result['原画'] = qualityUrls['原画'] || qualityUrls.origin || qualityUrls.Origin || pullUrl
+  }
+  if (qualityUrls['720P'] || raw.pullUrl720p) {
+    result['720P'] = qualityUrls['720P'] || raw.pullUrl720p
+  }
+  if (qualityUrls['480P'] || raw.pullUrl480p) {
+    result['480P'] = qualityUrls['480P'] || raw.pullUrl480p
+  }
+  return result
+}
 
 const parsePushUrl = (pushUrl) => {
   if (!pushUrl) {
@@ -1600,7 +2274,11 @@ const setupLivePlayer = () => {
     return
   }
 
-  const pullUrl = selectedLiveRoom.value.pullUrl
+  const qualityUrls = selectedLiveRoom.value.qualityUrls || {}
+  if (liveQuality.value !== '原画' && !qualityUrls[liveQuality.value]) {
+    liveQuality.value = '原画'
+  }
+  const pullUrl = qualityUrls[liveQuality.value] || selectedLiveRoom.value.pullUrl
   if (pullUrl.endsWith('.flv') && flvjs.isSupported()) {
     flvPlayer.value = flvjs.createPlayer({
       type: 'flv',
@@ -1610,11 +2288,162 @@ const setupLivePlayer = () => {
     flvPlayer.value.attachMediaElement(liveVideoRef.value)
     flvPlayer.value.load()
     flvPlayer.value.play().catch(() => {})
+    liveMuted.value = liveVideoRef.value.muted
+    liveVolume.value = liveVideoRef.value.volume
     return
   }
 
   liveVideoRef.value.src = pullUrl
   liveVideoRef.value.play().catch(() => {})
+  liveMuted.value = liveVideoRef.value.muted
+  liveVolume.value = liveVideoRef.value.volume
+}
+
+const onLivePlay = () => {
+  livePlaying.value = true
+  resetLiveControlsTimer()
+}
+
+const onLivePause = () => {
+  livePlaying.value = false
+  showLiveControls.value = true
+  clearLiveControlsTimer()
+}
+
+const onLiveVolumeChange = () => {
+  if (!liveVideoRef.value) {
+    return
+  }
+  liveMuted.value = liveVideoRef.value.muted || liveVideoRef.value.volume === 0
+  liveVolume.value = liveVideoRef.value.volume
+}
+
+const toggleLivePlay = () => {
+  if (!liveVideoRef.value || !selectedLiveRoom.value?.pullUrl) {
+    return
+  }
+  if (liveVideoRef.value.paused) {
+    liveVideoRef.value.play().catch(() => {})
+  } else {
+    liveVideoRef.value.pause()
+  }
+}
+
+const toggleLiveMute = () => {
+  if (!liveVideoRef.value) {
+    return
+  }
+  liveVideoRef.value.muted = !liveVideoRef.value.muted
+  if (!liveVideoRef.value.muted && liveVideoRef.value.volume === 0) {
+    liveVideoRef.value.volume = liveVolume.value || 0.6
+  }
+  liveMuted.value = liveVideoRef.value.muted
+}
+
+const setLiveVolume = (event) => {
+  if (!liveVideoRef.value) {
+    return
+  }
+  const nextVolume = Number(event.target.value)
+  liveVideoRef.value.volume = nextVolume
+  liveVideoRef.value.muted = nextVolume === 0
+  liveVolume.value = nextVolume
+  liveMuted.value = liveVideoRef.value.muted
+  showLiveControls.value = true
+  resetLiveControlsTimer()
+}
+
+const toggleLiveQualityMenu = () => {
+  showLiveQualityMenu.value = !showLiveQualityMenu.value
+  if (showLiveQualityMenu.value) {
+    showLiveControls.value = true
+    clearLiveControlsTimer()
+  } else {
+    resetLiveControlsTimer()
+  }
+}
+
+const clearLiveControlsTimer = () => {
+  if (liveControlsTimer.value) {
+    window.clearTimeout(liveControlsTimer.value)
+    liveControlsTimer.value = null
+  }
+}
+
+const resetLiveControlsTimer = () => {
+  clearLiveControlsTimer()
+  if (!livePlaying.value || showLiveQualityMenu.value) {
+    return
+  }
+  liveControlsTimer.value = window.setTimeout(() => {
+    if (livePlaying.value && !showLiveQualityMenu.value) {
+      showLiveControls.value = false
+    }
+  }, 3000)
+}
+
+const isPointerNearLivePlayerEdge = (event) => {
+  const rect = livePlayerPanelRef.value?.getBoundingClientRect()
+  if (!rect) {
+    return false
+  }
+
+  const edgeSize = Math.min(96, Math.max(42, Math.min(rect.width, rect.height) * 0.14))
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  return (
+    x <= edgeSize ||
+    rect.width - x <= edgeSize ||
+    y <= edgeSize ||
+    rect.height - y <= edgeSize
+  )
+}
+
+const handleLiveMouseMove = (event) => {
+  if (!livePlaying.value) {
+    showLiveControls.value = true
+    return
+  }
+
+  if (isPointerNearLivePlayerEdge(event)) {
+    showLiveControls.value = true
+    resetLiveControlsTimer()
+    return
+  }
+
+  clearLiveControlsTimer()
+  if (!showLiveQualityMenu.value) {
+    showLiveControls.value = false
+  }
+}
+
+const handleLiveMouseLeave = () => {
+  clearLiveControlsTimer()
+  if (livePlaying.value && !showLiveQualityMenu.value) {
+    showLiveControls.value = false
+  }
+}
+
+const toggleLiveFullscreen = () => {
+  if (!livePlayerPanelRef.value) {
+    return
+  }
+  if (!document.fullscreenElement) {
+    livePlayerPanelRef.value.requestFullscreen?.()
+    return
+  }
+  document.exitFullscreen?.()
+}
+
+const changeLiveQuality = async (quality) => {
+  if (quality === liveQuality.value) {
+    return
+  }
+  liveQuality.value = quality
+  showLiveQualityMenu.value = false
+  await nextTick()
+  setupLivePlayer()
 }
 
 const destroyLivePlayer = () => {
@@ -2012,6 +2841,94 @@ const destroyLivePlayer = () => {
   font-size: 12px;
 }
 
+.profile-follow-btn {
+  border: 0;
+  border-radius: 6px;
+  background: #1890ff;
+  color: #fff;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.profile-follow-btn.followed {
+  background: #eef4ff;
+  color: #2563eb;
+}
+
+.social-page {
+  display: grid;
+  gap: 18px;
+}
+
+.social-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.social-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.social-list h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.social-user {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e8ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.social-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #eef4ff;
+  color: #2563eb;
+  font-weight: 800;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.social-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.social-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.social-main strong,
+.social-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.social-main span {
+  color: #667085;
+  font-size: 13px;
+}
+
 .profile-editor {
   display: flex;
   gap: 10px;
@@ -2063,6 +2980,26 @@ const destroyLivePlayer = () => {
   background: #ff4757;
 }
 
+.video-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.video-tags span {
+  max-width: 120px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .profile-tabs {
   display: flex;
   gap: 8px;
@@ -2085,12 +3022,269 @@ const destroyLivePlayer = () => {
   color: #1890ff;
 }
 
-.creator-card,
-.live-side-panel {
+.creator-overview-card,
+.creator-manage-card,
+.creator-upload-card {
   background: #fff;
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.creator-page {
+  background: transparent;
+}
+
+.creator-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+}
+
+.creator-overview-card,
+.creator-manage-card {
+  grid-column: 1;
+}
+
+.creator-upload-card {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  position: sticky;
+  top: 20px;
+}
+
+.creator-overview-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.creator-overview-profile h3 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  color: #111827;
+}
+
+.creator-overview-profile p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.creator-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dff6ff, #fff0f6);
+  color: #0b76b7;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.creator-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.creator-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.creator-stat-card {
+  padding: 16px;
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f8fbff, #fff);
+}
+
+.creator-stat-card.hot {
+  background: linear-gradient(135deg, rgba(0, 174, 236, 0.12), rgba(255, 102, 153, 0.12));
+}
+
+.creator-stat-card span,
+.creator-stat-card small {
+  display: block;
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.creator-stat-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  color: #111827;
+  font-size: 26px;
+}
+
+.creator-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.creator-section-head.compact {
+  align-items: flex-start;
+}
+
+.creator-section-head h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.creator-section-head p {
+  margin: 6px 0 0;
+  color: #8a8f99;
+  font-size: 13px;
+}
+
+.creator-section-head > span {
+  color: #8a8f99;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.creator-empty {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.creator-manuscript-list {
+  display: grid;
+  gap: 14px;
+}
+
+.creator-manuscript-item {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) 104px;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.creator-manuscript-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e5e7eb;
+  cursor: pointer;
+}
+
+.creator-manuscript-cover img,
+.creator-cover-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.creator-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe, #ffe4ee);
+  color: #0b76b7;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.creator-manuscript-cover span {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+}
+
+.creator-manuscript-main {
+  min-width: 0;
+}
+
+.creator-manuscript-main h4 {
+  margin: 2px 0 6px;
+  color: #111827;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.creator-manuscript-main p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.creator-manuscript-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.creator-manuscript-metrics span {
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.creator-manuscript-actions {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.history-page {
+  display: grid;
+  gap: 18px;
+}
+
+.history-manuscript-item {
+  grid-template-columns: 176px minmax(0, 1fr) 120px;
+}
+
+.outline-btn,
+.danger-btn {
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.danger-btn {
+  border-color: #ffd1d7;
+  background: #fff5f6;
+  color: #e11d48;
+}
+
+.danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .creator-row {
@@ -2098,6 +3292,23 @@ const destroyLivePlayer = () => {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.auto-cover-preview {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.auto-cover-preview img {
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e5e8ef;
 }
 
 .creator-row label,
@@ -2143,11 +3354,14 @@ const destroyLivePlayer = () => {
   border-radius: 8px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  cursor: pointer;
 }
 
 .live-player {
   width: 100%;
   height: 100%;
+  display: block;
+  object-fit: contain;
   background: #000;
 }
 
@@ -2159,6 +3373,214 @@ const destroyLivePlayer = () => {
   justify-content: center;
   color: #fff;
   font-size: 14px;
+}
+
+.live-player-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 40px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), transparent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.live-player-topbar.hide-controls {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.live-player-topbar.show-controls {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.live-player-badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ff4757;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.live-big-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  z-index: 60;
+}
+
+.live-big-play-btn:hover {
+  background: rgba(24, 144, 255, 0.8);
+}
+
+.live-controls-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  padding: 40px 20px 20px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.live-controls-overlay.hide-controls {
+  opacity: 0;
+  transform: translateY(18px);
+  pointer-events: none;
+}
+
+.live-controls-overlay.show-controls {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.live-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.live-left-controls,
+.live-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.live-control-btn {
+  border: 0;
+  border-radius: 4px;
+  padding: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.live-control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-control-btn svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+
+.live-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-volume-slider {
+  width: 96px;
+  height: 4px;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+.quality-btn {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.quality-btn svg {
+  fill: none;
+}
+
+.quality-btn strong {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.live-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4757;
+  box-shadow: 0 0 0 4px rgba(255, 71, 87, 0.18);
+}
+
+.live-quality-control {
+  position: relative;
+}
+
+.live-quality-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  min-width: 82px;
+  margin-bottom: 8px;
+  padding: 8px 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+}
+
+.live-quality-dropdown.show {
+  display: block;
+}
+
+.live-quality-dropdown button {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 8px 16px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: center;
+}
+
+.live-quality-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-quality-dropdown button.active {
+  color: #1890ff;
+  font-weight: 700;
 }
 
 .room-cover {
@@ -2305,12 +3727,46 @@ const destroyLivePlayer = () => {
 }
 
 @media screen and (max-width: 960px) {
+  .creator-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-overview-card,
+  .creator-manage-card,
+  .creator-upload-card {
+    grid-column: 1;
+  }
+
+  .creator-upload-card {
+    grid-row: auto;
+    position: static;
+  }
+
+  .creator-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .creator-manuscript-item {
+    grid-template-columns: 140px minmax(0, 1fr);
+  }
+
+  .creator-manuscript-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .live-room-layout {
     grid-template-columns: 1fr;
   }
 }
 
 @media screen and (max-width: 768px) {
+  .creator-stat-grid,
+  .creator-manuscript-item,
+  .creator-manuscript-actions {
+    grid-template-columns: 1fr;
+  }
+
   .main-layout {
     display: block;
     height: auto;
@@ -2331,24 +3787,26 @@ const destroyLivePlayer = () => {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 2;
+  z-index: 45;
 }
 
-.live-floating-danmu {
+.live-danmu-float {
   position: absolute;
   left: 100%;
   max-width: 70%;
   white-space: nowrap;
-  font-size: 18px;
+  font-size: 22px;
+  line-height: 1.35;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-  animation: live-danmu-scroll 12s linear forwards;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  will-change: transform;
 }
 
-@keyframes live-danmu-scroll {
-  to {
-    transform: translateX(calc(-100vw - 100%));
-  }
+.live-danmu-self {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  padding: 2px 6px;
 }
 
 .live-chat-panel {
