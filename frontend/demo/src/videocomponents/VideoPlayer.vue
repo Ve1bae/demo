@@ -322,6 +322,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { API_BASE } from '../config/network'
 
 const props = defineProps({
   videoData: {
@@ -540,7 +541,7 @@ const resolveDanmakuColor = (color) => {
 const loadDanmakuFromServer = async () => {
   try {
     const videoId = props.videoData.id
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus?startTime=0&endTime=${duration.value || 3600}`)
+    const response = await fetch(`${API_BASE}/videos/${videoId}/danmakus?startTime=0&endTime=${duration.value || 3600}`)
     const result = await response.json()
     if (result.code !== 200 || !result.data) {
       console.warn('加载弹幕失败:', result.message)
@@ -686,7 +687,7 @@ const incrementPlayCount = async () => {
   hasIncrementedPlayCount.value = true
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/play`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/play`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -708,7 +709,7 @@ const loadUserVideoStatus = async () => {
   }
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/status?userId=${currentUserId.value}`)
+    const response = await fetch(`${API_BASE}/videos/${videoId}/status?userId=${currentUserId.value}`)
     const result = await response.json()
     if (result.code === 200) {
       liked.value = result.data.liked
@@ -727,7 +728,7 @@ const toggleLike = async () => {
   const videoId = props.videoData.id
   try {
     const method = liked.value ? 'DELETE' : 'POST'
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/likes`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/likes`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: currentUserId.value })
@@ -750,7 +751,7 @@ const toggleFavorite = async () => {
   const videoId = props.videoData.id
   try {
     const method = favorited.value ? 'DELETE' : 'POST'
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/favorites`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/favorites`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: currentUserId.value })
@@ -1082,7 +1083,7 @@ const sendDanmaku = async () => {
       color: newDanmaku.color,
       userId: newDanmaku.userId
     }
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/danmakus`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/danmakus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1104,7 +1105,7 @@ const loadComments = async (page = 1, append = false) => {
   loadingComments.value = true
   try {
     const videoId = props.videoData.id
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
+    const response = await fetch(`${API_BASE}/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
     const result = await response.json()
 
     if (result.code === 200 && result.data) {
@@ -1136,7 +1137,7 @@ const sendComment = async () => {
   }
 
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1160,7 +1161,7 @@ const sendComment = async () => {
 const likeComment = async (commentId) => {
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`http://localhost:8080/api/videos/${videoId}/comments/${commentId}/like`, {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/comments/${commentId}/like`, {
       method: 'POST'
     })
     const result = await response.json()

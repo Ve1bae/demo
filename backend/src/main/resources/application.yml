@@ -14,12 +14,12 @@ app:
 
 live:
   srs:
-    rtmp-base-url: rtmp://localhost/live
-    http-base-url: http://localhost:8081
+    rtmp-base-url: ${LIVE_RTMP_BASE_URL:rtmp://${APP_HOST:10.213.10.6}/live}
+    http-base-url: ${LIVE_HTTP_BASE_URL:http://${APP_HOST:10.213.10.6}:8081}
 
 minio:
-  endpoint: http://localhost:9000
-  public-base-url: http://localhost:8082/video
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-base-url: ${MINIO_PUBLIC_BASE_URL:http://${APP_HOST:10.213.10.6}:8082/video}
   access-key: minioadmin
   secret-key: minioadmin
   bucket: hangyin-video

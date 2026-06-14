@@ -711,8 +711,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import axios from 'axios'
 import flvjs from 'flv.js'
 import VideoPlayer from './videocomponents/VideoPlayer.vue'
-
-const API_BASE = 'http://localhost:8080/api'
+import { API_BASE, getWsOrigin } from './config/network'
 
 const keyword = ref('')
 const submittedKeyword = ref('')
@@ -1804,8 +1803,7 @@ const fetchLiveLikeCount = async (roomId) => {
 }
 
 const getLiveWsUrl = (roomId) => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//localhost:8080/ws/live/${roomId}`
+  return `${getWsOrigin()}/ws/live/${roomId}`
 }
 
 const connectLiveInteract = (roomId) => {
