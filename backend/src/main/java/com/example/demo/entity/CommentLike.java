@@ -6,19 +6,20 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-@Data
-@TableName("sys_user")
-public class User {
+import java.time.LocalDateTime;
 
+@Data
+@TableName("comment_like")
+public class CommentLike {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String nickname;
 
-    @TableField("avatar_url")
-    private String avatarUrl;
+    @TableField("user_id")
+    private Long userId;
 
-    @TableField("bio")
-    private String bio;
+    @TableField("comment_id")
+    private Long commentId;
+
+    @TableField("created_at")
+    private LocalDateTime createdAt;
 }

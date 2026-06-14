@@ -1,1 +1,7 @@
+*.log
+backend/backend/
+backend/uploads/
+frontend/demo/dist/
+node_modules/
 .idea/
+.vscode/
