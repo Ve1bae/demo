@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -56,6 +57,9 @@ public class Video {
     @TableField("category_id")
     private Integer categoryId;
 
+    @TableField("tags")
+    private String tags;
+
     @TableField("duration")
     private Integer duration;
 
@@ -105,6 +109,9 @@ public class Video {
     @TableField(exist = false)
     private String views;
 
+    @TableField(exist = false)
+    private List<String> tagList;
+
     @Data
     public static class Category {
         private Long categoryId;
@@ -116,5 +123,7 @@ public class Video {
         private Long userId;
         private String nickname;
         private String avatarUrl;
+        private Boolean following;
+        private Long followerCount;
     }
 }

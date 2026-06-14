@@ -4,6 +4,7 @@ import com.example.demo.common.ApiResponse;
 import com.example.demo.entity.Video;
 import com.example.demo.service.MinioService;
 import com.example.demo.service.VideoService;
+import com.example.demo.service.VideoTranscodeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @RestController
 @RequestMapping("/api/videos")
@@ -30,6 +34,7 @@ public class VideoController {
 
     private final VideoService videoService;
     private final MinioService minioService;
+    private final VideoTranscodeService videoTranscodeService;
 
     @Value("${minio.public-base-url:http://localhost:8082/video}")
     private String minioPublicBaseUrl;
@@ -39,9 +44,10 @@ public class VideoController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "12") Integer pageSize,
             @RequestParam(defaultValue = "0") Integer categoryId,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
 
-        List<Video> videoList = videoService.getAllVideos();
+        List<Video> videoList = videoService.getRecommendedFeed(userId, page, pageSize, categoryId, keyword);
         return ResponseEntity.ok(ApiResponse.success(videoList));
     }
 
@@ -89,8 +95,15 @@ public class VideoController {
     @DeleteMapping("/{videoId}")
     public ResponseEntity<ApiResponse<String>> deleteVideo(
             @PathVariable Long videoId,
-            @RequestBody Map<String, Object> requestBody) {
-        Long userId = Long.parseLong(requestBody.get("userId").toString());
+            @RequestBody(required = false) Map<String, Object> requestBody,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId) {
+        Long userId = headerUserId;
+        if (userId == null && requestBody != null && requestBody.get("userId") != null) {
+            userId = Long.parseLong(requestBody.get("userId").toString());
+        }
+        if (userId == null) {
+            return ResponseEntity.ok(ApiResponse.error(400, "缺少用户身份"));
+        }
         boolean success = videoService.deleteOwnVideo(userId, videoId);
         if (!success) {
             return ResponseEntity.ok(ApiResponse.error(403, "无权删除该视频"));
@@ -103,6 +116,7 @@ public class VideoController {
             @RequestParam String title,
             @RequestParam(required = false, defaultValue = "") String description,
             @RequestParam(required = false, defaultValue = "") String coverUrl,
+            @RequestParam(required = false, defaultValue = "") String tags,
             @RequestParam(required = false, defaultValue = "匿名用户") String author,
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Integer duration,
@@ -115,26 +129,36 @@ public class VideoController {
             return ResponseEntity.ok(ApiResponse.error(400, "请选择要上传的视频文件"));
         }
 
+        Path sourceTempFile = null;
         try {
             String originalName = file.getOriginalFilename();
             String extension = getExtension(originalName);
             String storedName = "video-" + UUID.randomUUID() + extension;
             String objectName = "videos/" + storedName;
-            minioService.uploadFile(file, objectName);
+            sourceTempFile = Files.createTempFile("upload-video-", extension);
+            file.transferTo(sourceTempFile);
+            minioService.uploadLocalFile(sourceTempFile, objectName, file.getContentType());
 
             String publicUrl = minioPublicBaseUrl.replaceAll("/+$", "") + "/" + objectName;
+            Map<String, String> qualityObjectNames = videoTranscodeService.transcodeAndUpload(sourceTempFile, "videos/qualities");
+            String url480p = toPublicUrl(qualityObjectNames.get("480P"));
+            String url720p = toPublicUrl(qualityObjectNames.get("720P"));
+            String url1080p = toPublicUrl(qualityObjectNames.get("1080P"));
 
             Video video = new Video();
             video.setTitle(title);
             video.setDescription(description);
             video.setCoverUrl(coverUrl);
+            video.setTags(normalizeTags(tags));
             video.setAuthor(author);
             video.setUserId(userId);
             video.setDuration(duration);
             video.setStatus("public");
             video.setPlayUrl(publicUrl);
             video.setVideoUrl(objectName);
-            video.setUrl720p(publicUrl);
+            video.setUrl480p(url480p);
+            video.setUrl720p(StringUtils.hasText(url720p) ? url720p : publicUrl);
+            video.setUrl1080p(url1080p);
             video.setDefaultQuality("720P");
             video.setPlayCount(0);
             video.setLikeCount(0);
@@ -147,6 +171,13 @@ public class VideoController {
             return ResponseEntity.ok(ApiResponse.success("上传成功", savedVideo));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(500, "视频上传失败: " + e.getMessage()));
+        } finally {
+            if (sourceTempFile != null) {
+                try {
+                    Files.deleteIfExists(sourceTempFile);
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 
@@ -203,12 +234,14 @@ public class VideoController {
     }
 
     @PostMapping("/{videoId}/play")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> incrementPlayCount(@PathVariable Long videoId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> incrementPlayCount(
+            @PathVariable Long videoId,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         Video video = videoService.getVideoById(videoId);
         if (video == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
         }
-        return ResponseEntity.ok(ApiResponse.success(videoService.incrementPlayCount(videoId)));
+        return ResponseEntity.ok(ApiResponse.success(videoService.incrementPlayCount(videoId, userId)));
     }
 
     @GetMapping("/{videoId}/status")
@@ -229,5 +262,25 @@ public class VideoController {
         }
         int index = filename.lastIndexOf('.');
         return index >= 0 ? filename.substring(index) : ".mp4";
+    }
+
+    private String toPublicUrl(String objectName) {
+        if (!StringUtils.hasText(objectName)) {
+            return "";
+        }
+        return minioPublicBaseUrl.replaceAll("/+$", "") + "/" + objectName;
+    }
+
+    private String normalizeTags(String tags) {
+        if (!StringUtils.hasText(tags)) {
+            return "";
+        }
+        return List.of(tags.split("[,，\\s]+")).stream()
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .limit(8)
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
     }
 }

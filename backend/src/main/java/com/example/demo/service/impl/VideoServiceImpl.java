@@ -2,9 +2,17 @@ package com.example.demo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.example.demo.entity.User;
+import com.example.demo.entity.UserFollow;
+import com.example.demo.entity.UserInterest;
 import com.example.demo.entity.UserVideo;
+import com.example.demo.entity.ViewHistory;
 import com.example.demo.entity.Video;
+import com.example.demo.mapper.UserFollowMapper;
+import com.example.demo.mapper.UserInterestMapper;
+import com.example.demo.mapper.UserMapper;
 import com.example.demo.mapper.UserVideoMapper;
+import com.example.demo.mapper.ViewHistoryMapper;
 import com.example.demo.mapper.VideoMapper;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
@@ -12,15 +20,26 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements VideoService {
 
     private final UserVideoMapper userVideoMapper;
+    private final UserMapper userMapper;
+    private final UserFollowMapper userFollowMapper;
+    private final UserInterestMapper userInterestMapper;
+    private final ViewHistoryMapper viewHistoryMapper;
 
     @Override
     public List<Video> getAllVideos() {
@@ -50,6 +69,47 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             decorateVideo(video);
         }
         return video;
+    }
+
+    @Override
+    public List<Video> getRecommendedFeed(Long userId, Integer page, Integer pageSize, Integer categoryId, String keyword) {
+        int safePage = Math.max(page == null ? 1 : page, 1);
+        int safePageSize = Math.min(Math.max(pageSize == null ? 12 : pageSize, 1), 50);
+        int fromIndex = (safePage - 1) * safePageSize;
+
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("status", "public");
+        if (categoryId != null && categoryId > 0) {
+            queryWrapper.eq("category_id", categoryId);
+        }
+        List<Video> videos = baseMapper.selectList(queryWrapper);
+        videos.forEach(this::decorateVideo);
+
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        if (!normalizedKeyword.isBlank()) {
+            videos = videos.stream()
+                    .filter(video -> containsIgnoreCase(video.getTitle(), normalizedKeyword)
+                            || containsIgnoreCase(video.getAuthor(), normalizedKeyword)
+                            || containsIgnoreCase(video.getAuthorInfo() == null ? null : video.getAuthorInfo().getNickname(), normalizedKeyword)
+                            || containsIgnoreCase(video.getDescription(), normalizedKeyword)
+                            || containsIgnoreCase(video.getTags(), normalizedKeyword))
+                    .collect(Collectors.toList());
+        }
+
+        Set<Long> followedUserIds = getFollowedUserIds(userId);
+        Set<Long> viewedVideoIds = getViewedVideoIds(userId);
+        Map<String, Integer> userInterests = getUserInterests(userId);
+        videos.forEach(video -> setRecommendationAuthorState(video, followedUserIds));
+        List<Video> sorted = videos.stream()
+                .sorted(Comparator
+                        .comparingInt((Video video) -> calculateRecommendationScore(video, followedUserIds, viewedVideoIds, userInterests)).reversed()
+                        .thenComparing(Video::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+
+        if (fromIndex >= sorted.size()) {
+            return List.of();
+        }
+        return sorted.subList(fromIndex, Math.min(fromIndex + safePageSize, sorted.size()));
     }
 
     @Override
@@ -131,11 +191,32 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         if (video.getPlayCount() != null) {
             video.setViews(formatPlayCount(video.getPlayCount()));
         }
+        setAuthorInfo(video);
         setVideoSources(video);
+        video.setTagList(parseTags(video.getTags()));
+    }
+
+    private void setAuthorInfo(Video video) {
+        if (video.getUserId() == null) {
+            return;
+        }
+        User user = userMapper.selectById(video.getUserId());
+        if (user == null) {
+            return;
+        }
+        Video.Author author = new Video.Author();
+        author.setUserId(user.getId());
+        author.setNickname(user.getNickname());
+        author.setAvatarUrl(user.getAvatarUrl());
+        author.setFollowerCount(countFollowers(user.getId()));
+        video.setAuthorInfo(author);
+        if (user.getNickname() != null && !user.getNickname().isBlank()) {
+            video.setAuthor(user.getNickname());
+        }
     }
 
     private void setVideoSources(Video video) {
-        Map<String, String> sources = new HashMap<>();
+        Map<String, String> sources = new LinkedHashMap<>();
         if (video.getUrl240p() != null && !video.getUrl240p().isBlank()) {
             sources.put("240P", video.getUrl240p());
         }
@@ -169,6 +250,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         userVideo.setLiked(newLiked);
         userVideoMapper.updateById(userVideo);
         userVideoMapper.updateVideoLikeCount(videoId, newLiked ? 1 : -1);
+        adjustUserInterestForVideo(userId, videoId, newLiked ? 5 : -5);
 
         Video video = baseMapper.selectById(videoId);
         result.put("videoId", videoId);
@@ -186,6 +268,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         userVideo.setFavorited(newFavorited);
         userVideoMapper.updateById(userVideo);
         userVideoMapper.updateVideoFavoriteCount(videoId, newFavorited ? 1 : -1);
+        adjustUserInterestForVideo(userId, videoId, newFavorited ? 8 : -8);
 
         Video video = baseMapper.selectById(videoId);
         result.put("videoId", videoId);
@@ -197,11 +280,28 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Override
     @Transactional
     public Map<String, Object> incrementPlayCount(Long videoId) {
+        return incrementPlayCount(videoId, null);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> incrementPlayCount(Long videoId, Long userId) {
         Map<String, Object> result = new HashMap<>();
         userVideoMapper.incrementPlayCount(videoId);
+        recordViewHistory(userId, videoId);
+        adjustUserInterestForVideo(userId, videoId, 1);
         Video video = baseMapper.selectById(videoId);
         result.put("videoId", videoId);
         result.put("playCount", video != null ? video.getPlayCount() : 0);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> touchViewHistory(Long videoId, Long userId) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("videoId", videoId);
+        result.put("recorded", recordViewHistory(userId, videoId) != null);
         return result;
     }
 
@@ -237,6 +337,158 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             }
             throw ignored;
         }
+    }
+
+    private ViewHistory recordViewHistory(Long userId, Long videoId) {
+        if (userId == null || videoId == null) {
+            return null;
+        }
+        QueryWrapper<ViewHistory> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", userId).eq("video_id", videoId);
+        ViewHistory history = viewHistoryMapper.selectOne(wrapper);
+        LocalDateTime now = LocalDateTime.now();
+        if (history == null) {
+            history = new ViewHistory();
+            history.setUserId(userId);
+            history.setVideoId(videoId);
+            history.setViewCount(1);
+            history.setProgressSeconds(0);
+            history.setLastViewedAt(now);
+            viewHistoryMapper.insert(history);
+            return history;
+        }
+        history.setViewCount((history.getViewCount() == null ? 0 : history.getViewCount()) + 1);
+        history.setLastViewedAt(now);
+        viewHistoryMapper.updateById(history);
+        return history;
+    }
+
+    private Set<Long> getFollowedUserIds(Long userId) {
+        if (userId == null) {
+            return Set.of();
+        }
+        return userFollowMapper.selectList(new QueryWrapper<UserFollow>().eq("user_id", userId))
+                .stream()
+                .map(UserFollow::getFollowUserId)
+                .collect(Collectors.toSet());
+    }
+
+    private Set<Long> getViewedVideoIds(Long userId) {
+        if (userId == null) {
+            return Set.of();
+        }
+        return viewHistoryMapper.selectList(new QueryWrapper<ViewHistory>().eq("user_id", userId))
+                .stream()
+                .map(ViewHistory::getVideoId)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private void setRecommendationAuthorState(Video video, Set<Long> followedUserIds) {
+        if (video.getAuthorInfo() == null || video.getUserId() == null) {
+            return;
+        }
+        video.getAuthorInfo().setFollowing(followedUserIds.contains(video.getUserId()));
+    }
+
+    private long countFollowers(Long userId) {
+        return userFollowMapper.selectCount(new QueryWrapper<UserFollow>().eq("follow_user_id", userId));
+    }
+
+    private Map<String, Integer> getUserInterests(Long userId) {
+        if (userId == null) {
+            return Map.of();
+        }
+        return userInterestMapper.selectList(new QueryWrapper<UserInterest>()
+                        .eq("user_id", userId)
+                        .gt("score", 0))
+                .stream()
+                .collect(Collectors.toMap(
+                        item -> item.getTag().toLowerCase(Locale.ROOT),
+                        item -> item.getScore() == null ? 0 : item.getScore(),
+                        Integer::sum
+                ));
+    }
+
+    private void adjustUserInterestForVideo(Long userId, Long videoId, int delta) {
+        if (userId == null || videoId == null || delta == 0) {
+            return;
+        }
+        Video video = baseMapper.selectById(videoId);
+        if (video == null) {
+            return;
+        }
+        parseTags(video.getTags()).forEach(tag -> adjustUserInterest(userId, tag, delta));
+    }
+
+    private void adjustUserInterest(Long userId, String tag, int delta) {
+        if (userId == null || tag == null || tag.isBlank()) {
+            return;
+        }
+        String normalizedTag = tag.trim();
+        QueryWrapper<UserInterest> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", userId).eq("tag", normalizedTag);
+        UserInterest interest = userInterestMapper.selectOne(wrapper);
+        if (interest == null) {
+            if (delta <= 0) {
+                return;
+            }
+            interest = new UserInterest();
+            interest.setUserId(userId);
+            interest.setTag(normalizedTag);
+            interest.setScore(delta);
+            userInterestMapper.insert(interest);
+            return;
+        }
+        interest.setScore(Math.max(0, (interest.getScore() == null ? 0 : interest.getScore()) + delta));
+        userInterestMapper.updateById(interest);
+    }
+
+    private int calculateRecommendationScore(Video video, Set<Long> followedUserIds, Set<Long> viewedVideoIds, Map<String, Integer> userInterests) {
+        int playCount = video.getPlayCount() == null ? 0 : video.getPlayCount();
+        int likeCount = video.getLikeCount() == null ? 0 : video.getLikeCount();
+        int favoriteCount = video.getFavoriteCount() == null ? 0 : video.getFavoriteCount();
+        int commentCount = video.getCommentCount() == null ? 0 : video.getCommentCount();
+        int score = Math.min(playCount, 50000) / 80
+                + Math.min(likeCount, 5000) / 4
+                + Math.min(favoriteCount, 3000) / 3
+                + Math.min(commentCount, 2000) / 4;
+        score += calculateInterestScore(video, userInterests);
+        if (video.getUserId() != null && followedUserIds.contains(video.getUserId())) {
+            score += 120;
+        }
+        if (video.getId() != null && viewedVideoIds.contains(video.getId())) {
+            score -= 20;
+        }
+        if (video.getCreatedAt() != null && video.getCreatedAt().isAfter(LocalDateTime.now().minusDays(7))) {
+            score += 20;
+        }
+        return score;
+    }
+
+    private int calculateInterestScore(Video video, Map<String, Integer> userInterests) {
+        if (userInterests.isEmpty()) {
+            return 0;
+        }
+        return parseTags(video.getTags()).stream()
+                .map(tag -> userInterests.getOrDefault(tag.toLowerCase(Locale.ROOT), 0))
+                .mapToInt(score -> Math.min(score, 80))
+                .sum();
+    }
+
+    private List<String> parseTags(String tags) {
+        if (tags == null || tags.isBlank()) {
+            return List.of();
+        }
+        return List.of(tags.split("[,，\\s]+")).stream()
+                .map(String::trim)
+                .filter(tag -> !tag.isBlank())
+                .distinct()
+                .limit(8)
+                .toList();
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
     private String formatPlayCount(Integer playCount) {

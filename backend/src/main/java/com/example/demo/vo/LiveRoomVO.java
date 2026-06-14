@@ -4,6 +4,7 @@ import com.example.demo.entity.LiveRoom;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 public class LiveRoomVO {
@@ -15,6 +16,7 @@ public class LiveRoomVO {
     private String streamName;
     private String pushUrl;
     private String pullUrl;
+    private Map<String, String> qualityUrls;
     private String coverUrl;
     private String status;
     private LocalDateTime createdAt;

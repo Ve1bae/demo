@@ -711,7 +711,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import axios from 'axios'
 import flvjs from 'flv.js'
 import VideoPlayer from './videocomponents/VideoPlayer.vue'
-import { API_BASE, getWsOrigin } from './config/network'
+import { API_BASE, getWsOrigin, normalizeLanUrl } from './config/network'
 
 const keyword = ref('')
 const submittedKeyword = ref('')
@@ -797,7 +797,16 @@ const filteredVideos = computed(() => {
     return videoList.value
   }
   return videoList.value.filter((video) => {
-    return video.title.toLowerCase().includes(lowerKeyword) || String(video.author || '').toLowerCase().includes(lowerKeyword)
+    const searchableText = [
+      video.title,
+      video.description,
+      video.author,
+      video.authorInfo?.nickname,
+      video.authorInfo?.username,
+      Array.isArray(video.tags) ? video.tags.join(' ') : video.tags,
+      Array.isArray(video.tagList) ? video.tagList.join(' ') : video.tagList
+    ].join(' ').toLowerCase()
+    return searchableText.includes(lowerKeyword)
   })
 })
 
@@ -1319,13 +1328,13 @@ const logout = () => {
 
 const convertVideoFromBackend = (video) => {
   const sources = {}
-  if (video.url240p) sources['240P'] = video.url240p
-  if (video.url360p) sources['360P'] = video.url360p
-  if (video.url480p) sources['480P'] = video.url480p
-  if (video.url720p) sources['720P'] = video.url720p
-  if (video.url1080p) sources['1080P'] = video.url1080p
+  if (video.url240p) sources['240P'] = normalizeLanUrl(video.url240p)
+  if (video.url360p) sources['360P'] = normalizeLanUrl(video.url360p)
+  if (video.url480p) sources['480P'] = normalizeLanUrl(video.url480p)
+  if (video.url720p) sources['720P'] = normalizeLanUrl(video.url720p)
+  if (video.url1080p) sources['1080P'] = normalizeLanUrl(video.url1080p)
   if (Object.keys(sources).length === 0 && video.playUrl) {
-    sources['720P'] = video.playUrl
+    sources['720P'] = normalizeLanUrl(video.playUrl)
   }
 
   return {
@@ -1343,8 +1352,8 @@ const convertVideoFromBackend = (video) => {
     duration: formatDuration(video.duration),
     date: video.createdAt ? formatRelativeDate(video.createdAt) : '刚刚',
     videoUrl: video.videoUrl || `video-${video.id}`,
-    playUrl: video.playUrl || '',
-    coverUrl: video.coverUrl || '',
+    playUrl: normalizeLanUrl(video.playUrl || ''),
+    coverUrl: normalizeLanUrl(video.coverUrl || ''),
     description: video.description || '',
     sources,
     defaultQuality: video.defaultQuality || '720P',
@@ -1749,7 +1758,19 @@ const showFloatingLiveDanmu = (content, color = '#ffffff', isSelf = false) => {
   item.style.left = '100%'
   item.style.top = `${12 + Math.random() * 62}%`
   item.style.color = color
+  item.style.display = 'inline-block'
+  item.style.width = 'auto'
+  item.style.maxWidth = 'none'
+  item.style.whiteSpace = 'nowrap'
+  item.style.wordBreak = 'keep-all'
+  item.style.overflowWrap = 'normal'
+  item.style.lineBreak = 'strict'
+  item.style.textAlign = 'left'
+  item.style.writingMode = 'horizontal-tb'
+  item.style.textOrientation = 'mixed'
+  item.style.direction = 'ltr'
   layer.appendChild(item)
+  item.style.width = `${Math.ceil(item.scrollWidth)}px`
 
   const distance = layer.offsetWidth + item.offsetWidth + 80
   const animation = item.animate(
@@ -1984,10 +2005,10 @@ const normalizeRoom = (data) => {
     categoryId: raw.categoryId,
     anchorNickname: raw.anchorNickname || raw.nickname || (raw.userId ? `用户${raw.userId}` : '未知主播'),
     title: raw.title || '未命名直播间',
-    pushUrl: raw.pushUrl || '',
-    pullUrl: raw.pullUrl || raw.playUrl || '',
+    pushUrl: normalizeLanUrl(raw.pushUrl || ''),
+    pullUrl: normalizeLanUrl(raw.pullUrl || raw.playUrl || ''),
     qualityUrls: normalizeLiveQualityUrls(raw),
-    coverUrl: raw.coverUrl || loadRoomCover(raw.roomId || raw.id),
+    coverUrl: normalizeLanUrl(raw.coverUrl || loadRoomCover(raw.roomId || raw.id)),
     status: raw.status || 'online',
     createdAt: raw.createdAt || raw.createTime || new Date().toISOString()
   })
@@ -2005,13 +2026,13 @@ const normalizeLiveQualityUrls = (raw) => {
   const qualityUrls = raw.qualityUrls || raw.liveSources || {}
   const result = {}
   if (pullUrl) {
-    result['原画'] = qualityUrls['原画'] || qualityUrls.origin || qualityUrls.Origin || pullUrl
+    result['原画'] = normalizeLanUrl(qualityUrls['原画'] || qualityUrls.origin || qualityUrls.Origin || pullUrl)
   }
   if (qualityUrls['720P'] || raw.pullUrl720p) {
-    result['720P'] = qualityUrls['720P'] || raw.pullUrl720p
+    result['720P'] = normalizeLanUrl(qualityUrls['720P'] || raw.pullUrl720p)
   }
   if (qualityUrls['480P'] || raw.pullUrl480p) {
-    result['480P'] = qualityUrls['480P'] || raw.pullUrl480p
+    result['480P'] = normalizeLanUrl(qualityUrls['480P'] || raw.pullUrl480p)
   }
   return result
 }
@@ -2864,12 +2885,14 @@ const destroyLivePlayer = () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
 }
 
 .social-list {
   display: grid;
   gap: 12px;
   min-width: 0;
+  align-content: start;
 }
 
 .social-list h3 {
@@ -2882,10 +2905,12 @@ const destroyLivePlayer = () => {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+  height: 76px;
   padding: 14px;
   border: 1px solid #e5e8ef;
   border-radius: 8px;
   background: #fff;
+  overflow: hidden;
 }
 
 .social-avatar {
@@ -2913,6 +2938,7 @@ const destroyLivePlayer = () => {
   gap: 4px;
   min-width: 0;
   cursor: pointer;
+  align-content: center;
 }
 
 .social-main strong,
@@ -3788,18 +3814,7 @@ const destroyLivePlayer = () => {
   z-index: 45;
 }
 
-.live-danmu-float {
-  position: absolute;
-  left: 100%;
-  max-width: 70%;
-  white-space: nowrap;
-  font-size: 22px;
-  line-height: 1.35;
-  font-weight: 700;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-  will-change: transform;
-}
+
 
 .live-danmu-self {
   border: 1px solid rgba(255, 255, 255, 0.8);
@@ -3937,6 +3952,28 @@ const destroyLivePlayer = () => {
   font-weight: 700;
 }
 
+.live-danmu-float {
+  position: absolute;
+  left: 100%;
+  max-width: none;
+  /* max-width: 70%; */
+  white-space: nowrap;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed;
+  direction: ltr !important;
+  display: inline-block;
+  width: auto;
+  overflow: visible;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-break: strict;
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  will-change: transform;
+}
 @media screen and (max-width: 960px) {
   .live-chat-panel {
     height: 360px;

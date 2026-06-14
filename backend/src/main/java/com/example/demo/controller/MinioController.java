@@ -1,9 +1,15 @@
 package com.example.demo.controller;
 
 import com.example.demo.service.MinioService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
@@ -12,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/minio")
+@Slf4j
 public class MinioController {
 
     @Autowired
@@ -48,7 +55,7 @@ public class MinioController {
         } catch (Exception e) {
             result.put("success", false);
             result.put("message", "上传失败: " + e.getMessage());
-            e.printStackTrace();
+            log.warn("Upload file to MinIO failed", e);
         }
         return result;
     }

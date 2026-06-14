@@ -20,6 +20,7 @@ public class LiveRoomSchemaInitializer implements CommandLineRunner {
         try {
             ensureUserSchema();
             ensureVideoSchema();
+            ensureCommentSchema();
 
             Integer coverUrlCount = jdbcTemplate.queryForObject(
                     "SELECT COUNT(*) FROM information_schema.columns " +
@@ -62,9 +63,22 @@ public class LiveRoomSchemaInitializer implements CommandLineRunner {
 
     private void ensureUserSchema() {
         addColumnIfMissing("sys_user", "avatar_url", "ALTER TABLE sys_user ADD COLUMN avatar_url VARCHAR(500) DEFAULT NULL");
+        addColumnIfMissing("sys_user", "bio", "ALTER TABLE sys_user ADD COLUMN bio VARCHAR(500) DEFAULT NULL");
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS user_follow (" +
+                "id BIGINT NOT NULL AUTO_INCREMENT, " +
+                "user_id BIGINT NOT NULL, " +
+                "follow_user_id BIGINT NOT NULL, " +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (id), " +
+                "UNIQUE KEY uk_user_follow_user_target (user_id, follow_user_id), " +
+                "KEY idx_user_follow_user_id (user_id), " +
+                "KEY idx_user_follow_target_id (follow_user_id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
     private void ensureVideoSchema() {
+        addColumnIfMissing("video", "cover_url", "ALTER TABLE video ADD COLUMN cover_url MEDIUMTEXT");
+        jdbcTemplate.execute("ALTER TABLE video MODIFY COLUMN cover_url MEDIUMTEXT");
         addColumnIfMissing("video", "video_url", "ALTER TABLE video ADD COLUMN video_url VARCHAR(500) DEFAULT NULL COMMENT 'Original video URL'");
         addColumnIfMissing("video", "url_240p", "ALTER TABLE video ADD COLUMN url_240p VARCHAR(500) DEFAULT NULL");
         addColumnIfMissing("video", "url_360p", "ALTER TABLE video ADD COLUMN url_360p VARCHAR(500) DEFAULT NULL");
@@ -74,6 +88,7 @@ public class LiveRoomSchemaInitializer implements CommandLineRunner {
         addColumnIfMissing("video", "default_quality", "ALTER TABLE video ADD COLUMN default_quality VARCHAR(20) DEFAULT NULL");
         addColumnIfMissing("video", "user_id", "ALTER TABLE video ADD COLUMN user_id BIGINT DEFAULT NULL");
         addColumnIfMissing("video", "category_id", "ALTER TABLE video ADD COLUMN category_id INT DEFAULT NULL");
+        addColumnIfMissing("video", "tags", "ALTER TABLE video ADD COLUMN tags VARCHAR(500) DEFAULT NULL");
         addColumnIfMissing("video", "duration", "ALTER TABLE video ADD COLUMN duration INT DEFAULT NULL");
         addColumnIfMissing("video", "status", "ALTER TABLE video ADD COLUMN status VARCHAR(20) DEFAULT NULL");
         addColumnIfMissing("video", "updated_at", "ALTER TABLE video ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
@@ -92,6 +107,44 @@ public class LiveRoomSchemaInitializer implements CommandLineRunner {
                 "UNIQUE KEY uk_user_video (user_id, video_id), " +
                 "KEY idx_user_video_user_id (user_id), " +
                 "KEY idx_user_video_video_id (video_id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS view_history (" +
+                "id BIGINT NOT NULL AUTO_INCREMENT, " +
+                "user_id BIGINT NOT NULL, " +
+                "video_id BIGINT NOT NULL, " +
+                "view_count INT NOT NULL DEFAULT 1, " +
+                "progress_seconds INT NOT NULL DEFAULT 0, " +
+                "last_viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (id), " +
+                "UNIQUE KEY uk_view_history_user_video (user_id, video_id), " +
+                "KEY idx_view_history_user_id (user_id), " +
+                "KEY idx_view_history_video_id (video_id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS user_interest (" +
+                "id BIGINT NOT NULL AUTO_INCREMENT, " +
+                "user_id BIGINT NOT NULL, " +
+                "tag VARCHAR(50) NOT NULL, " +
+                "score INT NOT NULL DEFAULT 0, " +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (id), " +
+                "UNIQUE KEY uk_user_interest_tag (user_id, tag), " +
+                "KEY idx_user_interest_user_score (user_id, score)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    private void ensureCommentSchema() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS comment_like (" +
+                "id BIGINT NOT NULL AUTO_INCREMENT, " +
+                "user_id BIGINT NOT NULL, " +
+                "comment_id BIGINT NOT NULL, " +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (id), " +
+                "UNIQUE KEY uk_comment_like_user_comment (user_id, comment_id), " +
+                "KEY idx_comment_like_comment_id (comment_id), " +
+                "KEY idx_comment_like_user_id (user_id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 

@@ -8,11 +8,17 @@ public interface CommentService {
 
     List<Comment> getCommentsByVideoId(Long videoId);
 
+    Comment getCommentById(Long commentId);
+
     Map<String, Object> getCommentsByVideoIdWithPagination(Long videoId, Integer page, Integer pageSize);
+
+    Map<String, Object> getCommentsByVideoIdWithPagination(Long videoId, Integer page, Integer pageSize, Long viewerId);
 
     boolean saveComment(Comment comment);
 
     boolean deleteComment(Long id);
 
-    boolean likeComment(Long commentId);
+    boolean likeComment(Long commentId, Long userId);
+
+    boolean unlikeComment(Long commentId, Long userId);
 }

@@ -8,6 +8,8 @@ import java.util.Map;
 public interface VideoService extends IService<Video> {
     List<Video> getAllVideos();
 
+    List<Video> getRecommendedFeed(Long userId, Integer page, Integer pageSize, Integer categoryId, String keyword);
+
     Video getVideoById(Long id);
 
     Video getVideoByVideoUrl(String videoUrl);
@@ -29,6 +31,10 @@ public interface VideoService extends IService<Video> {
     Map<String, Object> toggleFavorite(Long userId, Long videoId);
 
     Map<String, Object> incrementPlayCount(Long videoId);
+
+    Map<String, Object> incrementPlayCount(Long videoId, Long userId);
+
+    Map<String, Object> touchViewHistory(Long videoId, Long userId);
 
     Map<String, Object> getUserVideoStatus(Long userId, Long videoId);
 }

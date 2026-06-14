@@ -249,7 +249,9 @@
 
       <div class="video-description-panel">
         <p class="video-description-text">{{ videoDescription }}</p>
-        <div v-if="videoTags.length" class="video-tag-list">
+      </div>
+      <div v-if="videoTags.length" class="video-tags-panel">
+        <div class="video-tag-list">
           <span v-for="tag in videoTags" :key="`video-tag-${tag}`">{{ tag }}</span>
         </div>
       </div>
@@ -257,13 +259,17 @@
 
     <div class="like-animation" v-if="showLikeAnimation">❤️</div>
 
-    <div class="comments-area">
+    <div class="comments-area" :class="{ 'after-tags': videoTags.length }">
       <div class="comments-header">
         <h3>评论</h3>
         <span class="comments-count">{{ commentsTotal }} 条</span>
       </div>
 
       <div class="comment-input-area">
+        <div v-if="replyTarget" class="reply-target-bar">
+          <span>正在回复 {{ resolveCommentNickname(replyTarget) }}</span>
+          <button @click="clearReplyTarget">取消</button>
+        </div>
         <input
           v-model="commentInput"
           class="comment-input"
@@ -275,7 +281,7 @@
         <button class="send-comment-btn" @click="sendComment">{{ isLoggedIn ? '发送' : '去登录' }}</button>
       </div>
 
-      <div class="comments-list" ref="commentsList">
+      <div class="comments-list">
         <div
           v-for="comment in commentsListData"
           :key="comment.commentId"
@@ -289,10 +295,15 @@
             <div class="comment-header">
               <span class="comment-nickname">{{ resolveCommentNickname(comment) }}</span>
               <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
+              <button v-if="canDeleteComment(comment)" class="comment-delete-btn" @click="deleteComment(comment.commentId)">删除</button>
             </div>
             <p class="comment-text">{{ comment.content }}</p>
             <div class="comment-actions">
-              <button class="comment-action-btn" @click="likeComment(comment.commentId)">
+              <button
+                class="comment-action-btn"
+                :class="{ active: comment.liked }"
+                @click="likeComment(comment.commentId)"
+              >
                 <span>👍</span>
                 <span>{{ comment.likeCount || 0 }}</span>
               </button>
@@ -300,6 +311,37 @@
                 <span>💬</span>
                 <span>回复</span>
               </button>
+            </div>
+            <div v-if="comment.replies?.length" class="comment-replies">
+              <div v-for="reply in comment.replies" :key="reply.commentId" class="reply-item">
+                <div class="reply-avatar">
+                  <img v-if="resolveCommentAvatar(reply)" :src="resolveCommentAvatar(reply)" alt="" />
+                  <span v-else>{{ resolveCommentAvatarText(reply) }}</span>
+                </div>
+                <div class="reply-content">
+                  <div class="reply-line">
+                    <span class="comment-nickname">{{ resolveCommentNickname(reply) }}</span>
+                    <span v-if="reply.replyToUser" class="reply-to">回复 {{ resolveReplyToNickname(reply) }}</span>
+                    <span class="comment-time">{{ formatDate(reply.createdAt) }}</span>
+                    <button v-if="canDeleteComment(reply)" class="comment-delete-btn" @click="deleteComment(reply.commentId)">删除</button>
+                  </div>
+                  <p class="comment-text reply-text">{{ reply.content }}</p>
+                  <div class="comment-actions">
+                    <button
+                      class="comment-action-btn"
+                      :class="{ active: reply.liked }"
+                      @click="likeComment(reply.commentId)"
+                    >
+                      <span>👍</span>
+                      <span>{{ reply.likeCount || 0 }}</span>
+                    </button>
+                    <button class="comment-action-btn" @click="replyComment(reply)">
+                      <span>💬</span>
+                      <span>回复</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -404,9 +446,9 @@ const danmakuLegacyColorMap = {
   '6': '#ff00ff'
 }
 
-const commentsList = ref(null)
 const commentsListData = ref([])
 const commentInput = ref('')
+const replyTarget = ref(null)
 const commentsTotal = ref(0)
 const currentCommentPage = ref(1)
 const commentPageSize = 20
@@ -430,8 +472,6 @@ const displayedDanmakuIds = new Set()
 let rafId = null
 let danmakuListSorted = []
 let danmakuIndex = 0
-
-const videoUrl = computed(() => props.videoData.videoUrl || props.videoData.id || 'video-' + Date.now())
 
 const authorAvatarUrl = computed(() => props.videoData.authorAvatarUrl || props.videoData.authorInfo?.avatarUrl || '')
 const authorAvatarText = computed(() => (props.videoData.author || '用').slice(0, 1))
@@ -512,6 +552,16 @@ const resolveCommentAvatar = (comment) => {
 }
 
 const resolveCommentAvatarText = (comment) => resolveCommentNickname(comment).slice(0, 1) || '用'
+
+const resolveReplyToNickname = (comment) => {
+  if (comment?.replyToUser?.nickname) {
+    return comment.replyToUser.nickname
+  }
+  if (comment?.replyToUser?.username) {
+    return comment.replyToUser.username
+  }
+  return '对方'
+}
 
 const requireLoginForComment = () => {
   syncLoginState()
@@ -1101,20 +1151,101 @@ const goBack = () => {
   emit('back')
 }
 
+const getCommentId = (comment) => comment?.commentId || comment?.id
+
+const flattenCommentTree = (comments) => {
+  const flattened = []
+  ;(comments || []).forEach((comment) => {
+    flattened.push({ ...comment, replies: [] })
+    ;(comment.replies || []).forEach((reply) => flattened.push({ ...reply, replies: [] }))
+  })
+  return flattened
+}
+
+const buildCommentTree = (comments) => {
+  const map = new Map()
+  const roots = []
+
+  ;(comments || []).forEach((comment) => {
+    const commentId = getCommentId(comment)
+    if (!commentId) return
+    map.set(String(commentId), {
+      ...comment,
+      commentId,
+      replies: []
+    })
+  })
+
+  map.forEach((comment) => {
+    const parentId = comment.parentId || comment.parent_id
+    const parent = parentId != null ? map.get(String(parentId)) : null
+    if (!parent) {
+      comment.rootId = comment.commentId
+      roots.push(comment)
+      return
+    }
+
+    const rootId = parent.rootId || parent.parentId || parent.commentId
+    const root = map.get(String(rootId)) || parent
+    comment.rootId = root.commentId
+    comment.replyToUser = comment.replyToUser || parent.user || null
+    root.replies.push(comment)
+  })
+
+  roots.forEach((comment) => {
+    comment.replies = (comment.replies || []).sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+  })
+
+  return roots.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+}
+
+const findCommentInTree = (commentId) => {
+  for (const comment of commentsListData.value) {
+    if (String(comment.commentId) === String(commentId)) {
+      return comment
+    }
+    const reply = (comment.replies || []).find((item) => String(item.commentId) === String(commentId))
+    if (reply) {
+      return reply
+    }
+  }
+  return null
+}
+
+const canDeleteComment = (comment) => {
+  syncLoginState()
+  if (!currentUserId.value || !comment) {
+    return false
+  }
+  const currentId = String(currentUserId.value)
+  const commentUserId = comment.userId == null ? '' : String(comment.userId)
+  const videoOwnerId = props.videoData.userId == null ? '' : String(props.videoData.userId)
+  return currentId === commentUserId || currentId === videoOwnerId
+}
+
 const loadComments = async (page = 1, append = false) => {
   loadingComments.value = true
   try {
     const videoId = props.videoData.id
-    const response = await fetch(`${API_BASE}/videos/${videoId}/comments?page=${page}&pageSize=${commentPageSize}`)
+    syncLoginState()
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(commentPageSize)
+    })
+    if (currentUserId.value) {
+      params.set('userId', currentUserId.value)
+    }
+    const response = await fetch(`${API_BASE}/videos/${videoId}/comments?${params.toString()}`, {
+      headers: currentUserId.value ? { 'X-User-Id': currentUserId.value } : {}
+    })
     const result = await response.json()
 
     if (result.code === 200 && result.data) {
       const data = result.data
-      if (append) {
-        commentsListData.value = [...commentsListData.value, ...data.list]
-      } else {
-        commentsListData.value = data.list
-      }
+      const nextList = append
+        ? [...flattenCommentTree(commentsListData.value), ...data.list]
+        : data.list
+      commentsListData.value = buildCommentTree(nextList)
       commentsTotal.value = data.total
       currentCommentPage.value = data.page
       hasMoreComments.value = data.list.length >= commentPageSize
@@ -1130,9 +1261,12 @@ const sendComment = async () => {
   if (!commentInput.value.trim()) return
 
   const videoId = props.videoData.id
+  const targetParentId = replyTarget.value
+    ? (replyTarget.value.rootId || replyTarget.value.parentId || replyTarget.value.commentId || replyTarget.value.id)
+    : null
   const requestBody = {
     content: commentInput.value,
-    parentId: null,
+    parentId: targetParentId,
     userId: currentUserId.value ? Number(currentUserId.value) : null
   }
 
@@ -1148,6 +1282,7 @@ const sendComment = async () => {
     const result = await response.json()
     if (result.code === 200) {
       commentInput.value = ''
+      replyTarget.value = null
       currentCommentPage.value = 1
       loadComments(1, false)
     } else {
@@ -1159,25 +1294,73 @@ const sendComment = async () => {
 }
 
 const likeComment = async (commentId) => {
+  if (requireLoginForComment()) return
+  const comment = findCommentInTree(commentId)
+  if (!comment) return
+
   const videoId = props.videoData.id
   try {
+    const nextLiked = !comment.liked
     const response = await fetch(`${API_BASE}/videos/${videoId}/comments/${commentId}/like`, {
-      method: 'POST'
+      method: nextLiked ? 'POST' : 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': currentUserId.value
+      },
+      body: JSON.stringify({ userId: currentUserId.value })
     })
     const result = await response.json()
     if (result.code === 200) {
-      const comment = commentsListData.value.find(c => c.commentId === commentId)
-      if (comment) {
-        comment.likeCount = (comment.likeCount || 0) + 1
-      }
+      comment.likeCount = Math.max(0, (comment.likeCount || 0) + (nextLiked ? 1 : -1))
+      comment.liked = nextLiked
+    } else if (result.code === 409) {
+      comment.liked = nextLiked
+    } else if (result.code === 401) {
+      emit('login-required')
     }
   } catch (error) {
     console.error('点赞失败:', error)
   }
 }
 
+const deleteComment = async (commentId) => {
+  if (requireLoginForComment()) return
+  const comment = findCommentInTree(commentId)
+  if (!canDeleteComment(comment)) return
+  if (!window.confirm('确定删除这条评论吗？')) return
+
+  const videoId = props.videoData.id
+  try {
+    const response = await fetch(`${API_BASE}/videos/${videoId}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': currentUserId.value
+      },
+      body: JSON.stringify({ userId: currentUserId.value })
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      currentCommentPage.value = 1
+      await loadComments(1, false)
+    } else if (result.code === 401) {
+      emit('login-required')
+    } else {
+      alert(result.message || '删除评论失败')
+    }
+  } catch (error) {
+    alert(`删除评论失败，请检查网络连接: ${error.message}`)
+  }
+}
+
 const replyComment = (comment) => {
-  commentInput.value = `@${resolveCommentNickname(comment)} `
+  if (requireLoginForComment()) return
+  replyTarget.value = comment
+  commentInput.value = ''
+}
+
+const clearReplyTarget = () => {
+  replyTarget.value = null
 }
 
 const loadMoreComments = () => {
@@ -1841,8 +2024,7 @@ const handleGlobalMouseMove = (e) => {
 }
 
 .video-description-panel {
-  padding: 4px 0 18px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 4px 0 0;
 }
 
 .video-description-text {
@@ -1858,7 +2040,13 @@ const handleGlobalMouseMove = (e) => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.video-tags-panel {
   margin-top: 18px;
+  padding: 16px 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .video-tag-list span {
@@ -1959,6 +2147,11 @@ const handleGlobalMouseMove = (e) => {
   border-top: 1px solid #f0f0f0;
 }
 
+.comments-area.after-tags {
+  margin-top: 0;
+  border-top: 0;
+}
+
 .comments-header {
   display: flex;
   align-items: center;
@@ -1979,9 +2172,30 @@ const handleGlobalMouseMove = (e) => {
 }
 
 .comment-input-area {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+.reply-target-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: #f1f8ff;
+  color: #32749d;
+  font-size: 13px;
+}
+
+.reply-target-bar button {
+  border: none;
+  background: transparent;
+  color: #1890ff;
+  cursor: pointer;
+  font-weight: 700;
 }
 
 .comment-input {
@@ -2069,6 +2283,19 @@ const handleGlobalMouseMove = (e) => {
   color: #999;
 }
 
+.comment-delete-btn {
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.comment-delete-btn:hover {
+  color: #dc2626;
+}
+
 .comment-text {
   font-size: 14px;
   color: #1e1e1e;
@@ -2094,8 +2321,70 @@ const handleGlobalMouseMove = (e) => {
   transition: color 0.2s;
 }
 
-.comment-action-btn:hover {
+.comment-action-btn:hover,
+.comment-action-btn.active {
   color: #1890ff;
+}
+
+.comment-action-btn:disabled {
+  cursor: default;
+}
+
+.comment-replies {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: grid;
+  gap: 12px;
+}
+
+.reply-item {
+  display: flex;
+  gap: 10px;
+}
+
+.reply-avatar {
+  background: #e2e8f0;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.reply-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reply-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.reply-to {
+  color: #8a8f99;
+  font-size: 12px;
+}
+
+.reply-text {
+  margin-bottom: 8px;
 }
 
 .load-more {

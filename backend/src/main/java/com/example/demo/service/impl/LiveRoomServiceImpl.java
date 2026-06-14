@@ -11,6 +11,7 @@ import com.example.demo.mapper.LiveRoomMapper;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.service.LiveDanmuService;
 import com.example.demo.service.LiveRoomService;
+import com.example.demo.service.LiveTranscodeService;
 import com.example.demo.service.RoomLikesService;
 import com.example.demo.vo.LiveRoomVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -41,6 +44,9 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
 
     @Autowired
     private RoomLikesService roomLikesService;
+
+    @Autowired
+    private LiveTranscodeService liveTranscodeService;
 
     @Override
     public PageResult<LiveRoomVO> listRooms(Long page, Long pageSize, Long categoryId) {
@@ -95,6 +101,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
             this.updateById(room);
         }
         resetRoomInteraction(room.getId());
+        startLiveTranscode(room);
         return toVO(room);
     }
 
@@ -110,6 +117,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         validateRoomOwner(room, operatorUserId);
         room.setStatus(STATUS_OFFLINE);
         this.updateById(room);
+        liveTranscodeService.stop(room.getId());
         return toVO(room);
     }
 
@@ -163,6 +171,7 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
         rooms.forEach(room -> room.setStatus(STATUS_OFFLINE));
         if (!rooms.isEmpty()) {
             this.updateBatchById(rooms);
+            rooms.forEach(room -> liveTranscodeService.stop(room.getId()));
         }
     }
 
@@ -182,6 +191,8 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
 
     private LiveRoomVO toVO(LiveRoom room) {
         LiveRoomVO vo = LiveRoomVO.fromEntity(room);
+        vo.setPullUrl(joinUrl(httpBaseUrl, "live/" + room.getStreamName() + ".flv"));
+        vo.setQualityUrls(buildLiveQualityUrls(room));
         User user = room.getUserId() == null ? null : userMapper.selectById(room.getUserId());
         if (user != null && StringUtils.hasText(user.getNickname())) {
             vo.setAnchorNickname(user.getNickname());
@@ -189,5 +200,25 @@ public class LiveRoomServiceImpl extends ServiceImpl<LiveRoomMapper, LiveRoom> i
             vo.setAnchorNickname(user.getUsername());
         }
         return vo;
+    }
+
+    private void startLiveTranscode(LiveRoom room) {
+        liveTranscodeService.start(
+                room.getId(),
+                room.getPushUrl(),
+                joinUrl(rtmpBaseUrl, room.getStreamName() + "_480p"),
+                joinUrl(rtmpBaseUrl, room.getStreamName() + "_720p")
+        );
+    }
+
+    private Map<String, String> buildLiveQualityUrls(LiveRoom room) {
+        Map<String, String> urls = new LinkedHashMap<>();
+        if (room == null || !StringUtils.hasText(room.getStreamName())) {
+            return urls;
+        }
+        urls.put("原画", joinUrl(httpBaseUrl, "live/" + room.getStreamName() + ".flv"));
+        urls.put("720P", joinUrl(httpBaseUrl, "live/" + room.getStreamName() + "_720p.flv"));
+        urls.put("480P", joinUrl(httpBaseUrl, "live/" + room.getStreamName() + "_480p.flv"));
+        return urls;
     }
 }

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("comment")
@@ -36,4 +37,13 @@ public class Comment {
 
     @TableField(exist = false)
     private User user;
+
+    @TableField(exist = false)
+    private Boolean liked;
+
+    @TableField(exist = false)
+    private List<Comment> replies;
+
+    @TableField(exist = false)
+    private User replyToUser;
 }

@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -49,6 +51,23 @@ public class MinioService {
                             .object(objectName)
                             .stream(inputStream, file.getSize(), -1)
                             .contentType(resolveContentType(file))
+                            .build()
+            );
+        }
+
+        return objectName;
+    }
+
+    public String uploadLocalFile(Path filePath, String objectName, String contentType) throws Exception {
+        ensureBucket();
+
+        try (InputStream inputStream = Files.newInputStream(filePath)) {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectName)
+                            .stream(inputStream, Files.size(filePath), -1)
+                            .contentType(contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType)
                             .build()
             );
         }
