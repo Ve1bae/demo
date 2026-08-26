@@ -46,6 +46,7 @@ const record = (summary, id, title, status, actual, note = '') => {
 
 const main = async () => {
   const summary = []
+  const allClients = []
 
   const created = await request('/live/rooms', {
     method: 'POST',
@@ -97,8 +98,10 @@ const main = async () => {
   )
 
   const clientA = await openClient(roomId, 'A')
+  allClients.push(clientA)
   await sleep(800)
   const clientB = await openClient(roomId, 'B')
+  allClients.push(clientB)
   await sleep(600)
   const initialOk = clientA.messages.some((message) => message.type === 'online_count')
     && clientA.messages.some((message) => message.type === 'like')
@@ -167,8 +170,10 @@ const main = async () => {
   await sleep(500)
 
   const clientA2 = await openClient(roomId, 'A2')
+  allClients.push(clientA2)
   await sleep(500)
   const clientB2 = await openClient(roomId, 'B2')
+  allClients.push(clientB2)
   await sleep(500)
   const reconnectOk = clientA2.messages.some((message) => message.type === 'online_count')
     && clientA2.messages.some((message) => message.type === 'like')
@@ -209,6 +214,7 @@ const main = async () => {
   clientA2.close()
   await sleep(500)
   const clientA3 = await openClient(roomId, 'A3')
+  allClients.push(clientA3)
   await sleep(600)
   const reconnectedLikeCount = latestLikeCount(clientA3)
   record(
@@ -225,6 +231,7 @@ const main = async () => {
       openClient(roomId, 'C1'),
       openClient(roomId, 'C2')
     ])
+    allClients.push(c1, c2)
     await sleep(1200)
     const bothOpen = c1.readyState === WebSocket.OPEN && c2.readyState === WebSocket.OPEN
     const gotInitial = c1.messages.some((message) => message.type === 'online_count')
@@ -246,6 +253,7 @@ const main = async () => {
     for (let i = 0; i < 50; i += 1) {
       const client = await openClient(roomId, `L${i}`)
       concurrentClients.push(client)
+      allClients.push(client)
       await sleep(20)
     }
     const likeStart = (await request(`/live/rooms/${roomId}/like`)).data?.likeCount ?? 0
@@ -277,7 +285,16 @@ const main = async () => {
   record(summary, 'TC-UC09-007', '未登录时发送弹幕', '未执行', '登录弹窗需要浏览器验证')
   record(summary, 'TC-UC10-002', 'WebSocket 未连接时保持原数量并提示', '未执行', '前端提示需要浏览器验证')
 
+  for (const client of allClients) {
+    try {
+      client.close()
+    } catch {
+      // 连接可能已经关闭，忽略即可
+    }
+  }
+
   console.log(JSON.stringify({ roomId, summary }, null, 2))
+  setTimeout(() => process.exit(0), 200)
 }
 
 main().catch((error) => {

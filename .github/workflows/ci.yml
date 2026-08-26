@@ -60,6 +60,7 @@ jobs:
   live-integration:
     name: Live smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: backend-test
     services:
       mysql:
