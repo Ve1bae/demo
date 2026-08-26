@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
@@ -22,6 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
+
+    private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
+    private static final int SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
+    private static final int MAX_DANMU_CONTENT_LENGTH = 255;
 
     private final RoomLikesService roomLikesService;
     private final LiveDanmuService liveDanmuService;
@@ -35,9 +40,14 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
             closeQuietly(session);
             return;
         }
-        roomSessions.computeIfAbsent(roomId, key -> new ConcurrentHashMap<>()).put(session.getId(), session);
+        WebSocketSession managedSession = new ConcurrentWebSocketSessionDecorator(
+                session,
+                SEND_TIME_LIMIT_MILLIS,
+                SEND_BUFFER_SIZE_LIMIT
+        );
+        roomSessions.computeIfAbsent(roomId, key -> new ConcurrentHashMap<>()).put(session.getId(), managedSession);
         broadcastOnlineCount(roomId);
-        sendLikeCount(session, roomId);
+        sendLikeCount(managedSession, roomId);
     }
 
     @Override
@@ -63,17 +73,24 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         }
 
         String content = asString(payload.get("content"));
-        if (content == null || content.isBlank()) {
+        if (content == null || content.isBlank() || content.trim().length() > MAX_DANMU_CONTENT_LENGTH) {
+            log.warn("Ignore invalid live danmu, roomId={}, length={}", roomId, content == null ? 0 : content.trim().length());
             return;
         }
 
-        LiveDanmu danmu = liveDanmuService.saveDanmu(
-                roomId,
-                asLong(payload.get("userId")),
-                asString(payload.getOrDefault("username", "游客")),
-                content.trim(),
-                asString(payload.getOrDefault("color", "#ffffff"))
-        );
+        LiveDanmu danmu;
+        try {
+            danmu = liveDanmuService.saveDanmu(
+                    roomId,
+                    asLong(payload.get("userId")),
+                    asString(payload.getOrDefault("username", "游客")),
+                    content.trim(),
+                    asString(payload.getOrDefault("color", "#ffffff"))
+            );
+        } catch (RuntimeException e) {
+            log.warn("Ignore live danmu save failure, roomId={}, message={}", roomId, e.getMessage());
+            return;
+        }
         broadcastJson(roomId, Map.of(
                 "type", "danmu",
                 "id", danmu.getId(),
@@ -116,6 +133,11 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         if (sessions == null || sessions.isEmpty()) {
             return;
         }
+        sessions.entrySet().removeIf(entry -> !entry.getValue().isOpen());
+        if (sessions.isEmpty()) {
+            roomSessions.remove(roomId);
+            return;
+        }
         sessions.values().forEach(session -> sendJson(session, payload));
     }
 
@@ -125,7 +147,10 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         }
         try {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
-        } catch (IOException e) {
+        } catch (Exception e) {
+            if (!session.isOpen()) {
+                return;
+            }
             log.warn("Send live interact message failed: {}", e.getMessage());
         }
     }
