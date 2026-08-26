@@ -12,6 +12,8 @@ minio:
   bucket: hangyin-video
 
 live:
+  transcode:
+    enabled: false
   srs:
     rtmp-base-url: rtmp://127.0.0.1/live
     http-base-url: http://127.0.0.1:8081
