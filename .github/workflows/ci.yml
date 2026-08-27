@@ -143,12 +143,17 @@ jobs:
       - name: Install Playwright browser
         working-directory: frontend/demo
         run: npx playwright install --with-deps chromium
-      - name: Run browser E2E tests
+      - name: Run browser E2E tests (non-SRS)
+        working-directory: frontend/demo
+        env:
+          E2E_API_BASE: http://127.0.0.1:18080/api
+        run: npx playwright test --grep-invert "SRS"
+      - name: Run browser E2E tests (SRS)
         working-directory: frontend/demo
         env:
           E2E_API_BASE: http://127.0.0.1:18080/api
           RUN_SRS_E2E: "true"
-        run: npm run test:e2e
+        run: npx playwright test --grep "SRS"
 
   frontend-build:
     name: Frontend build
