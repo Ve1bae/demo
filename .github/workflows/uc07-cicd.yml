@@ -1,0 +1,229 @@
+name: UC-07 CI/CD
+
+on:
+  push:
+    branches:
+      - uc07cicd
+  pull_request:
+    branches:
+      - uc07cicd
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uc07-tests:
+    name: UC-07 test pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hangyin_video
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      UC07_E2E_BASE_URL: http://127.0.0.1:8080
+      UC07_E2E_USER_ID: "42"
+      UC07_E2E_REPORT: backend/target/e2e-reports/uc07-e2e-report.json
+      SPRING_DATASOURCE_URL: 'jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      MINIO_ENDPOINT: http://127.0.0.1:9000
+      MINIO_PUBLIC_BASE_URL: http://127.0.0.1:8082/video
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: hangyin-video
+      LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+      LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+      LIVE_TRANSCODE_ENABLED: "false"
+      VIDEO_TRANSCODE_ENABLED: "false"
+      APP_HOST: 127.0.0.1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install MySQL client
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+
+      - name: Initialize MySQL schema
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ready=0
+          for _ in $(seq 1 60); do
+            if mysqladmin ping -h 127.0.0.1 -P 3306 -uroot -proot --silent; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            docker ps
+            exit 1
+          fi
+
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
+
+      - name: Start SRS, MinIO and Nginx
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p uc07-cicd up -d srs minio nginx
+
+          ready=0
+          for _ in $(seq 1 60); do
+            minio_ok=0
+            srs_ok=0
+            nginx_ok=0
+
+            if curl --silent --show-error --fail http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              minio_ok=1
+            fi
+            if curl --silent --show-error --fail http://127.0.0.1:1985/api/v1/versions >/dev/null; then
+              srs_ok=1
+            fi
+            if (echo > /dev/tcp/127.0.0.1/8082) 2>/dev/null; then
+              nginx_ok=1
+            fi
+
+            if [ "$minio_ok" -eq 1 ] && [ "$srs_ok" -eq 1 ] && [ "$nginx_ok" -eq 1 ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            docker compose -p uc07-cicd ps
+            docker compose -p uc07-cicd logs --no-color --tail=200 srs minio nginx || true
+            exit 1
+          fi
+
+      - name: Run JUnit unit and API tests
+        working-directory: backend
+        shell: bash
+        run: bash ./mvnw '-Dtest=Uc07CreateRoomServiceTest,Uc07CreateRoomControllerTest' test
+
+      - name: Start Spring Boot backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backend/target
+          (
+            cd backend
+            chmod +x mvnw
+            nohup ./mvnw -B spring-boot:run > target/ci-backend.log 2>&1 &
+            echo $! > target/ci-backend.pid
+          )
+
+      - name: Wait for backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          for _ in $(seq 1 90); do
+            if curl --silent --show-error --fail "$UC07_E2E_BASE_URL/api/live/rooms?page=1&pageSize=1" >/dev/null; then
+              ready=1
+              break
+            fi
+            if [ -f backend/target/ci-backend.log ] && grep -q "APPLICATION FAILED TO START" backend/target/ci-backend.log; then
+              cat backend/target/ci-backend.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat backend/target/ci-backend.log || true
+            exit 1
+          fi
+
+      - name: Run UC-07 end-to-end tests
+        shell: bash
+        run: node scripts/uc07-e2e.mjs
+
+      - name: Publish GitHub Actions summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## UC-07 CI/CD 测试结果"
+            echo
+            echo "### JUnit/API"
+            if compgen -G "backend/target/surefire-reports/*.txt" > /dev/null; then
+              grep -h "Tests run:" backend/target/surefire-reports/*.txt || true
+            else
+              echo "未生成 Surefire 报告"
+            fi
+            echo
+            echo "### 端到端"
+            if [ -f backend/target/e2e-reports/uc07-e2e-report.json ]; then
+              node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('backend/target/e2e-reports/uc07-e2e-report.json','utf8')); console.log('总数：'+report.total+'，通过：'+report.passed+'，失败：'+report.failed);"
+            else
+              echo "未生成端到端报告"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload UC-07 test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc07-test-reports
+          if-no-files-found: warn
+          path: |
+            backend/target/surefire-reports/**
+            backend/target/e2e-reports/**
+            backend/target/ci-backend.log
+            doc/UC07创建直播间测试报告.md
+
+      - name: Collect service logs
+        if: always()
+        shell: bash
+        run: |
+          echo "--- backend log ---"
+          cat backend/target/ci-backend.log 2>/dev/null || true
+          echo "--- compose status ---"
+          docker compose -p uc07-cicd ps || true
+          echo "--- SRS/MinIO/Nginx logs ---"
+          docker compose -p uc07-cicd logs --no-color --tail=200 srs minio nginx || true
+
+      - name: Stop backend
+        if: always()
+        shell: bash
+        run: |
+          if [ -f backend/target/ci-backend.pid ]; then
+            kill "$(cat backend/target/ci-backend.pid)" 2>/dev/null || true
+          fi
+
+      - name: Stop SRS, MinIO and Nginx
+        if: always()
+        shell: bash
+        run: docker compose -p uc07-cicd down --volumes --remove-orphans || true
