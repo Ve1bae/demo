@@ -3,7 +3,7 @@ name: CI/CD
 on:
   push:
     branches:
-      - main
+      [live-smoke-test, uc03-recommendation-tests]
   pull_request:
   workflow_dispatch:
 
