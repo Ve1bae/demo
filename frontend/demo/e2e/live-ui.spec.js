@@ -1,8 +1,23 @@
 import { test, expect } from '@playwright/test'
 import { spawn } from 'node:child_process'
+import http from 'node:http'
 
 const API_BASE = process.env.E2E_API_BASE || 'http://127.0.0.1:18080/api'
 const WS_PATTERN = '**/ws/live/*'
+
+function checkFlvStatus(url) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, (response) => {
+      response.destroy()
+      resolve(response.statusCode)
+    })
+    req.setTimeout(5000, () => {
+      req.destroy()
+      reject(new Error('flv request timed out'))
+    })
+    req.on('error', reject)
+  })
+}
 
 async function createRoom(request) {
   const response = await request.post(`${API_BASE}/live/rooms`, {
@@ -149,6 +164,8 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
   const flvUrl = `http://127.0.0.1:8081/live/${streamKey}.flv`
 
   const ffmpeg = spawn('ffmpeg', [
+    '-hide_banner',
+    '-loglevel', 'error',
     '-re',
     '-f', 'lavfi',
     '-i', 'testsrc=duration=60:size=640x360:rate=15',
@@ -161,12 +178,34 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
     '-b:a', '128k',
     '-f', 'flv',
     pushUrl
-  ])
+  ], { windowsHide: true })
+
+  let ffmpegOutput = ''
+  let ffmpegExitCode = null
+  let ffmpegError = ''
+  ffmpeg.stdout.on('data', (chunk) => {
+    ffmpegOutput += chunk.toString()
+  })
+  ffmpeg.stderr.on('data', (chunk) => {
+    ffmpegOutput += chunk.toString()
+  })
+  ffmpeg.on('exit', (code) => {
+    ffmpegExitCode = code
+  })
+  ffmpeg.on('error', (error) => {
+    ffmpegError = error.message
+  })
 
   try {
+    await new Promise((resolve) => setTimeout(resolve, 2000))
     await expect.poll(async () => {
-      const streamResponse = await request.get(flvUrl)
-      return streamResponse.status()
+      if (ffmpegError) {
+        throw new Error(`ffmpeg failed to start: ${ffmpegError}`)
+      }
+      if (ffmpegExitCode !== null) {
+        throw new Error(`ffmpeg exited early with code ${ffmpegExitCode}: ${ffmpegOutput}`)
+      }
+      return await checkFlvStatus(flvUrl)
     }, { timeout: 30_000 }).toBe(200)
 
     await new Promise((resolve) => setTimeout(resolve, 3000))
