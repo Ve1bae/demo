@@ -281,3 +281,34 @@ jobs:
         run: |
           test -f backend/target/ci-backend.pid && kill "$(cat backend/target/ci-backend.pid)" || true
           docker compose -p uc07-cicd down --volumes --remove-orphans || true
+
+  container-images:
+    name: 07 Build frontend and backend images
+    needs: uc07-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Validate container orchestration
+        run: docker compose config --quiet
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: hangyin-backend:${{ github.sha }}
+          cache-from: type=gha,scope=uc07-backend
+          cache-to: type=gha,mode=max,scope=uc07-backend
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend/demo
+          file: ./frontend/demo/Dockerfile
+          push: false
+          tags: hangyin-frontend:${{ github.sha }}
+          cache-from: type=gha,scope=uc07-frontend
+          cache-to: type=gha,mode=max,scope=uc07-frontend
