@@ -49,6 +49,49 @@ jobs:
           path: backend/target/surefire-reports
           if-no-files-found: warn
 
+  recommendation-api-test:
+    name: UC-03 视频推荐 API 测试
+    runs-on: ubuntu-latest
+    env:
+      RUN_UC03_API_TESTS: "true"
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hangyin_video
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+      - name: Create schema
+        run: mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
+      - name: Run UC-03 recommendation API tests
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=VideoRecommendationApiIntegrationTest test
+      - name: Upload UC-03 API test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc03-recommendation-api-surefire-reports
+          path: backend/target/surefire-reports
+          if-no-files-found: warn
+
   backend-test:
     name: Backend tests
     runs-on: ubuntu-latest
