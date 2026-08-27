@@ -129,12 +129,12 @@ jobs:
 
       - name: 替换镜像 tag 并部署
         run: |
-          sed -i "s|ghcr.io/ve1bae/demo-backend:latest|ghcr.io/ve1bae/demo-backend:${{ github.sha }}|g" k8s/backend-deployment.yaml
-          sed -i "s|ghcr.io/ve1bae/demo-frontend:latest|ghcr.io/ve1bae/demo-frontend:${{ github.sha }}|g" k8s/frontend-deployment.yaml
+          sed -i "s|ghcr.io/ve1bae/demo-backend:latest|ghcr.io/ve1bae/demo-backend:${{ github.sha }}|g" k8s/04-backend-deployment.yaml
+          sed -i "s|ghcr.io/ve1bae/demo-frontend:latest|ghcr.io/ve1bae/demo-frontend:${{ github.sha }}|g" k8s/05-frontend-deployment.yaml
           echo "=== 替换后的后端镜像 ==="
-          grep "image:" k8s/backend-deployment.yaml
+          grep "image:" k8s/04-backend-deployment.yaml
           echo "=== 替换后的前端镜像 ==="
-          grep "image:" k8s/frontend-deployment.yaml
+          grep "image:" k8s/05-frontend-deployment.yaml
           kubectl apply -f k8s/
           kubectl -n hangyin get pvc,pods,svc --no-headers
 
