@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -201,6 +203,20 @@ public class UC05Test {
     @SpringBootTest
     @AutoConfigureMockMvc
     @Transactional
+    @TestPropertySource(properties = {
+            "minio.endpoint=http://127.0.0.1:9000",
+            "minio.public-base-url=http://127.0.0.1:8082/video",
+            "minio.access-key=minioadmin",
+            "minio.secret-key=minioadmin",
+            "minio.bucket=hangyin-video",
+            "live.srs.rtmp-base-url=rtmp://127.0.0.1/live",
+            "live.srs.http-base-url=http://127.0.0.1:8081",
+            "video.transcode.enabled=false"
+    })
+    @Sql(statements = {
+            "INSERT INTO sys_user (id, username, password, nickname, avatar_url) VALUES (1, 'tester', 'pwd', '测试用户', 'http://localhost/avatar.jpg') ON DUPLICATE KEY UPDATE nickname=VALUES(nickname), avatar_url=VALUES(avatar_url)",
+            "INSERT INTO video (id, title, description, cover_url, play_url, user_id, category_id, duration, status, play_count, like_count, favorite_count, comment_count) VALUES (1, '测试视频', '用于评论测试', 'http://localhost/cover.jpg', 'http://localhost/video.mp4', 1, 0, 60, 'public', 0, 0, 0, 0) ON DUPLICATE KEY UPDATE play_count=VALUES(play_count), like_count=VALUES(like_count), comment_count=VALUES(comment_count)"
+    })
     @DisplayName("UC-05 集成/API 测试 - CommentController")
     class IntegrationTest {
 
@@ -284,6 +300,20 @@ public class UC05Test {
     @SpringBootTest
     @AutoConfigureMockMvc
     @Transactional
+    @TestPropertySource(properties = {
+            "minio.endpoint=http://127.0.0.1:9000",
+            "minio.public-base-url=http://127.0.0.1:8082/video",
+            "minio.access-key=minioadmin",
+            "minio.secret-key=minioadmin",
+            "minio.bucket=hangyin-video",
+            "live.srs.rtmp-base-url=rtmp://127.0.0.1/live",
+            "live.srs.http-base-url=http://127.0.0.1:8081",
+            "video.transcode.enabled=false"
+    })
+    @Sql(statements = {
+            "INSERT INTO sys_user (id, username, password, nickname, avatar_url) VALUES (1, 'tester', 'pwd', '测试用户', 'http://localhost/avatar.jpg') ON DUPLICATE KEY UPDATE nickname=VALUES(nickname), avatar_url=VALUES(avatar_url)",
+            "INSERT INTO video (id, title, description, cover_url, play_url, user_id, category_id, duration, status, play_count, like_count, favorite_count, comment_count) VALUES (1, '测试视频', '用于评论测试', 'http://localhost/cover.jpg', 'http://localhost/video.mp4', 1, 0, 60, 'public', 0, 0, 0, 0) ON DUPLICATE KEY UPDATE play_count=VALUES(play_count), like_count=VALUES(like_count), comment_count=VALUES(comment_count)"
+    })
     @DisplayName("UC-05 端到端流程")
     class E2ETest {
 
