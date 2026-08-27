@@ -23,7 +23,7 @@ env:
 
 jobs:
   backend-test:
-    name: Backend and live smoke tests
+    name: Backend unit/API/E2E tests
     runs-on: ubuntu-latest
     services:
       mysql:

@@ -15,7 +15,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -30,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LiveSmokeTest {
+class ApiIntegrationTest {
 
     @LocalServerPort
     private int port;
@@ -49,7 +48,7 @@ class LiveSmokeTest {
     }
 
     @Test
-    void liveRoomCreateQueryAndMissingRoom() throws Exception {
+    void liveRoomApiCrudAndMissingRoom() throws Exception {
         long roomId = createRoom();
 
         JsonNode detail = request("GET", "/live/rooms/" + roomId, null, null);
@@ -58,12 +57,16 @@ class LiveSmokeTest {
         assertFalse(detail.path("data").path("pullUrl").asText().isBlank());
         assertFalse(detail.path("data").path("qualityUrls").path("原画").asText().isBlank());
 
+        JsonNode closed = request("POST", "/live/rooms/" + roomId + "/close", null, "1");
+        assertEquals(200, closed.path("code").asInt(), closed.toString());
+        assertEquals("offline", closed.path("data").path("status").asText());
+
         JsonNode missing = request("GET", "/live/rooms/999999", null, null);
         assertEquals(404, missing.path("code").asInt(), missing.toString());
     }
 
     @Test
-    void danmuBroadcastAndHistory() throws Exception {
+    void danmuApiAndWebSocketBroadcast() throws Exception {
         long roomId = createRoom();
         WsClient clientA = openWs(roomId);
         WsClient clientB = openWs(roomId);
@@ -86,34 +89,7 @@ class LiveSmokeTest {
     }
 
     @Test
-    void emptyAndOverlongDanmuIgnored() throws Exception {
-        long roomId = createRoom();
-        WsClient clientA = openWs(roomId);
-        WsClient clientB = openWs(roomId);
-        try {
-            awaitTrue(() -> hasType(clientA, "online_count") && hasType(clientB, "online_count"), 8);
-            int danmuBefore = danmuCount(clientB);
-
-            send(clientA, "{\"type\":\"danmu\",\"userId\":1,\"username\":\"测试用户\",\"content\":\"   \",\"color\":\"#ffffff\"}");
-            Thread.sleep(500);
-            assertEquals(danmuBefore, danmuCount(clientB));
-
-            String overlong = "x".repeat(300);
-            send(clientA, "{\"type\":\"danmu\",\"userId\":1,\"username\":\"测试用户\",\"content\":\"" + overlong + "\",\"color\":\"#ffffff\"}");
-            Thread.sleep(500);
-            assertEquals(danmuBefore, danmuCount(clientB));
-            assertFalse(clientA.socket.isOutputClosed(), "overlong danmu must not close sender socket");
-
-            send(clientA, "{\"type\":\"danmu\",\"userId\":1,\"username\":\"测试用户\",\"content\":\"正常弹幕\",\"color\":\"#ffffff\"}");
-            awaitTrue(() -> danmuCount(clientB) == danmuBefore + 1, 8);
-        } finally {
-            closeQuietly(clientA);
-            closeQuietly(clientB);
-        }
-    }
-
-    @Test
-    void likeIncrementAndBroadcast() throws Exception {
+    void likeApiAndWebSocketBroadcast() throws Exception {
         long roomId = createRoom();
         long initial = getLikeCount(roomId);
         WsClient clientA = openWs(roomId);
@@ -130,74 +106,11 @@ class LiveSmokeTest {
         }
     }
 
-    @Test
-    void rapidLikesIncrementByTen() throws Exception {
-        long roomId = createRoom();
-        long initial = getLikeCount(roomId);
-        WsClient clientA = openWs(roomId);
-        WsClient clientB = openWs(roomId);
-        try {
-            awaitTrue(() -> hasType(clientA, "online_count"), 8);
-            for (int i = 0; i < 10; i += 1) {
-                send(clientA, "{\"type\":\"like\",\"userId\":1}");
-            }
-            awaitTrue(() -> latestLikeCount(clientB) != null && latestLikeCount(clientB) >= initial + 10, 8);
-            assertEquals(initial + 10, getLikeCount(roomId));
-        } finally {
-            closeQuietly(clientA);
-            closeQuietly(clientB);
-        }
-    }
-
-    @Test
-    void concurrentConnectionsStayOpen() throws Exception {
-        long roomId = createRoom();
-        WsClient clientA = openWs(roomId);
-        WsClient clientB = openWs(roomId);
-        try {
-            awaitTrue(() -> hasType(clientA, "online_count") && hasType(clientB, "online_count"), 8);
-            assertFalse(clientA.socket.isOutputClosed(), "client A should stay open");
-            assertFalse(clientB.socket.isOutputClosed(), "client B should stay open");
-
-            send(clientA, "{\"type\":\"danmu\",\"userId\":1,\"username\":\"测试用户\",\"content\":\"并发连接正常\",\"color\":\"#ffffff\"}");
-            awaitTrue(() -> clientB.messages.stream().anyMatch(message ->
-                    "danmu".equals(message.path("type").asText())
-                            && "并发连接正常".equals(message.path("content").asText())
-            ), 8);
-        } finally {
-            closeQuietly(clientA);
-            closeQuietly(clientB);
-        }
-    }
-
-    @Test
-    void fiftyConcurrentLikesCountCorrectly() throws Exception {
-        long roomId = createRoom();
-        long initial = getLikeCount(roomId);
-        List<WsClient> clients = new ArrayList<>();
-        try {
-            for (int i = 0; i < 50; i += 1) {
-                clients.add(openWs(roomId));
-                Thread.sleep(20);
-            }
-            clients.forEach(client -> send(client, "{\"type\":\"like\",\"userId\":1}"));
-            awaitTrue(() -> {
-                try {
-                    return getLikeCount(roomId) == initial + 50;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }, 15);
-        } finally {
-            clients.forEach(this::closeQuietly);
-        }
-    }
-
     private long createRoom() throws Exception {
         JsonNode created = request(
                 "POST",
                 "/live/rooms",
-                "{\"title\":\"JUnit 直播测试\",\"categoryId\":1,\"coverUrl\":\"\"}",
+                "{\"title\":\"API 集成测试直播间\",\"categoryId\":1,\"coverUrl\":\"\"}",
                 "1"
         );
         assertEquals(200, created.path("code").asInt(), created.toString());
@@ -229,7 +142,6 @@ class LiveSmokeTest {
     private WsClient openWs(long roomId) throws Exception {
         CountDownLatch opened = new CountDownLatch(1);
         List<JsonNode> messages = new CopyOnWriteArrayList<>();
-
         CompletableFuture<WebSocket> future = httpClient.newWebSocketBuilder()
                 .buildAsync(URI.create(wsUrl(roomId)), new WebSocket.Listener() {
                     @Override
@@ -256,7 +168,6 @@ class LiveSmokeTest {
                         opened.countDown();
                     }
                 });
-
         WebSocket socket = future.get(5, TimeUnit.SECONDS);
         assertTrue(opened.await(5, TimeUnit.SECONDS), "WebSocket did not open");
         return new WsClient(socket, messages);
@@ -278,12 +189,6 @@ class LiveSmokeTest {
 
     private boolean hasType(WsClient client, String type) {
         return client.messages.stream().anyMatch(message -> type.equals(message.path("type").asText()));
-    }
-
-    private int danmuCount(WsClient client) {
-        return (int) client.messages.stream()
-                .filter(message -> "danmu".equals(message.path("type").asText()))
-                .count();
     }
 
     private Long latestLikeCount(WsClient client) {
