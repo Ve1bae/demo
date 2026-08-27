@@ -87,8 +87,8 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/demo/package-lock.json
-      - name: Install MySQL client
-        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client ffmpeg
       - name: Create schema and test user
         run: |
           mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
