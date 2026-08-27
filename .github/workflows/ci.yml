@@ -94,6 +94,9 @@ jobs:
           mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
           mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video -e \
             "INSERT INTO sys_user (username, password, nickname) VALUES ('livetester', 'x', '直播测试用户') ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);"
+      - name: Install frontend dependencies
+        working-directory: frontend/demo
+        run: npm ci
       - name: Start SRS
         run: |
           docker compose -f docker-compose.yml up -d srs
