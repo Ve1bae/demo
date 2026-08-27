@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hangyin-config
+  namespace: hangyin
+data:
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-service:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+  SPRING_DATASOURCE_USERNAME: "root"
+  SPRING_DATASOURCE_PASSWORD: "root"
+  MINIO_ENDPOINT: "http://minio-service:9000"
+  MINIO_PUBLIC_BASE_URL: "http://localhost:8082/video"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  MINIO_BUCKET: "hangyin-video"
+  LIVE_SRS_RTMP_BASE_URL: "rtmp://srs-service/live"
+  LIVE_SRS_HTTP_BASE_URL: "http://srs-service:8081"
+  LIVE_TRANSCODE_ENABLED: "false"
+  VIDEO_TRANSCODE_ENABLED: "false"

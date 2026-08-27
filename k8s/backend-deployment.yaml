@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: hangyin
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/ve1bae/demo-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: hangyin-config
+          readinessProbe:
+            httpGet:
+              path: /api/videos/recommend
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /api/videos/recommend
+              port: 9090
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: hangyin
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
