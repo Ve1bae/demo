@@ -9,6 +9,7 @@ import com.example.demo.mapper.UserVideoMapper;
 import com.example.demo.mapper.ViewHistoryMapper;
 import com.example.demo.mapper.VideoMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,6 +68,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-12 视频空字段和作者缺失时安全返回")
     void handlesNullVideoFieldsAndMissingAuthorWithoutThrowing() {
         Video sparse = new Video();
         sparse.setId(101L);
@@ -88,6 +90,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-13 标签去空、去重并限制为八项")
     void removesEmptyAndDuplicateTagsAndLimitsToEightTags() {
         Video tagged = video(102L, "标签测试", null, LocalDateTime.now());
         tagged.setTags("  alpha,,beta alpha，gamma\tdelta epsilon zeta eta theta iota kappa  ");
@@ -101,6 +104,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-14 每页数量限制为五十且负分类按全部处理")
     void clampsPageSizeToFiftyAndAcceptsNegativeCategoryAsAllCategories() {
         List<Video> videos = new ArrayList<>();
         for (long id = 1; id <= 55; id++) {
@@ -115,6 +119,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-15 最大页码不发生整数溢出")
     void returnsEmptyForLargestPageNumberWithoutIntegerOverflow() {
         when(videoMapper.selectList(any(QueryWrapper.class)))
                 .thenReturn(List.of(video(103L, "单条视频", null, LocalDateTime.now())));
@@ -125,6 +130,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-16 创建时间为空时排序稳定")
     void putsNonNullCreationTimeBeforeNullWhenScoresTie() {
         Video noTime = video(104L, "无时间", null, null);
         Video withTime = video(105L, "有时间", null, LocalDateTime.now().minusDays(1));
@@ -136,6 +142,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-17 纯空格关键词按无筛选处理")
     void treatsWhitespaceOnlyKeywordAsUnfiltered() {
         Video first = video(106L, "第一个", null, LocalDateTime.now());
         Video second = video(107L, "第二个", null, LocalDateTime.now().minusMinutes(1));
@@ -147,6 +154,7 @@ class VideoServiceImplRecommendationEdgeTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-18 最大计数值下推荐分数不溢出")
     void handlesMaximumCounterValuesWithoutScoreOverflow() {
         Video highCounters = video(108L, "高计数", null, LocalDateTime.now().minusDays(30));
         highCounters.setPlayCount(Integer.MAX_VALUE);

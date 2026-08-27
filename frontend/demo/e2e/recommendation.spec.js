@@ -31,7 +31,7 @@ const search = async (page, keyword) => {
 }
 
 test.describe('UC-03 视频推荐端到端测试', () => {
-  test('E2E-03-01 游客打开首页时按热度展示公开视频', async ({ page }) => {
+  test('E2E-TC-03-01 游客打开首页时按热度展示公开视频', async ({ page }) => {
     await openHome(page)
 
     const visibleTitles = await cardTitles(page)
@@ -39,9 +39,16 @@ test.describe('UC-03 视频推荐端到端测试', () => {
     expect(visibleTitles).toContain(titles.low)
     expect(visibleTitles).not.toContain(titles.private)
     expect(visibleTitles.indexOf(titles.hot)).toBeLessThan(visibleTitles.indexOf(titles.low))
+
+    const hotCard = videoCards(page).filter({ hasText: titles.hot })
+    await expect(hotCard.locator('.title')).toHaveText(titles.hot)
+    await expect(hotCard.locator('.cover-image')).toBeVisible()
+    await expect(hotCard.locator('.cover-image')).toHaveAttribute('src', /^data:image\/gif;base64,/)
+    await expect(hotCard.locator('.author')).toHaveText('E2E其他作者')
+    await expect(hotCard.locator('.stats')).toContainText('8000 观看')
   })
 
-  test('E2E-03-02 用户通过搜索框筛选推荐视频', async ({ page }) => {
+  test('E2E-TC-03-02 用户通过搜索框筛选推荐视频', async ({ page }) => {
     await openHome(page)
     await search(page, '校园音乐')
 
@@ -49,7 +56,7 @@ test.describe('UC-03 视频推荐端到端测试', () => {
     await expect(videoCards(page).first().locator('.title')).toHaveText(titles.music)
   })
 
-  test('E2E-03-03 用户登录后优先看到已关注作者的视频', async ({ page }) => {
+  test('E2E-TC-03-03 用户登录后优先看到已关注作者的视频', async ({ page }) => {
     await openHome(page)
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await page.getByPlaceholder('请输入用户名').fill('uc03_e2e_viewer')
@@ -68,7 +75,7 @@ test.describe('UC-03 视频推荐端到端测试', () => {
     await expect(videoCards(page).first().locator('.title')).toHaveText(titles.followed)
   })
 
-  test('E2E-03-04 搜索无匹配内容时显示空结果状态', async ({ page }) => {
+  test('E2E-TC-03-04 搜索无匹配内容时显示空结果状态', async ({ page }) => {
     await openHome(page)
     await search(page, 'UC03_E2E_不存在的内容')
 
@@ -76,7 +83,7 @@ test.describe('UC-03 视频推荐端到端测试', () => {
     await expect(page.getByText('暂无视频，去创作者中心上传第一条作品吧。')).toBeVisible()
   })
 
-  test('E2E-03-05 用户可从推荐卡片进入视频页并返回首页', async ({ page }) => {
+  test('E2E-TC-03-05 用户可从推荐卡片进入视频页并返回首页', async ({ page }) => {
     await openHome(page)
     await search(page, '热门推荐')
     await videoCards(page).filter({ hasText: titles.hot }).click()

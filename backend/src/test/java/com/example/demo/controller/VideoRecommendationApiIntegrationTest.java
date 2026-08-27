@@ -62,7 +62,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-01 游客获取推荐：只返回公开视频并按热度排序")
+    @DisplayName("API-TC-03-01 游客获取推荐：只返回公开视频并按热度排序")
     void guestRecommendationReturnsPublicVideosInScoreOrder() throws Exception {
         insertVideo(DATA_PREFIX + "low", otherAuthorId, 1, "public", 80, 0, 0, 0, "daily", OLD_DATE);
         insertVideo(DATA_PREFIX + "high", followedAuthorId, 1, "public", 8000, 80, 30, 20, "tech", OLD_DATE);
@@ -77,7 +77,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-02 登录用户推荐：已关注作者的视频优先并标记关注状态")
+    @DisplayName("API-TC-03-02 登录用户推荐：已关注作者的视频优先并标记关注状态")
     void followedAuthorReceivesPriorityForLoggedInUser() throws Exception {
         insertVideo(DATA_PREFIX + "popular", otherAuthorId, 1, "public", 4000, 0, 0, 0, "news", OLD_DATE);
         insertVideo(DATA_PREFIX + "followed_video", followedAuthorId, 1, "public", 0, 0, 0, 0, "daily", OLD_DATE);
@@ -94,7 +94,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-03 登录用户推荐：兴趣标签匹配的视频优先")
+    @DisplayName("API-TC-03-03 登录用户推荐：兴趣标签匹配的视频优先")
     void interestTagRaisesRecommendationPriority() throws Exception {
         insertVideo(DATA_PREFIX + "generic", otherAuthorId, 1, "public", 3200, 0, 0, 0, "news", OLD_DATE);
         insertVideo(DATA_PREFIX + "music", followedAuthorId, 1, "public", 0, 0, 0, 0, "music campus", OLD_DATE);
@@ -109,7 +109,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-04 登录用户推荐：已观看视频降低排序权重")
+    @DisplayName("API-TC-03-04 登录用户推荐：已观看视频降低排序权重")
     void viewedVideoReceivesRecommendationPenalty() throws Exception {
         Long viewedVideoId = insertVideo(
                 DATA_PREFIX + "viewed", followedAuthorId, 1, "public", 0, 0, 0, 0, "daily", OLD_DATE);
@@ -127,7 +127,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-05 分类和关键词筛选：仅返回同时匹配的视频")
+    @DisplayName("API-TC-03-05 分类和关键词筛选：仅返回同时匹配的视频")
     void categoryAndKeywordFilterReturnMatchingVideoOnly() throws Exception {
         insertVideo(DATA_PREFIX + "campus_music", followedAuthorId, 3, "public", 0, 0, 0, 0, "campus music", OLD_DATE);
         insertVideo(DATA_PREFIX + "campus_sport", otherAuthorId, 3, "public", 0, 0, 0, 0, "sport", OLD_DATE);
@@ -140,7 +140,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-06 推荐分页：第二页返回排序后的第二条视频")
+    @DisplayName("API-TC-03-06 推荐分页：第二页返回排序后的第二条视频")
     void paginationReturnsRequestedSlice() throws Exception {
         insertVideo(DATA_PREFIX + "rank_1", followedAuthorId, 1, "public", 8000, 0, 0, 0, "one", OLD_DATE);
         insertVideo(DATA_PREFIX + "rank_2", otherAuthorId, 1, "public", 4000, 0, 0, 0, "two", OLD_DATE);
@@ -153,7 +153,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-07 无匹配推荐：返回成功和空数组")
+    @DisplayName("API-TC-03-07 无匹配推荐：返回成功和空数组")
     void noMatchingRecommendationReturnsEmptyArray() throws Exception {
         insertVideo(DATA_PREFIX + "existing", otherAuthorId, 1, "public", 0, 0, 0, 0, "daily", OLD_DATE);
 
@@ -166,7 +166,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-08 页码类型错误：返回 HTTP 400")
+    @DisplayName("API-TC-03-08 页码类型错误：返回 HTTP 400")
     void invalidPageReturnsBadRequest() throws Exception {
         ApiResult result = get("/api/videos/recommend?page=abc", null);
 
@@ -174,7 +174,7 @@ class VideoRecommendationApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-03-09 用户标识类型错误：返回 HTTP 400")
+    @DisplayName("API-TC-03-09 用户标识类型错误：返回 HTTP 400")
     void invalidUserHeaderReturnsBadRequest() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(endpoint("/api/videos/recommend"))
                 .header("Accept", "application/json")

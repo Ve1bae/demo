@@ -5,6 +5,7 @@ import com.example.demo.service.MinioService;
 import com.example.demo.service.VideoService;
 import com.example.demo.service.VideoTranscodeService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-19 游客请求使用接口默认参数")
     void usesDocumentedDefaultQueryParametersForGuest() throws Exception {
         Video video = video(7L, "首页推荐");
         when(videoService.getRecommendedFeed(null, 1, 12, 0, null)).thenReturn(List.of(video));
@@ -73,6 +75,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-20 Controller正确转发分页筛选和用户参数")
     void forwardsPagingFiltersKeywordAndLoggedInUserHeader() throws Exception {
         Video video = video(8L, "校园音乐会");
         when(videoService.getRecommendedFeed(42L, 3, 7, 5, "校园"))
@@ -92,6 +95,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-21 Service空结果被序列化为空数组")
     void returnsAnEmptyArrayWhenRecommendationHasNoResults() throws Exception {
         when(videoService.getRecommendedFeed(null, 1, 12, 0, null)).thenReturn(List.of());
 
@@ -104,6 +108,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-22 缺少用户请求头时按游客处理")
     void acceptsExplicitGuestHeaderOmissionAlongsideKeyword() throws Exception {
         when(videoService.getRecommendedFeed(null, 1, 12, 0, "音乐")).thenReturn(List.of());
 
@@ -116,6 +121,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-23 非数字页码返回HTTP 400且不调用Service")
     void rejectsNonNumericPagingParameterBeforeCallingService() throws Exception {
         mockMvc.perform(get("/api/videos/recommend").param("page", "abc"))
                 .andExpect(status().isBadRequest());
@@ -124,6 +130,7 @@ class VideoControllerRecommendUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-24 非数字用户标识返回HTTP 400且不调用Service")
     void rejectsNonNumericUserHeaderBeforeCallingService() throws Exception {
         mockMvc.perform(get("/api/videos/recommend").header("X-User-Id", "guest"))
                 .andExpect(status().isBadRequest());

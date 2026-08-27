@@ -276,7 +276,13 @@ jobs:
   deploy-frontend:
     name: Deploy frontend to GitHub Pages
     runs-on: ubuntu-latest
-    needs: frontend-build
+    needs:
+      - recommendation-unit-test
+      - recommendation-api-test
+      - recommendation-e2e-test
+      - backend-test
+      - live-integration
+      - frontend-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

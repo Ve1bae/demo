@@ -12,6 +12,7 @@ import com.example.demo.mapper.UserVideoMapper;
 import com.example.demo.mapper.ViewHistoryMapper;
 import com.example.demo.mapper.VideoMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,6 +72,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-01 公热视频按推荐分数排序")
     void returnsPublicVideosInRecommendationOrder() {
         Video popular = video(1L, "热门视频", 10L, 1000, 20, 10, 8, LocalDateTime.now().minusDays(2));
         Video recent = video(2L, "新视频", 10L, 1, 0, 0, 0, LocalDateTime.now().minusHours(1));
@@ -83,6 +85,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-02 关键词匹配标题、作者、描述和标签")
     void filtersByKeywordAcrossVideoFields() {
         Video matching = video(1L, "校园音乐会", 10L, 1, 0, 0, 0, LocalDateTime.now());
         matching.setTags("音乐 校园");
@@ -96,6 +99,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-03 非法分页值按安全范围修正")
     void appliesPaginationAndClampsInvalidValues() {
         Video first = video(1L, "第一条", 10L, 100, 0, 0, 0, LocalDateTime.now());
         Video second = video(2L, "第二条", 10L, 90, 0, 0, 0, LocalDateTime.now().minusMinutes(1));
@@ -108,6 +112,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-04 已关注作者获得推荐加分")
     void followedAuthorGetsRecommendationPriorityForLoggedInUser() {
         User otherAuthor = new User();
         otherAuthor.setId(11L);
@@ -129,6 +134,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-05 页码超过结果范围返回空列表")
     void returnsEmptyListWhenPageStartsAfterResults() {
         Video only = video(1L, "唯一视频", 10L, 1, 0, 0, 0, LocalDateTime.now());
         when(videoMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(only));
@@ -139,6 +145,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-06 游客不读取个性化数据")
     void guestDoesNotReadPersonalizedRecommendationData() {
         Video publicVideo = video(1L, "公开视频", 10L, 10, 0, 0, 0, LocalDateTime.now());
         when(videoMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(publicVideo));
@@ -151,6 +158,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-07 登录用户读取关注、兴趣和观看历史")
     void loggedInUserLoadsAllPersonalizationSources() {
         Video publicVideo = video(1L, "个性化视频", 10L, 10, 0, 0, 0, LocalDateTime.now());
         when(videoMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(publicVideo));
@@ -165,6 +173,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-08 兴趣标签匹配提高排序")
     void matchingInterestTagIncreasesRecommendationPriority() {
         User otherAuthor = new User();
         otherAuthor.setId(11L);
@@ -188,6 +197,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-09 已观看视频降低排序权重")
     void viewedVideoReceivesRecommendationPenalty() {
         Video viewed = video(1L, "已看视频", 10L, 100, 0, 0, 0, LocalDateTime.now().minusDays(30));
         Video unseen = video(2L, "未看视频", 10L, 100, 0, 0, 0, LocalDateTime.now().minusDays(30));
@@ -203,6 +213,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-10 查询条件只包含公开视频和指定分类")
     void buildsPublicAndCategoryFilterForCategoryRequest() {
         when(videoMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of());
 
@@ -225,6 +236,7 @@ class VideoRecommendationServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UNIT-TC-03-11 分数相同时近期视频优先")
     void recentVideoGetsFreshnessBonusWhenOtherScoresTie() {
         Video recent = video(1L, "近期视频", 10L, 0, 0, 0, 0, LocalDateTime.now().minusDays(2));
         Video old = video(2L, "旧视频", 10L, 0, 0, 0, 0, LocalDateTime.now().minusDays(30));
