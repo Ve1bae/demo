@@ -58,9 +58,14 @@ public class CommentController {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
         }
 
+        String content = (String) requestBody.get("content");
+        if (content == null || content.isBlank()) {
+            return ResponseEntity.ok(ApiResponse.error(400, "评论内容不能为空"));
+        }
+
         Comment comment = new Comment();
         comment.setVideoId(videoId);
-        comment.setContent((String) requestBody.get("content"));
+        comment.setContent(content);
 
         Object parentId = requestBody.get("parentId");
         if (parentId != null && !"null".equals(parentId.toString())) {

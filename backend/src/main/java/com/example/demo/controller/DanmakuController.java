@@ -62,13 +62,18 @@ public class DanmakuController {
         if (video == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
         }
-        
+
+        String danmakuContent = (String) requestBody.get("content");
+        if (danmakuContent == null || danmakuContent.isBlank()) {
+            return ResponseEntity.ok(ApiResponse.error(400, "弹幕内容不能为空"));
+        }
+
         // 使用 playUrl 作为弹幕关联字段
         String videoIdentifier = video.getPlayUrl();
-        
+
         Danmaku danmaku = new Danmaku();
         danmaku.setVideoUrl(videoIdentifier);
-        danmaku.setContent((String) requestBody.get("content"));
+        danmaku.setContent(danmakuContent);
         
         // 支持 API 规范中的 timeSeconds 字段
         Object timeSeconds = requestBody.get("timeSeconds");
