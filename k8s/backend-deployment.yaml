@@ -16,7 +16,7 @@ spec:
       containers:
         - name: backend
           image: ghcr.io/ve1bae/demo-backend:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9090
           envFrom:

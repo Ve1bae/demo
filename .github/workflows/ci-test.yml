@@ -94,7 +94,7 @@ jobs:
             ${{ env.FRONTEND_IMAGE }}:latest
 
   deploy:
-    name: 部署到 kind (K8s)
+    name: 部署 + 健康检查 (kind K8s)
     runs-on: ubuntu-latest
     needs: build-push
     permissions:
@@ -103,55 +103,95 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
-      - name: 安装 kind
+
+      - name: 安装 kind + kubectl
         run: |
-          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
           sudo install -m 755 kind /usr/local/bin/kind
+          curl -Lo kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
+          sudo install -m 755 kubectl /usr/local/bin/kubectl
+          kind version && kubectl version --client
+
       - name: 创建 kind 集群
         run: kind create cluster --name hangyin --wait 120s
-      - name: 登录 GHCR 并拉取镜像
+
+      - name: 拉取镜像
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker pull ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
           docker pull ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          docker images | grep demo
+
       - name: 加载镜像到 kind
         run: |
           kind load docker-image ${{ env.BACKEND_IMAGE }}:${{ github.sha }} --name hangyin
           kind load docker-image ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} --name hangyin
-      - name: 部署到 K8s
+
+      - name: 替换镜像 tag 并部署
         run: |
           sed -i "s|ghcr.io/ve1bae/demo-backend:latest|ghcr.io/ve1bae/demo-backend:${{ github.sha }}|g" k8s/backend-deployment.yaml
           sed -i "s|ghcr.io/ve1bae/demo-frontend:latest|ghcr.io/ve1bae/demo-frontend:${{ github.sha }}|g" k8s/frontend-deployment.yaml
+          echo "=== 替换后的后端镜像 ==="
+          grep "image:" k8s/backend-deployment.yaml
+          echo "=== 替换后的前端镜像 ==="
+          grep "image:" k8s/frontend-deployment.yaml
           kubectl apply -f k8s/
-          echo "等待 MySQL 就绪..."
-          kubectl -n hangyin wait --for=condition=ready pod -l app=mysql --timeout=120s || { kubectl -n hangyin get pods; exit 1; }
-          echo "等待 Backend 就绪..."
-          kubectl -n hangyin wait --for=condition=available deployment/backend --timeout=120s || { kubectl -n hangyin logs -l app=backend --tail=50; exit 1; }
-          echo "等待 Frontend 就绪..."
-          kubectl -n hangyin wait --for=condition=available deployment/frontend --timeout=60s || { kubectl -n hangyin get pods; exit 1; }
-          kubectl -n hangyin get all
+          kubectl -n hangyin get pvc,pods,svc --no-headers
 
-  health-check:
-    name: 健康检查 - curl 验证
-    runs-on: ubuntu-latest
-    needs: deploy
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-      - name: 安装 kind
+      - name: 等待 MySQL 就绪
         run: |
-          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
-          sudo install -m 755 kind /usr/local/bin/kind
-      - name: 健康检查后端 API
+          echo "等待 MySQL Pod Running..."
+          for i in $(seq 1 30); do
+            status=$(kubectl -n hangyin get pod -l app=mysql -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+            echo "  第${i}次: phase=$status"
+            [ "$status" = "Running" ] && break
+            sleep 5
+          done
+          echo "等待 MySQL Ready..."
+          kubectl -n hangyin wait --for=condition=ready pod -l app=mysql --timeout=180s || {
+            echo "=== MySQL Pod 状态 ==="
+            kubectl -n hangyin describe pod -l app=mysql
+            echo "=== MySQL 日志 ==="
+            kubectl -n hangyin logs -l app=mysql --tail=100
+            exit 1
+          }
+
+      - name: 等待 Backend 就绪
+        run: |
+          kubectl -n hangyin wait --for=condition=available deployment/backend --timeout=180s || {
+            echo "=== Backend Pod 状态 ==="
+            kubectl -n hangyin get pod -l app=backend -o wide
+            echo "=== Backend 日志 ==="
+            kubectl -n hangyin logs -l app=backend --tail=100
+            echo "=== Backend Pod describe ==="
+            kubectl -n hangyin describe pod -l app=backend
+            exit 1
+          }
+
+      - name: 等待 Frontend 就绪
+        run: |
+          kubectl -n hangyin wait --for=condition=available deployment/frontend --timeout=120s || {
+            kubectl -n hangyin logs -l app=frontend --tail=50
+            exit 1
+          }
+
+      - name: 集群状态汇总
+        run: kubectl -n hangyin get all -o wide
+
+      - name: 健康检查 - curl 验证 API
         run: |
           kubectl port-forward svc/backend-service 19090:9090 -n hangyin &
           PF_PID=$!
-          sleep 5
-          curl -fsS http://localhost:19090/api/videos/recommend && echo "" || { echo "推荐视频接口失败"; kill $PF_PID; exit 1; }
-          curl -fsS http://localhost:19090/api/videos/1 && echo "" || { echo "视频详情接口失败"; kill $PF_PID; exit 1; }
-          curl -fsS "http://localhost:19090/api/videos/1/comments?page=1&pageSize=20" && echo "" || { echo "评论接口失败"; kill $PF_PID; exit 1; }
-          echo "=== 健康检查全部通过 ==="
+          sleep 8
+          echo "=== 测试 /api/videos/recommend ==="
+          curl -fsS http://localhost:19090/api/videos/recommend | head -c 500 && echo "" || { echo "❌ 推荐视频接口失败"; kill $PF_PID; exit 1; }
+          echo "=== 测试 /api/videos/1 ==="
+          curl -fsS http://localhost:19090/api/videos/1 | head -c 500 && echo "" || { echo "❌ 视频详情接口失败"; kill $PF_PID; exit 1; }
+          echo "=== 测试评论接口 ==="
+          curl -fsS "http://localhost:19090/api/videos/1/comments?page=1&pageSize=20" | head -c 500 && echo "" || { echo "❌ 评论接口失败"; kill $PF_PID; exit 1; }
+          echo "=== 健康检查全部通过 ✅ ==="
           kill $PF_PID
+
       - name: 清理 kind 集群
         if: always()
         run: kind delete cluster --name hangyin

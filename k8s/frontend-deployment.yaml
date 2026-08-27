@@ -16,7 +16,7 @@ spec:
       containers:
         - name: frontend
           image: ghcr.io/ve1bae/demo-frontend:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           readinessProbe:
