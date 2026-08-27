@@ -1,0 +1,314 @@
+name: UC-07 CI/CD
+
+on:
+  push:
+    branches: [uc07cicd]
+  pull_request:
+    branches: [uc07cicd]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UC07_E2E_BASE_URL: http://127.0.0.1:8080
+  UC07_E2E_USER_ID: "42"
+  UC07_E2E_REPORT: backend/target/e2e-reports/uc07-e2e-report.json
+  SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  SPRING_DATASOURCE_USERNAME: root
+  SPRING_DATASOURCE_PASSWORD: root
+  MINIO_ENDPOINT: http://127.0.0.1:9000
+  MINIO_PUBLIC_BASE_URL: http://127.0.0.1:8082/video
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin
+  MINIO_BUCKET: hangyin-video
+  LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+  LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+  LIVE_TRANSCODE_ENABLED: "false"
+  VIDEO_TRANSCODE_ENABLED: "false"
+  APP_HOST: 127.0.0.1
+
+jobs:
+  compile:
+    name: 01 Checkout, install and compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile backend
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -DskipTests compile
+
+  mysql:
+    name: 02 Start MySQL
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hangyin_video
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize MySQL schema
+        run: |
+          sudo apt-get update && sudo apt-get install -y default-mysql-client
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
+
+  media-dependencies:
+    name: 03 Start SRS, MinIO and Nginx
+    needs: mysql
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start and verify media dependencies
+        run: |
+          set -euo pipefail
+          docker compose -p uc07-cicd up -d srs minio nginx
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null \
+              && curl -fsS http://127.0.0.1:1985/api/v1/versions >/dev/null \
+              && (echo > /dev/tcp/127.0.0.1/8082) 2>/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -p uc07-cicd logs --no-color srs minio nginx
+          exit 1
+      - name: Stop media dependencies
+        if: always()
+        run: docker compose -p uc07-cicd down --volumes --remove-orphans || true
+
+  unit-api-tests:
+    name: 04 Run JUnit unit and API tests
+    needs: media-dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hangyin_video
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Initialize test database
+        run: |
+          sudo apt-get update && sudo apt-get install -y default-mysql-client
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
+      - name: Run UC-07 JUnit tests
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B '-Dtest=Uc07CreateRoomServiceTest,Uc07CreateRoomControllerTest' test
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc07-junit-reports
+          if-no-files-found: warn
+          path: backend/target/surefire-reports/**
+
+  backend:
+    name: 05 Start backend service
+    needs: unit-api-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hangyin_video
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Prepare backend runtime dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y default-mysql-client
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
+          docker compose -p uc07-cicd up -d srs minio nginx
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null \
+              && curl -fsS http://127.0.0.1:1985/api/v1/versions >/dev/null \
+              && (echo > /dev/tcp/127.0.0.1/8082) 2>/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -p uc07-cicd logs --no-color srs minio nginx
+          exit 1
+      - name: Start and verify backend
+        run: |
+          mkdir -p backend/target
+          (
+            cd backend
+            chmod +x mvnw
+            nohup ./mvnw -B spring-boot:run > target/ci-backend.log 2>&1 &
+            echo $! > target/ci-backend.pid
+          )
+          for _ in $(seq 1 90); do
+            curl -fsS "$UC07_E2E_BASE_URL/api/live/rooms?page=1&pageSize=1" >/dev/null && exit 0
+            grep -q "APPLICATION FAILED TO START" backend/target/ci-backend.log && cat backend/target/ci-backend.log && exit 1 || true
+            sleep 2
+          done
+          cat backend/target/ci-backend.log || true
+          exit 1
+      - name: Stop backend runtime
+        if: always()
+        run: |
+          test -f backend/target/ci-backend.pid && kill "$(cat backend/target/ci-backend.pid)" || true
+          docker compose -p uc07-cicd down --volumes --remove-orphans || true
+
+  uc07-e2e:
+    name: 06 Run UC-07 end-to-end tests
+    needs: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hangyin_video
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare isolated E2E environment
+        run: |
+          sudo apt-get update && sudo apt-get install -y default-mysql-client
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
+          docker compose -p uc07-cicd up -d srs minio nginx
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null \
+              && curl -fsS http://127.0.0.1:1985/api/v1/versions >/dev/null \
+              && (echo > /dev/tcp/127.0.0.1/8082) 2>/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -p uc07-cicd logs --no-color srs minio nginx
+          exit 1
+      - name: Start backend for E2E
+        run: |
+          mkdir -p backend/target
+          (
+            cd backend
+            chmod +x mvnw
+            nohup ./mvnw -B spring-boot:run > target/ci-backend.log 2>&1 &
+            echo $! > target/ci-backend.pid
+          )
+          for _ in $(seq 1 90); do
+            curl -fsS "$UC07_E2E_BASE_URL/api/live/rooms?page=1&pageSize=1" >/dev/null && exit 0
+            grep -q "APPLICATION FAILED TO START" backend/target/ci-backend.log && cat backend/target/ci-backend.log && exit 1 || true
+            sleep 2
+          done
+          cat backend/target/ci-backend.log || true
+          exit 1
+      - name: Run UC-07 E2E assertions
+        run: node scripts/uc07-e2e.mjs
+      - name: Publish test summary
+        if: always()
+        run: |
+          {
+            echo "## UC-07 测试结果"
+            node -e "const fs=require('fs');const p='backend/target/e2e-reports/uc07-e2e-report.json';if(fs.existsSync(p)){const r=JSON.parse(fs.readFileSync(p));console.log('端到端：总数 '+r.total+'，通过 '+r.passed+'，失败 '+r.failed)}else{console.log('未生成端到端报告')}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload E2E reports and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc07-e2e-reports
+          if-no-files-found: warn
+          path: |
+            backend/target/e2e-reports/**
+            backend/target/ci-backend.log
+            doc/UC07创建直播间测试报告.md
+      - name: Collect E2E service logs
+        if: always()
+        run: docker compose -p uc07-cicd logs --no-color --tail=200 srs minio nginx || true
+      - name: Stop E2E runtime
+        if: always()
+        run: |
+          test -f backend/target/ci-backend.pid && kill "$(cat backend/target/ci-backend.pid)" || true
+          docker compose -p uc07-cicd down --volumes --remove-orphans || true
+
+  container-images:
+    name: 07 Build frontend and backend images
+    needs: uc07-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Validate container orchestration
+        run: docker compose config --quiet
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: hangyin-backend:${{ github.sha }}
+          cache-from: type=gha,scope=uc07-backend
+          cache-to: type=gha,mode=max,scope=uc07-backend
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend/demo
+          file: ./frontend/demo/Dockerfile
+          push: false
+          tags: hangyin-frontend:${{ github.sha }}
+          cache-from: type=gha,scope=uc07-frontend
+          cache-to: type=gha,mode=max,scope=uc07-frontend
