@@ -1,6 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.ApiResponse;
+import com.example.demo.common.ApiResponse;
 import com.example.demo.entity.Danmaku;
 import com.example.demo.entity.Video;
 import com.example.demo.service.DanmakuService;

@@ -6,13 +6,28 @@ on:
   pull_request:
     branches: [ main, master, videoplayer ]
 
+env:
+  SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  SPRING_DATASOURCE_USERNAME: root
+  SPRING_DATASOURCE_PASSWORD: root
+
 jobs:
   test:
-    name: 后端测试 (UC-04/05/06)
+    name: 后端测试 (UC-04/05/06, MySQL)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hangyin_video
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: 检出代码
@@ -23,18 +38,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
 
-      - name: 缓存 Maven 依赖
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
-          restore-keys: ${{ runner.os }}-maven-
+      - name: 安装 MySQL 客户端
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+
+      - name: 建表（demo.sql）
+        run: mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
+
+      - name: 导入测试种子数据（data.sql）
+        run: mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < backend/src/test/resources/data.sql
 
       - name: 给 mvnw 加执行权限
+        working-directory: backend
         run: chmod +x mvnw
 
       - name: 编译 + 运行测试
+        working-directory: backend
         run: ./mvnw -B -ntp test
 
       - name: 上传测试报告

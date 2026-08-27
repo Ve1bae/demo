@@ -79,9 +79,9 @@ public class UC04Test {
             assertEquals(1L, result.getVideoId());
             assertEquals("5", result.getViews());
             assertNotNull(result.getSources());
-            assertEquals(4, result.getSources().size());
-            assertEquals("http://localhost/video.mp4", result.getSources().get("1080P"));
-            assertEquals("1080P", result.getDefaultQuality());
+            assertEquals(1, result.getSources().size());
+            assertEquals("http://localhost/video.mp4", result.getSources().get("720P"));
+            assertEquals("720P", result.getDefaultQuality());
         }
 
         @Test
@@ -126,7 +126,7 @@ public class UC04Test {
             Video result = videoService.getVideoById(4L);
 
             assertNotNull(result);
-            assertNull(result.getSources());
+            assertTrue(result.getSources().isEmpty());
         }
 
         @Test
@@ -198,7 +198,7 @@ public class UC04Test {
                     .andExpect(jsonPath("$.code").value(200))
                     .andExpect(jsonPath("$.data.id").value(1))
                     .andExpect(jsonPath("$.data.playUrl").value("http://localhost/video.mp4"))
-                    .andExpect(jsonPath("$.data.defaultQuality").value("1080P"))
+                    .andExpect(jsonPath("$.data.defaultQuality").value("720P"))
                     .andExpect(jsonPath("$.data.videoId").value(1));
         }
 
@@ -262,7 +262,7 @@ public class UC04Test {
                     .andExpect(jsonPath("$.code").value(200))
                     .andExpect(jsonPath("$.data.id").value(1))
                     .andExpect(jsonPath("$.data.playUrl").value("http://localhost/video.mp4"))
-                    .andExpect(jsonPath("$.data.defaultQuality").value("1080P"));
+                    .andExpect(jsonPath("$.data.defaultQuality").value("720P"));
 
             mockMvc.perform(post("/api/videos/1/play"))
                     .andExpect(status().isOk())

@@ -1,7 +1,9 @@
 package com.example.demo;
 
 import com.example.demo.entity.Comment;
+import com.example.demo.entity.CommentLike;
 import com.example.demo.entity.User;
+import com.example.demo.mapper.CommentLikeMapper;
 import com.example.demo.mapper.CommentMapper;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.service.impl.CommentServiceImpl;
@@ -49,6 +51,9 @@ public class UC05Test {
 
         @Mock
         private CommentMapper commentMapper;
+
+        @Mock
+        private CommentLikeMapper commentLikeMapper;
 
         @Mock
         private UserMapper userMapper;
@@ -103,8 +108,7 @@ public class UC05Test {
             user.setId(1L);
             user.setNickname("测试用户");
 
-            when(commentMapper.selectByVideoIdWithPagination(1L, 0, 20)).thenReturn(List.of(c));
-            when(commentMapper.countByVideoId(1L)).thenReturn(1);
+            when(commentMapper.selectList(any())).thenReturn(List.of(c));
             when(userMapper.selectById(1L)).thenReturn(user);
 
             Map<String, Object> result = commentService.getCommentsByVideoIdWithPagination(1L, 1, 20);
@@ -128,8 +132,7 @@ public class UC05Test {
             c.setUserId(99L);
             c.setContent("无用户评论");
 
-            when(commentMapper.selectByVideoIdWithPagination(1L, 0, 20)).thenReturn(List.of(c));
-            when(commentMapper.countByVideoId(1L)).thenReturn(1);
+            when(commentMapper.selectList(any())).thenReturn(List.of(c));
             when(userMapper.selectById(99L)).thenReturn(null);
 
             Map<String, Object> result = commentService.getCommentsByVideoIdWithPagination(1L, 1, 20);
@@ -146,12 +149,14 @@ public class UC05Test {
             c.setId(20L);
             c.setLikeCount(3);
             when(commentMapper.selectById(20L)).thenReturn(c);
+            when(commentLikeMapper.insert(any(CommentLike.class))).thenReturn(1);
             when(commentMapper.updateById(c)).thenReturn(1);
 
-            boolean success = commentService.likeComment(20L);
+            boolean success = commentService.likeComment(20L, 1L);
 
             assertTrue(success);
             assertEquals(4, c.getLikeCount());
+            verify(commentLikeMapper).insert(any(CommentLike.class));
             verify(commentMapper).updateById(c);
         }
 
@@ -160,9 +165,10 @@ public class UC05Test {
         void likeComment_不存在_返回false() {
             when(commentMapper.selectById(999L)).thenReturn(null);
 
-            boolean success = commentService.likeComment(999L);
+            boolean success = commentService.likeComment(999L, 1L);
 
             assertFalse(success);
+            verify(commentLikeMapper, never()).insert(any(CommentLike.class));
             verify(commentMapper, never()).updateById(any(Comment.class));
         }
 
@@ -211,7 +217,7 @@ public class UC05Test {
                             .content(objectMapper.writeValueAsString(Map.of("content", "评论A", "userId", 1))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200))
-                    .andExpect(jsonPath("$.data").value("评论发布成功"));
+                    .andExpect(jsonPath("$.message").value("评论发布成功"));
         }
 
         @Test
@@ -294,7 +300,7 @@ public class UC05Test {
                             .content(objectMapper.writeValueAsString(Map.of("content", "端到端评论", "userId", 1))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200))
-                    .andExpect(jsonPath("$.data").value("评论发布成功"));
+                    .andExpect(jsonPath("$.message").value("评论发布成功"));
 
             mockMvc.perform(get("/api/videos/1/comments").param("page", "1").param("pageSize", "20"))
                     .andExpect(status().isOk())
