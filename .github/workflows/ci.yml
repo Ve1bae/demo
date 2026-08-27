@@ -23,6 +23,32 @@ env:
   APP_HOST: 127.0.0.1
 
 jobs:
+  recommendation-unit-test:
+    name: UC-03 视频推荐单元测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Run UC-03 recommendation unit tests
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp \
+            -Dtest=VideoControllerRecommendUnitTest,VideoRecommendationServiceUnitTest,VideoServiceImplRecommendationEdgeTest \
+            test
+      - name: Upload UC-03 test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc03-recommendation-surefire-reports
+          path: backend/target/surefire-reports
+          if-no-files-found: warn
+
   backend-test:
     name: Backend tests
     runs-on: ubuntu-latest
