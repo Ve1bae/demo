@@ -42,10 +42,8 @@ class VideoRecommendationApiIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private Long viewerId;
     private Long followedAuthorId;
     private Long otherAuthorId;
