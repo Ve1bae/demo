@@ -9,6 +9,12 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5173',
     channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
-    headless: true
+    headless: true,
+    launchOptions: {
+      args: [
+        '--autoplay-policy=no-user-gesture-required',
+        '--no-sandbox'
+      ]
+    }
   }
 })

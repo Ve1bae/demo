@@ -139,10 +139,14 @@ test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
 
 test('SRS 推流后直播间能播放', async ({ page, request }) => {
   test.skip(!process.env.RUN_SRS_E2E, 'SRS E2E 需要设置 RUN_SRS_E2E=true 并启动 SRS')
+  test.setTimeout(120_000)
 
   const roomId = await createRoom(request)
   const detailResponse = await request.get(`${API_BASE}/live/rooms/${roomId}`)
-  const pushUrl = (await detailResponse.json()).data.pushUrl
+  const detail = await detailResponse.json()
+  const pushUrl = detail.data.pushUrl
+  const streamKey = pushUrl.split('/').pop()
+  const flvUrl = `http://127.0.0.1:8081/live/${streamKey}.flv`
 
   const ffmpeg = spawn('ffmpeg', [
     '-re',
@@ -160,13 +164,18 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
   ])
 
   try {
+    await expect.poll(async () => {
+      const streamResponse = await request.get(flvUrl)
+      return streamResponse.status()
+    }, { timeout: 30_000 }).toBe(200)
+
     await new Promise((resolve) => setTimeout(resolve, 3000))
     await page.goto(`/#/live/${roomId}`)
     await page.locator('video.live-player').waitFor()
     await page.waitForFunction(() => {
       const video = document.querySelector('video.live-player')
       return video && video.currentTime > 0.5
-    }, undefined, { timeout: 20_000 })
+    }, undefined, { timeout: 30_000 })
   } finally {
     ffmpeg.kill()
   }
