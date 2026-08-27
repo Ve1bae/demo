@@ -56,6 +56,97 @@ jobs:
           chmod +x mvnw
           ./mvnw -B test
 
+  browser-e2e:
+    name: Browser E2E tests
+    runs-on: ubuntu-latest
+    needs: backend-test
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hangyin_video
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/demo/package-lock.json
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+      - name: Create schema and test user
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
+          mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video -e \
+            "INSERT INTO sys_user (username, password, nickname) VALUES ('livetester', 'x', '直播测试用户') ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);"
+      - name: Start SRS
+        run: |
+          docker compose -f docker-compose.yml up -d srs
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8081/api/v1/versions >/dev/null 2>&1; then
+              echo "SRS is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.yml logs srs
+          exit 1
+      - name: Start backend
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          nohup ./mvnw -B spring-boot:run \
+            -Dspring-boot.run.arguments="--server.port=18080 --spring.datasource.url=jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true --spring.datasource.username=root --spring.datasource.password=root --minio.endpoint=http://127.0.0.1:9000 --minio.public-base-url=http://127.0.0.1:8082/video --minio.access-key=minioadmin --minio.secret-key=minioadmin --minio.bucket=hangyin-video --live.srs.rtmp-base-url=rtmp://127.0.0.1:1935/live --live.srs.http-base-url=http://127.0.0.1:8081 --live.transcode.enabled=false --video.transcode.enabled=false" \
+            > ../backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/api/live/rooms >/dev/null 2>&1; then
+              echo "backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat ../backend.log
+          exit 1
+      - name: Start frontend
+        working-directory: frontend/demo
+        env:
+          VITE_API_PORT: "18080"
+        run: |
+          nohup npm run dev -- --port 5173 --host 127.0.0.1 > ../vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5173 >/dev/null 2>&1; then
+              echo "frontend is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat ../vite.log
+          exit 1
+      - name: Install Playwright browser
+        working-directory: frontend/demo
+        run: npx playwright install --with-deps chromium
+      - name: Run browser E2E tests
+        working-directory: frontend/demo
+        env:
+          E2E_API_BASE: http://127.0.0.1:18080/api
+          RUN_SRS_E2E: "true"
+        run: npm run test:e2e
+
   frontend-build:
     name: Frontend build
     runs-on: ubuntu-latest

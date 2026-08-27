@@ -4,6 +4,9 @@ backend/uploads/
 backend/src/main/resources/application.yml
 backend/src/main/resources/application.properties
 frontend/demo/dist/
+frontend/demo/.npm-cache/
+frontend/demo/test-results/
+frontend/demo/playwright-report/
 node_modules/
 .idea/
 .vscode/
