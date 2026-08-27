@@ -43,10 +43,8 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: 安装 MySQL 客户端
         run: sudo apt-get update && sudo apt-get install -y default-mysql-client
-      - name: 建表 + 导入测试数据
-        run: |
-          mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
-          mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < backend/src/test/resources/data.sql
+      - name: 建表
+        run: mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
       - name: 运行测试
         working-directory: backend
         run: |
