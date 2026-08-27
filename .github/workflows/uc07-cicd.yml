@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  uc07-tests:
-    name: UC-07 test pipeline
+  uc07-test-stage:
+    name: UC-07 pipeline through tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -51,10 +51,10 @@ jobs:
       APP_HOST: 127.0.0.1
 
     steps:
-      - name: Checkout
+      - name: 01 Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: 02 Install Java dependencies
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -62,16 +62,23 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
 
-      - name: Set up Node.js
+      - name: 02 Install Node.js dependencies
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Install MySQL client
+      - name: 02 Install MySQL client
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y default-mysql-client
 
-      - name: Initialize MySQL schema
+      - name: 03 Compile backend
+        working-directory: backend
+        shell: bash
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -DskipTests compile
+
+      - name: 04 Start MySQL and initialize schema
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +99,7 @@ jobs:
 
           mysql -h 127.0.0.1 -P 3306 -uroot -proot hangyin_video < demo.sql
 
-      - name: Start SRS, MinIO and Nginx
+      - name: 05 Start SRS, MinIO and Nginx dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -127,12 +134,12 @@ jobs:
             exit 1
           fi
 
-      - name: Run JUnit unit and API tests
+      - name: 06 Run JUnit unit and API tests
         working-directory: backend
         shell: bash
         run: bash ./mvnw '-Dtest=Uc07CreateRoomServiceTest,Uc07CreateRoomControllerTest' test
 
-      - name: Start Spring Boot backend
+      - name: 07 Start backend service for E2E
         shell: bash
         run: |
           set -euo pipefail
@@ -144,7 +151,7 @@ jobs:
             echo $! > target/ci-backend.pid
           )
 
-      - name: Wait for backend
+      - name: 07 Wait for backend readiness
         shell: bash
         run: |
           set -euo pipefail
@@ -166,7 +173,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run UC-07 end-to-end tests
+      - name: 08 Run UC-07 end-to-end tests
         shell: bash
         run: node scripts/uc07-e2e.mjs
 
@@ -190,6 +197,12 @@ jobs:
             else
               echo "未生成端到端报告"
             fi
+            echo
+            echo "### 当前流水线阶段"
+            echo "已执行到测试阶段：取代码、安装依赖、编译、启动 MySQL、启动 SRS/MinIO/Nginx、单元/API 测试、启动后端、端到端测试。"
+            echo
+            echo "### 后续预留阶段"
+            echo "制作镜像、部署到 Kubernetes、部署后健康检查暂不执行；这些阶段应在当前测试全部通过后再接入。"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload UC-07 test reports
