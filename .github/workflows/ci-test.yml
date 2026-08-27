@@ -109,6 +109,11 @@ jobs:
           sudo install -m 755 kind /usr/local/bin/kind
       - name: 创建 kind 集群
         run: kind create cluster --name hangyin --wait 120s
+      - name: 登录 GHCR 并拉取镜像
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker pull ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          docker pull ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
       - name: 加载镜像到 kind
         run: |
           kind load docker-image ${{ env.BACKEND_IMAGE }}:${{ github.sha }} --name hangyin
