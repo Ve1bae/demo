@@ -2,9 +2,9 @@ name: Backend Tests & CD
 
 on:
   push:
-    branches: [ main, master, videoplayer ]
+    branches: [ videoplayer ]
   pull_request:
-    branches: [ main, master, videoplayer ]
+    branches: [ videoplayer ]
 
 env:
   REGISTRY: ghcr.io
