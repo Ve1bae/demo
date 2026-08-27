@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @Tag("unit")
-class VideoServiceImplTest {
+class VideoRecommendationServiceUnitTest {
 
     @Mock
     private VideoMapper videoMapper;
