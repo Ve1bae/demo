@@ -27,7 +27,7 @@ INSERT INTO video (
   status, play_count, like_count, favorite_count, comment_count, created_at, updated_at
 )
 VALUES
-  (931001, 'UC03 E2E 热门推荐', '热门推荐端到端测试视频', 'http://127.0.0.1:5173/e2e/hot.mp4',
+  (931001, 'UC03 E2E 热门推荐', '热门推荐端到端测试视频', 'http://127.0.0.1:5173/e2e/hot.webm',
    'uc03-e2e-hot', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
    930003, 1, '热门 科技', 90, 'public', 8000, 0, 0, 0, '2025-01-01 12:00:00', '2025-01-01 12:00:00'),
   (931002, 'UC03 E2E 普通推荐', '普通推荐端到端测试视频', 'http://127.0.0.1:18080/e2e/low.mp4',

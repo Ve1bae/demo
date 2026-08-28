@@ -27,12 +27,15 @@ test.describe('UC-04 至 UC-06 视频播放与互动端到端测试', () => {
     await openVideo(page)
     const video = page.locator('video.main-video')
     await expect(video).toBeVisible()
-    await video.evaluate((element) => new Promise((resolve) => {
+    await video.evaluate((element) => new Promise((resolve, reject) => {
       if (element.readyState >= 2) {
         resolve()
         return
       }
       element.addEventListener('loadeddata', resolve, { once: true })
+      element.addEventListener('error', () => reject(new Error(
+        `E2E video fixture failed to load: ${element.error?.message || element.error?.code || 'unknown media error'}`
+      )), { once: true })
     }))
     await page.locator('.bottom-controls .left-controls > .control-btn').click()
     await expect((await playResponse).status()).toBe(200)
