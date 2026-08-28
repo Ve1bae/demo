@@ -42,6 +42,22 @@ jobs:
           docker compose ps
           exit 1
 
+      - name: Start backend for tests and HTTP E2E
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+          MINIO_ENDPOINT: http://127.0.0.1:9000
+          LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+          LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+          VIDEO_TRANSCODE_ENABLED: 'false'
+        working-directory: backend
+        run: |
+          nohup ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
+          for i in {1..60}; do curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2; done
+          cat ../backend-e2e.log
+          exit 1
+
       - name: Seed browser E2E data
         run: docker compose exec -T mysql mysql -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
 
@@ -58,22 +74,6 @@ jobs:
           RUN_UC03_API_TESTS: 'true'
         run: ./mvnw -B test
 
-      - name: Start backend for HTTP E2E
-        working-directory: backend
-        env:
-          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-          SPRING_DATASOURCE_USERNAME: root
-          SPRING_DATASOURCE_PASSWORD: root
-          MINIO_ENDPOINT: http://127.0.0.1:9000
-          LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
-          LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
-          VIDEO_TRANSCODE_ENABLED: 'false'
-        run: |
-          nohup ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
-          for i in {1..60}; do curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2; done
-          cat ../backend-e2e.log
-          exit 1
-
       - name: Run HTTP E2E scenarios
         env:
           E2E_API_BASE: http://127.0.0.1:8080/api
@@ -84,6 +84,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend/demo
         run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend/demo
+        run: npm run build
 
       - name: Install browser
         working-directory: frontend/demo
@@ -97,6 +101,44 @@ jobs:
           E2E_API_BASE: http://127.0.0.1:8080/api
         run: npm run test:e2e
 
+      - name: Build container images
+        run: |
+          docker build -t hangyin/backend:ci ./backend
+          docker build -t hangyin/frontend:ci ./frontend/demo
+
+      - name: Create Kubernetes test cluster
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind create cluster --name hangyin-ci --wait 120s
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl create configmap mysql-init --from-file=01-demo.sql=demo.sql -n hangyin
+          kind load docker-image hangyin/backend:ci --name hangyin-ci
+          kind load docker-image hangyin/frontend:ci --name hangyin-ci
+          kubectl apply -f k8s/mysql.yaml -f k8s/minio.yaml -f k8s/srs.yaml
+          kubectl apply -f k8s/backend.yaml -f k8s/frontend.yaml
+          kubectl rollout status deployment/mysql -n hangyin --timeout=180s
+          kubectl rollout status deployment/minio -n hangyin --timeout=180s
+          kubectl rollout status deployment/srs -n hangyin --timeout=180s
+          kubectl rollout status deployment/backend -n hangyin --timeout=240s
+          kubectl rollout status deployment/frontend -n hangyin --timeout=180s
+
+      - name: Kubernetes health check
+        run: |
+          kubectl port-forward service/backend 18080:8080 -n hangyin > backend-k8s-port-forward.log 2>&1 &
+          kubectl port-forward service/frontend 15173:80 -n hangyin > frontend-k8s-port-forward.log 2>&1 &
+          for i in {1..30}; do
+            curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null
+          curl --fail --silent http://127.0.0.1:15173/ >/dev/null
+          kubectl get pods,services -n hangyin
+
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,7 +149,14 @@ jobs:
             frontend/demo/playwright-report
             frontend/demo/test-results
             backend-e2e.log
+            backend-k8s-port-forward.log
+            frontend-k8s-port-forward.log
+            k8s/*.yaml
 
       - name: Stop infrastructure
         if: always()
         run: docker compose down -v
+
+      - name: Delete Kubernetes test cluster
+        if: always()
+        run: kind delete cluster --name hangyin-ci || true
