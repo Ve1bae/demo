@@ -8,5 +8,6 @@ frontend/demo/.npm-cache/
 frontend/demo/test-results/
 frontend/demo/playwright-report/
 node_modules/
+interaction-service/target/
 .idea/
 .vscode/
