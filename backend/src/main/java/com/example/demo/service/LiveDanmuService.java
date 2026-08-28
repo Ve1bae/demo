@@ -14,11 +14,18 @@ import java.util.List;
 public class LiveDanmuService extends ServiceImpl<LiveDanmuMapper, LiveDanmu> {
 
     public LiveDanmu saveDanmu(Long roomId, Long userId, String username, String content, String color) {
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("弹幕内容不能为空");
+        }
+        String normalizedContent = content.trim();
+        if (normalizedContent.length() > 255) {
+            throw new IllegalArgumentException("弹幕内容不能超过255个字符");
+        }
         LiveDanmu danmu = new LiveDanmu();
         danmu.setRoomId(roomId);
         danmu.setUserId(userId);
         danmu.setUsername(username == null || username.isBlank() ? "游客" : username);
-        danmu.setContent(content);
+        danmu.setContent(normalizedContent);
         danmu.setColor(color == null || color.isBlank() ? "#ffffff" : color);
         danmu.setSendTime(LocalDateTime.now());
         save(danmu);

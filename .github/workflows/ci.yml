@@ -1,0 +1,113 @@
+name: Build and test
+
+on:
+  push:
+    branches: [uc07cicd]
+  pull_request:
+    branches: [uc07cicd]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/demo/package-lock.json
+
+      - name: Start infrastructure
+        run: docker compose up -d mysql minio srs
+
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..60}; do
+            mysql_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-mysql 2>/dev/null || true)
+            minio_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-minio 2>/dev/null || true)
+            if [ "$mysql_status" = healthy ] && [ "$minio_status" = healthy ]; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+
+      - name: Seed browser E2E data
+        run: docker compose exec -T mysql mysql -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
+
+      - name: Run backend unit, API and WebSocket tests
+        working-directory: backend
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+          MINIO_ENDPOINT: http://127.0.0.1:9000
+          LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+          LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+          VIDEO_TRANSCODE_ENABLED: 'false'
+          RUN_UC03_API_TESTS: 'true'
+        run: ./mvnw -B test
+
+      - name: Start backend for HTTP E2E
+        working-directory: backend
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+          MINIO_ENDPOINT: http://127.0.0.1:9000
+          LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+          LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+          VIDEO_TRANSCODE_ENABLED: 'false'
+        run: |
+          nohup ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
+          for i in {1..60}; do curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2; done
+          cat ../backend-e2e.log
+          exit 1
+
+      - name: Run HTTP E2E scenarios
+        env:
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: |
+          node scripts/video-e2e.mjs
+          node scripts/uc07-e2e.mjs
+
+      - name: Install frontend dependencies
+        working-directory: frontend/demo
+        run: npm ci
+
+      - name: Install browser
+        working-directory: frontend/demo
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser E2E scenarios
+        working-directory: frontend/demo
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: npm run test:e2e
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: |
+            backend/target/surefire-reports
+            frontend/demo/playwright-report
+            frontend/demo/test-results
+            backend-e2e.log
+
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v

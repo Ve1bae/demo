@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:uc03": "playwright test e2e/recommendation.spec.js",
+    "test:e2e:uc04-06": "playwright test e2e/video-interaction.spec.js",
+    "test:e2e:uc07-10": "playwright test e2e/live-ui.spec.js"
   },
   "dependencies": {
     "axios": "^1.17.0",
@@ -15,6 +19,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.6",
+    "@playwright/test": "^1.62.1",
     "vite": "^8.0.8",
     "vite-plugin-vue-devtools": "^8.1.1"
   },

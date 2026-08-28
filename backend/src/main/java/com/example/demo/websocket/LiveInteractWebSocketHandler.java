@@ -63,7 +63,7 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         }
 
         String content = asString(payload.get("content"));
-        if (content == null || content.isBlank()) {
+        if (content == null || content.isBlank() || content.length() > 255) {
             return;
         }
 
@@ -120,14 +120,29 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendJson(WebSocketSession session, Map<String, Object> payload) {
-        if (!session.isOpen()) {
-            return;
+        // A WebSocket session cannot serialize concurrent writes itself. Online-count
+        // callbacks and business broadcasts can arrive on different servlet threads.
+        synchronized (session) {
+            if (!session.isOpen()) {
+                removeSession(session);
+                return;
+            }
+            try {
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
+            } catch (IOException | IllegalStateException e) {
+                removeSession(session);
+                log.warn("Send live interact message failed: {}", e.getMessage());
+            }
         }
-        try {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
-        } catch (IOException e) {
-            log.warn("Send live interact message failed: {}", e.getMessage());
-        }
+    }
+
+    private void removeSession(WebSocketSession session) {
+        roomSessions.forEach((roomId, sessions) -> {
+            sessions.remove(session.getId(), session);
+            if (sessions.isEmpty()) {
+                roomSessions.remove(roomId, sessions);
+            }
+        });
     }
 
     private Long getRoomId(WebSocketSession session) {
