@@ -155,6 +155,8 @@ test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
 test('主播通过页面创建直播间并看到推流信息', async ({ page, request }) => {
   await seedLogin(page)
   await page.goto('/#/live')
+  await page.locator('.upload-btn').waitFor({ state: 'visible' })
+  await expect(page.locator('.upload-btn')).toBeEnabled()
   await page.locator('.upload-btn').click()
   await expect(page.locator('.live-modal')).toBeVisible()
   await page.locator('.live-modal input[placeholder="输入标题"]').fill(`UC07 页面直播 ${Date.now()}`)

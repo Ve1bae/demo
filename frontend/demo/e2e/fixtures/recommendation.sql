@@ -5,21 +5,29 @@ DELETE FROM view_history
 WHERE user_id BETWEEN 930001 AND 930003 OR video_id BETWEEN 931001 AND 931005;
 DELETE FROM user_video
 WHERE user_id BETWEEN 930001 AND 930003 OR video_id BETWEEN 931001 AND 931005;
+DELETE FROM comment WHERE video_id BETWEEN 931001 AND 931005;
+DELETE FROM danmaku WHERE video_url IN ('uc03-e2e-hot', 'uc03-e2e-low', 'uc03-e2e-private', 'uc03-e2e-followed', 'uc03-e2e-music');
 DELETE FROM video WHERE id BETWEEN 931001 AND 931005 OR title LIKE 'UC03 E2E %';
 DELETE FROM sys_user WHERE id BETWEEN 930001 AND 930003 OR username LIKE 'uc03_e2e_%';
 
 INSERT INTO sys_user (id, username, password, nickname, avatar_url)
 VALUES
+  (1, 'e2e_browser_user', 'e2e-password', '测试用户', NULL),
   (930001, 'uc03_e2e_viewer', 'e2e-password', 'E2E推荐用户', NULL),
   (930002, 'uc03_e2e_followed', 'e2e-password', 'E2E已关注作者', NULL),
-  (930003, 'uc03_e2e_other', 'e2e-password', 'E2E其他作者', NULL);
+  (930003, 'uc03_e2e_other', 'e2e-password', 'E2E其他作者', NULL)
+ON DUPLICATE KEY UPDATE
+  username = VALUES(username),
+  password = VALUES(password),
+  nickname = VALUES(nickname),
+  avatar_url = VALUES(avatar_url);
 
 INSERT INTO video (
   id, title, description, play_url, video_url, cover_url, user_id, category_id, tags, duration,
   status, play_count, like_count, favorite_count, comment_count, created_at, updated_at
 )
 VALUES
-  (931001, 'UC03 E2E 热门推荐', '热门推荐端到端测试视频', 'http://127.0.0.1:18080/e2e/hot.mp4',
+  (931001, 'UC03 E2E 热门推荐', '热门推荐端到端测试视频', 'http://127.0.0.1:5173/e2e/hot.mp4',
    'uc03-e2e-hot', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
    930003, 1, '热门 科技', 90, 'public', 8000, 0, 0, 0, '2025-01-01 12:00:00', '2025-01-01 12:00:00'),
   (931002, 'UC03 E2E 普通推荐', '普通推荐端到端测试视频', 'http://127.0.0.1:18080/e2e/low.mp4',

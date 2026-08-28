@@ -25,8 +25,16 @@ test.describe('UC-04 至 UC-06 视频播放与互动端到端测试', () => {
     )
 
     await openVideo(page)
-    await expect(page.locator('video.main-video')).toBeVisible()
-    await page.locator('.play-button-overlay').click()
+    const video = page.locator('video.main-video')
+    await expect(video).toBeVisible()
+    await video.evaluate((element) => new Promise((resolve) => {
+      if (element.readyState >= 2) {
+        resolve()
+        return
+      }
+      element.addEventListener('loadeddata', resolve, { once: true })
+    }))
+    await page.locator('.bottom-controls .left-controls > .control-btn').click()
     await expect((await playResponse).status()).toBe(200)
   })
 
