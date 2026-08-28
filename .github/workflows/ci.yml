@@ -53,13 +53,10 @@ jobs:
           VIDEO_TRANSCODE_ENABLED: 'false'
         working-directory: backend
         run: |
-          nohup ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
+          nohup bash ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
           for i in {1..60}; do curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2; done
           cat ../backend-e2e.log
           exit 1
-
-      - name: Seed browser E2E data
-        run: docker compose exec -T mysql mysql -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
 
       - name: Run backend unit, API and WebSocket tests
         working-directory: backend
@@ -72,7 +69,7 @@ jobs:
           LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
           VIDEO_TRANSCODE_ENABLED: 'false'
           RUN_UC03_API_TESTS: 'true'
-        run: ./mvnw -B test
+        run: bash ./mvnw -B test
 
       - name: Run HTTP E2E scenarios
         env:
@@ -80,6 +77,9 @@ jobs:
         run: |
           node scripts/video-e2e.mjs
           node scripts/uc07-e2e.mjs
+
+      - name: Seed browser E2E data
+        run: docker compose exec -T mysql mysql -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
 
       - name: Install frontend dependencies
         working-directory: frontend/demo
