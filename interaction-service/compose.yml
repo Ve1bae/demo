@@ -1,0 +1,46 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${INTERACTION_DB_PASSWORD:?Set INTERACTION_DB_PASSWORD before starting Compose}
+      MYSQL_DATABASE: interaction_db
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - interaction_mysql_data:/var/lib/mysql
+      - ./sql/001_interaction_schema.sql:/docker-entrypoint-initdb.d/001_interaction_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  interaction-service:
+    image: hangyin/interaction-service:${IMAGE_TAG:-0.1.0}
+    build:
+      context: .
+      args:
+        IMAGE_VERSION: ${IMAGE_TAG:-0.1.0}
+        VCS_REF: ${VCS_REF:-local}
+        MAVEN_MIRROR_URL: ${MAVEN_MIRROR_URL:-https://maven.aliyun.com/repository/public}
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/interaction_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${INTERACTION_DB_PASSWORD:?Set INTERACTION_DB_PASSWORD before starting Compose}
+    ports:
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8090/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  interaction_mysql_data:

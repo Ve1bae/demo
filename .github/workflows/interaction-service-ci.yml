@@ -13,11 +13,17 @@ on:
       - ".github/workflows/interaction-service-ci.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: hangyin/interaction-service
+
 jobs:
   test-and-package:
-    name: Unit and API integration tests
+    name: Test, image and Kubernetes smoke deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +36,80 @@ jobs:
       - name: Run tests and package service
         working-directory: interaction-service
         run: mvn -B verify
+
+      - name: Build versioned container image
+        run: |
+          docker buildx build \
+            --load \
+            --platform linux/amd64 \
+            --provenance=false \
+            --build-arg IMAGE_VERSION="${GITHUB_SHA}" \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --tag "${IMAGE_NAME}:${GITHUB_SHA}" \
+            interaction-service
+          docker image inspect "${IMAGE_NAME}:${GITHUB_SHA}"
+
+      - name: Create disposable Kubernetes cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: interaction-ci
+
+      - name: Deploy database and interaction service
+        run: |
+          kind load docker-image "${IMAGE_NAME}:${GITHUB_SHA}" --name interaction-ci
+          DB_PASSWORD="$(openssl rand -hex 24)"
+          kubectl create secret generic interaction-db-secret \
+            --from-literal=password="${DB_PASSWORD}"
+          kubectl create configmap interaction-db-init \
+            --from-file=001_interaction_schema.sql=interaction-service/sql/001_interaction_schema.sql
+          kubectl apply -f interaction-service/k8s/mysql.yml
+          kubectl rollout status deployment/interaction-mysql --timeout=240s
+          kubectl set image \
+            -f interaction-service/k8s/interaction-service.yml \
+            interaction-service="${IMAGE_NAME}:${GITHUB_SHA}" \
+            --local -o yaml > "${RUNNER_TEMP}/interaction-service.yml"
+          kubectl apply -f "${RUNNER_TEMP}/interaction-service.yml"
+          kubectl apply -f interaction-service/k8s/interaction-service-service.yml
+          kubectl rollout status deployment/interaction-service --timeout=240s
+
+      - name: Verify health, dynamic publishing and mention notification APIs
+        run: |
+          kubectl port-forward service/interaction-service 18090:8090 \
+            > "${RUNNER_TEMP}/interaction-port-forward.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18090/actuator/health | jq -e '.status == "UP"' >/dev/null; then
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              cat "${RUNNER_TEMP}/interaction-port-forward.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          RESPONSE="$(curl -fsS \
+            -H 'Content-Type: application/json' \
+            -H 'X-User-Id: 10' \
+            -d '{"content":"CI Kubernetes smoke test","mentionedUserIds":[11]}' \
+            http://127.0.0.1:18090/api/interactions/dynamics)"
+          echo "${RESPONSE}" | jq -e '.code == 200 and .data.authorId == 10'
+          NOTIFICATIONS="$(curl -fsS \
+            -H 'X-User-Id: 11' \
+            'http://127.0.0.1:18090/api/interactions/notifications?unreadOnly=true')"
+          echo "${NOTIFICATIONS}" | jq -e \
+            '.code == 200 and (.data | length) == 1 and .data[0].recipientUserId == 11 and .data[0].read == false'
+
+      - name: Collect Kubernetes diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods -o wide || true
+          kubectl describe pods || true
+          kubectl logs deployment/interaction-mysql --tail=200 || true
+          kubectl logs deployment/interaction-service --tail=200 || true
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: interaction-service-test-reports
+          path: interaction-service/target/surefire-reports/
+          if-no-files-found: error
