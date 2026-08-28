@@ -1,21 +1,25 @@
 DELETE FROM user_follow
-WHERE user_id BETWEEN 930001 AND 930003 OR follow_user_id BETWEEN 930001 AND 930003;
-DELETE FROM user_interest WHERE user_id BETWEEN 930001 AND 930003;
+WHERE user_id BETWEEN 930001 AND 930004 OR follow_user_id BETWEEN 930001 AND 930004;
+DELETE FROM user_interest WHERE user_id BETWEEN 930001 AND 930004;
 DELETE FROM view_history
-WHERE user_id BETWEEN 930001 AND 930003 OR video_id BETWEEN 931001 AND 931005;
+WHERE user_id BETWEEN 930001 AND 930004 OR video_id BETWEEN 931001 AND 931005;
 DELETE FROM user_video
-WHERE user_id BETWEEN 930001 AND 930003 OR video_id BETWEEN 931001 AND 931005;
+WHERE user_id BETWEEN 930001 AND 930004 OR video_id BETWEEN 931001 AND 931005;
 DELETE FROM comment WHERE video_id BETWEEN 931001 AND 931005;
 DELETE FROM danmaku WHERE video_url IN ('uc03-e2e-hot', 'uc03-e2e-low', 'uc03-e2e-private', 'uc03-e2e-followed', 'uc03-e2e-music');
+DELETE FROM live_danmu WHERE user_id BETWEEN 930001 AND 930004;
+DELETE FROM room_likes WHERE room_id IN (SELECT id FROM live_room WHERE user_id BETWEEN 930001 AND 930004);
+DELETE FROM live_room WHERE user_id BETWEEN 930001 AND 930004;
 DELETE FROM video WHERE id BETWEEN 931001 AND 931005 OR title LIKE 'UC03 E2E %';
-DELETE FROM sys_user WHERE id BETWEEN 930001 AND 930003 OR username LIKE 'uc03_e2e_%';
+DELETE FROM sys_user WHERE id BETWEEN 930001 AND 930004 OR username LIKE 'uc03_e2e_%';
 
 INSERT INTO sys_user (id, username, password, nickname, avatar_url)
 VALUES
   (1, 'e2e_browser_user', 'e2e-password', '测试用户', NULL),
   (930001, 'uc03_e2e_viewer', 'e2e-password', 'E2E推荐用户', NULL),
   (930002, 'uc03_e2e_followed', 'e2e-password', 'E2E已关注作者', NULL),
-  (930003, 'uc03_e2e_other', 'e2e-password', 'E2E其他作者', NULL)
+  (930003, 'uc03_e2e_other', 'e2e-password', 'E2E其他作者', NULL),
+  (930004, 'uc07_e2e_creator', 'e2e-password', 'UC07页面主播', NULL)
 ON DUPLICATE KEY UPDATE
   username = VALUES(username),
   password = VALUES(password),

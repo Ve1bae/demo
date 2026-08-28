@@ -36,13 +36,13 @@ async function createRoom(request) {
   return body.data.roomId
 }
 
-async function seedLogin(page) {
-  await page.addInitScript(() => {
-    localStorage.setItem('loginUserNickname', '测试用户')
-    localStorage.setItem('loginUser', '测试用户')
-    localStorage.setItem('loginUserId', '1')
+async function seedLogin(page, userId = '1', nickname = '测试用户') {
+  await page.addInitScript(({ userId: seededUserId, nickname: seededNickname }) => {
+    localStorage.setItem('loginUserNickname', seededNickname)
+    localStorage.setItem('loginUser', seededNickname)
+    localStorage.setItem('loginUserId', seededUserId)
     localStorage.setItem('loginUserAvatar', '')
-  })
+  }, { userId, nickname })
 }
 
 async function mockLiveRoomDetail(page, roomId, overrides) {
@@ -153,7 +153,7 @@ test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
 })
 
 test('主播通过页面创建直播间并看到推流信息', async ({ page, request }) => {
-  await seedLogin(page)
+  await seedLogin(page, '930004', 'UC07页面主播')
   await page.goto('/#/live')
   const uploadButton = page.locator('.upload-btn')
   await uploadButton.waitFor({ state: 'visible' })
