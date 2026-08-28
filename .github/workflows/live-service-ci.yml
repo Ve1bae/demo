@@ -1,0 +1,90 @@
+name: Live Service CI
+
+on:
+  push:
+    branches:
+      - live-service
+    paths:
+      - "live-service/**"
+      - ".github/workflows/live-service-ci.yml"
+  pull_request:
+    paths:
+      - "live-service/**"
+      - ".github/workflows/live-service-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: hangyin/live-service
+
+jobs:
+  test-package-smoke:
+    name: Test, image and Kubernetes smoke deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: live-service/pom.xml
+      - name: Run tests and package service
+        working-directory: live-service
+        run: mvn -B verify
+      - name: Build versioned container image
+        run: |
+          docker buildx build --load --platform linux/amd64 --provenance=false \
+            --build-arg IMAGE_VERSION="${GITHUB_SHA}" \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --tag "${IMAGE_NAME}:${GITHUB_SHA}" live-service
+          docker image inspect "${IMAGE_NAME}:${GITHUB_SHA}"
+      - name: Create disposable Kubernetes cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: live-ci
+      - name: Deploy database and live service
+        run: |
+          kind load docker-image "${IMAGE_NAME}:${GITHUB_SHA}" --name live-ci
+          DB_PASSWORD="$(openssl rand -hex 24)"
+          kubectl create secret generic live-db-secret --from-literal=password="${DB_PASSWORD}"
+          kubectl create configmap live-db-init \
+            --from-file=001_live_schema.sql=live-service/sql/001_live_schema.sql
+          kubectl apply -f live-service/k8s/mysql.yml
+          kubectl rollout status deployment/live-mysql --timeout=240s
+          kubectl set image -f live-service/k8s/live-service.yml \
+            live-service="${IMAGE_NAME}:${GITHUB_SHA}" --local -o yaml > "${RUNNER_TEMP}/live-service.yml"
+          kubectl apply -f "${RUNNER_TEMP}/live-service.yml"
+          kubectl apply -f live-service/k8s/live-service-service.yml
+          kubectl rollout status deployment/live-service --timeout=240s
+      - name: Verify health, live room and WebSocket APIs
+        run: |
+          kubectl port-forward service/live-service 18090:8090 > "${RUNNER_TEMP}/live-port-forward.log" 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:18090/actuator/health | jq -e '.status == "UP"' >/dev/null; then break; fi
+            if [ "${attempt}" -eq 40 ]; then cat "${RUNNER_TEMP}/live-port-forward.log"; exit 1; fi
+            sleep 2
+          done
+          RESPONSE="$(curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
+            -d '{"title":"CI live room","categoryId":1}' http://127.0.0.1:18090/api/live/rooms)"
+          echo "${RESPONSE}" | jq -e '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://"))'
+          ROOM_ID="$(echo "${RESPONSE}" | jq -r '.data.roomId')"
+          curl -fsS "http://127.0.0.1:18090/api/live/rooms/${ROOM_ID}/like" | jq -e '.code == 200 and .data.likeCount == 0'
+          curl -fsS http://127.0.0.1:18090/api/live/srs/health | jq -e '.code == 200 and .data.enabled == false'
+      - name: Collect Kubernetes diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods -o wide || true
+          kubectl describe pods || true
+          kubectl logs deployment/live-mysql --tail=200 || true
+          kubectl logs deployment/live-service --tail=200 || true
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-service-test-reports
+          path: live-service/target/surefire-reports/
+          if-no-files-found: error

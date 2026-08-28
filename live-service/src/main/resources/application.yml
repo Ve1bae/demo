@@ -1,0 +1,27 @@
+server:
+  port: ${SERVER_PORT:8090}
+
+spring:
+  application:
+    name: live-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: never
+
+live:
+  srs:
+    rtmp-base-url: ${LIVE_SRS_RTMP_BASE_URL:rtmp://localhost:1935/live}
+    http-base-url: ${LIVE_SRS_HTTP_BASE_URL:http://localhost:8081}
+    api-base-url: ${LIVE_SRS_API_BASE_URL:http://localhost:1985}
+    probe-enabled: ${LIVE_SRS_PROBE_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
