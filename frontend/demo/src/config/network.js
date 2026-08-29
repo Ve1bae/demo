@@ -16,7 +16,8 @@ export const normalizeLanUrl = (url) => {
 
   try {
     const parsed = new URL(url)
-    if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)) {
+    const isPrivateIpv4 = /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(parsed.hostname)
+    if (['localhost', '0.0.0.0'].includes(parsed.hostname) || isPrivateIpv4) {
       parsed.hostname = getApiHost()
       return parsed.toString()
     }

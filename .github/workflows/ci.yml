@@ -15,12 +15,17 @@ env:
   E2E_VIDEO_ID: '931001'
   E2E_USER_ID: '930001'
   SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-  SPRING_DATASOURCE_USERNAME: root
-  SPRING_DATASOURCE_PASSWORD: root
   MINIO_ENDPOINT: http://127.0.0.1:9000
   LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
   LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
   VIDEO_TRANSCODE_ENABLED: 'false'
+  MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+  SPRING_DATASOURCE_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+  SPRING_DATASOURCE_USERNAME: ${{ secrets.MYSQL_ROOT_USERNAME }}
+  MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+  MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+  MINIO_ACCESS_KEY: ${{ secrets.MINIO_ROOT_USER }}
+  MINIO_SECRET_KEY: ${{ secrets.MINIO_ROOT_PASSWORD }}
 
 jobs:
   backend-tests:
@@ -99,7 +104,7 @@ jobs:
           cat ../backend-e2e.log
           exit 1
       - name: Seed HTTP E2E video data
-        run: docker compose exec -T mysql mysql --default-character-set=utf8mb4 -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
+        run: docker compose exec -T mysql sh -c 'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" hangyin_video' < frontend/demo/e2e/fixtures/recommendation.sql
       - name: Run UC04-06 HTTP E2E
         env:
           E2E_API_BASE: http://127.0.0.1:8080/api
@@ -165,7 +170,7 @@ jobs:
           cat ../backend-e2e.log
           exit 1
       - name: Seed browser E2E data
-        run: docker compose exec -T mysql mysql --default-character-set=utf8mb4 -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
+        run: docker compose exec -T mysql sh -c 'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" hangyin_video' < frontend/demo/e2e/fixtures/recommendation.sql
       - name: Install frontend dependencies
         working-directory: frontend/demo
         run: npm ci
@@ -243,6 +248,15 @@ jobs:
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f k8s/namespace.yaml
+          kubectl create secret generic app-secrets -n hangyin \
+            --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+            --from-literal=SPRING_DATASOURCE_USERNAME="$SPRING_DATASOURCE_USERNAME" \
+            --from-literal=SPRING_DATASOURCE_PASSWORD="$SPRING_DATASOURCE_PASSWORD" \
+            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            --from-literal=MINIO_ACCESS_KEY="$MINIO_ACCESS_KEY" \
+            --from-literal=MINIO_SECRET_KEY="$MINIO_SECRET_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
           kubectl create configmap mysql-init --from-file=01-demo.sql=demo.sql -n hangyin
           kind load docker-image hangyin/backend:ci --name hangyin-ci
           kind load docker-image hangyin/frontend:ci --name hangyin-ci

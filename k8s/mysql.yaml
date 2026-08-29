@@ -32,12 +32,15 @@ spec:
             - name: MYSQL_DATABASE
               value: hangyin_video
             - name: MYSQL_ROOT_PASSWORD
-              value: root
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MYSQL_ROOT_PASSWORD
           ports:
             - containerPort: 3306
           readinessProbe:
             exec:
-              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
             initialDelaySeconds: 10
             periodSeconds: 5
           volumeMounts:

@@ -147,8 +147,8 @@ public class UC06Test {
     @TestPropertySource(properties = {
             "minio.endpoint=http://127.0.0.1:9000",
             "minio.public-base-url=http://127.0.0.1:8082/video",
-            "minio.access-key=minioadmin",
-            "minio.secret-key=minioadmin",
+            "minio.access-key=${MINIO_ACCESS_KEY}",
+            "minio.secret-key=${MINIO_SECRET_KEY}",
             "minio.bucket=hangyin-video",
             "live.srs.rtmp-base-url=rtmp://127.0.0.1/live",
             "live.srs.http-base-url=http://127.0.0.1:8081",
@@ -265,8 +265,8 @@ public class UC06Test {
     @TestPropertySource(properties = {
             "minio.endpoint=http://127.0.0.1:9000",
             "minio.public-base-url=http://127.0.0.1:8082/video",
-            "minio.access-key=minioadmin",
-            "minio.secret-key=minioadmin",
+            "minio.access-key=${MINIO_ACCESS_KEY}",
+            "minio.secret-key=${MINIO_SECRET_KEY}",
             "minio.bucket=hangyin-video",
             "live.srs.rtmp-base-url=rtmp://127.0.0.1/live",
             "live.srs.http-base-url=http://127.0.0.1:8081",
