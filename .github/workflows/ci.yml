@@ -14,7 +14,8 @@ env:
   NODE_VERSION: '22'
   E2E_VIDEO_ID: '931001'
   E2E_USER_ID: '930001'
-  SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  # Docker Compose publishes the MySQL service on the runner's port 3307.
+  SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3307/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
   MINIO_ENDPOINT: http://127.0.0.1:9000
   LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
   LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
