@@ -2,6 +2,7 @@ package com.example.live;
 
 import com.example.live.dto.CreateLiveRoomRequest;
 import com.example.live.model.LiveRoomView;
+import com.example.live.model.LiveDanmuView;
 import com.example.live.repository.LiveRepository;
 import com.example.live.service.LiveService;
 import com.example.live.service.SrsHealthService;
@@ -70,5 +71,61 @@ class LiveServiceUnitTest {
         service.listRooms(0, 1000, null);
 
         verify(repository).findRooms(null, 100, 0);
+    }
+
+    @Test
+    void onlyRoomOwnerCanCloseOnlineRoom() {
+        LiveService service = new LiveService(repository, srsHealthService);
+        LiveRoomView room = onlineRoom(1L, 10L);
+        when(repository.findRoom(1L)).thenReturn(room);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.closeRoom(1L, 11L));
+
+        assertEquals("只能关闭自己的直播间", exception.getMessage());
+        verify(repository, org.mockito.Mockito.never()).closeRoom(any(), any());
+    }
+
+    @Test
+    void offlineRoomRejectsDanmuAndLike() {
+        LiveService service = new LiveService(repository, srsHealthService);
+        when(repository.findRoom(1L)).thenReturn(new LiveRoomView(1L, 10L, null, "直播", "room",
+                "push", "pull.flv", Map.of(), null, "offline", null, null));
+
+        assertEquals("直播间未开播或已结束", assertThrows(IllegalArgumentException.class,
+                () -> service.addLike(1L, 11L)).getMessage());
+        assertEquals("直播间未开播或已结束", assertThrows(IllegalArgumentException.class,
+                () -> service.addDanmu(1L, 11L, "用户", "内容", null)).getMessage());
+        verify(repository, org.mockito.Mockito.never()).addLike(any());
+        verify(repository, org.mockito.Mockito.never()).insertDanmu(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void danmuUsesFallbackUsernameAndColor() {
+        LiveService service = new LiveService(repository, srsHealthService);
+        when(repository.findRoom(1L)).thenReturn(onlineRoom(1L, 10L));
+        LiveDanmuView saved = new LiveDanmuView(9L, 1L, 11L, "用户 11", "你好", "#ffffff", null);
+        when(repository.insertDanmu(1L, 11L, "用户 11", "你好", "#ffffff")).thenReturn(saved);
+
+        LiveDanmuView result = service.addDanmu(1L, 11L, " ", "  你好  ", " ");
+
+        assertEquals("用户 11", result.username());
+        assertEquals("#ffffff", result.color());
+        verify(repository).insertDanmu(1L, 11L, "用户 11", "你好", "#ffffff");
+    }
+
+    @Test
+    void likeRequiresPositiveUserIdBeforeDatabaseWrite() {
+        LiveService service = new LiveService(repository, srsHealthService);
+        when(repository.findRoom(1L)).thenReturn(onlineRoom(1L, 10L));
+
+        assertThrows(IllegalArgumentException.class, () -> service.addLike(1L, 0L));
+
+        verify(repository, org.mockito.Mockito.never()).addLike(any());
+    }
+
+    private LiveRoomView onlineRoom(Long roomId, Long userId) {
+        return new LiveRoomView(roomId, userId, null, "直播", "room", "push",
+                "pull.flv", Map.of(), null, "online", null, null);
     }
 }
