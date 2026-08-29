@@ -5,3 +5,4 @@ frontend/demo/dist/
 node_modules/
 .idea/
 .vscode/
+**/target/
