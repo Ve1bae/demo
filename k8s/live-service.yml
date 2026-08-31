@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: live-service
+  namespace: hangyin
+  labels:
+    app.kubernetes.io/name: live-service
+    app.kubernetes.io/part-of: hangyin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: live-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: live-service
+        app.kubernetes.io/part-of: hangyin
+    spec:
+      containers:
+        - name: live-service
+          image: hangyin/live-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8090}
+          env:
+            - name: DB_URL
+              value: "jdbc:mysql://live-mysql:3306/live_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+            - {name: DB_USERNAME, value: root}
+            - name: DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: hangyin-secrets, key: db-password}}
+            - name: LIVE_SRS_RTMP_BASE_URL
+              value: "rtmp://srs:1935/live"
+            - name: LIVE_SRS_HTTP_BASE_URL
+              value: "http://srs:8080"
+            - name: LIVE_SRS_API_BASE_URL
+              value: "http://srs:1985"
+            - {name: LIVE_SRS_PROBE_ENABLED, value: "true"}
+          startupProbe:
+            httpGet: {path: /actuator/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /actuator/health, port: http}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: live-service
+  namespace: hangyin
+spec:
+  selector:
+    app.kubernetes.io/name: live-service
+  ports:
+    - {name: http, port: 8090, targetPort: http}

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: hangyin
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: hangyin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: hangyin
+    spec:
+      containers:
+        - name: backend
+          image: hangyin/backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+            - {name: SPRING_DATASOURCE_USERNAME, value: root}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: {secretKeyRef: {name: hangyin-secrets, key: db-password}}
+            - name: MINIO_ENDPOINT
+              value: "http://minio:9000"
+            - name: MINIO_PUBLIC_BASE_URL
+              value: "http://localhost:8080/video"
+            - name: MINIO_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: hangyin-secrets, key: minio-user}}
+            - name: MINIO_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: hangyin-secrets, key: minio-password}}
+            - name: LIVE_RTMP_BASE_URL
+              value: "rtmp://srs:1935/live"
+            - name: LIVE_HTTP_BASE_URL
+              value: "http://srs:8080"
+            - {name: LIVE_TRANSCODE_ENABLED, value: "false"}
+            - {name: VIDEO_TRANSCODE_ENABLED, value: "false"}
+          readinessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: hangyin
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - {name: http, port: 8080, targetPort: http}

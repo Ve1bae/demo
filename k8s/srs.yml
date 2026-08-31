@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: srs
+  namespace: hangyin
+  labels:
+    app.kubernetes.io/name: srs
+    app.kubernetes.io/part-of: hangyin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: srs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: srs
+        app.kubernetes.io/part-of: hangyin
+    spec:
+      containers:
+        - name: srs
+          image: ossrs/srs:5
+          imagePullPolicy: IfNotPresent
+          command: ["./objs/srs", "-c", "conf/srs.conf"]
+          ports:
+            - {name: rtmp, containerPort: 1935}
+            - {name: http, containerPort: 8080}
+            - {name: api, containerPort: 1985}
+          readinessProbe:
+            httpGet: {path: /api/v1/versions, port: api}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /api/v1/versions, port: api}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 300m, memory: 384Mi}
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/srs/conf/srs.conf
+              subPath: srs.conf
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: hangyin-srs-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: srs
+  namespace: hangyin
+spec:
+  selector:
+    app.kubernetes.io/name: srs
+  ports:
+    - {name: rtmp, port: 1935, targetPort: rtmp}
+    - {name: http, port: 8080, targetPort: http}
+    - {name: api, port: 1985, targetPort: api}

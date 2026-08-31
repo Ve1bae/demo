@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: live-mysql
+  namespace: hangyin
+  labels:
+    app.kubernetes.io/name: live-mysql
+    app.kubernetes.io/part-of: hangyin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: live-mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: live-mysql
+        app.kubernetes.io/part-of: hangyin
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: mysql, containerPort: 3306}
+          env:
+            - {name: MYSQL_DATABASE, value: live_db}
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: {secretKeyRef: {name: hangyin-secrets, key: db-password}}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}
+          volumeMounts:
+            - {name: init-schema, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+            - {name: data, mountPath: /var/lib/mysql}
+      volumes:
+        - name: init-schema
+          configMap: {name: live-db-init}
+        - name: data
+          persistentVolumeClaim: {claimName: hangyin-live-mysql-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: live-mysql
+  namespace: hangyin
+spec:
+  selector:
+    app.kubernetes.io/name: live-mysql
+  ports:
+    - {name: mysql, port: 3306, targetPort: mysql}
