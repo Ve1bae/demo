@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -169,15 +169,46 @@ jobs:
             sleep 2
           done
 
-          curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/videos/recommend" \
-            | jq -e '.code == 200'
-          SRS_HEALTH="$(curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/live/srs/health")"
-          echo "${SRS_HEALTH}" | jq -e \
-            '.code == 200 and .data.enabled == true and .data.reachable == true'
+          # Rollout probes only establish that processes listen on their ports.
+          # Poll the proxied APIs as well so database migrations and Spring
+          # initialization have completed before the behavioral checks begin.
+          API_BASE="http://127.0.0.1:${FRONTEND_PORT}"
+          for attempt in $(seq 1 60); do
+            if curl -fsS "${API_BASE}/api/videos/recommend" \
+              -o "${RUNNER_TEMP}/recommend.json"; then
+              if jq -e '.code == 200' "${RUNNER_TEMP}/recommend.json" > /dev/null; then
+                break
+              fi
+            fi
+            if [ "${attempt}" -eq 60 ]; then
+              cat "${RUNNER_TEMP}/recommend.json" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 2
+          done
+          cat "${RUNNER_TEMP}/recommend.json"
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS "${API_BASE}/api/live/srs/health" \
+              -o "${RUNNER_TEMP}/srs-health.json"; then
+              if jq -e '.code == 200 and .data.enabled == true and .data.reachable == true' \
+                "${RUNNER_TEMP}/srs-health.json" > /dev/null; then
+                break
+              fi
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              cat "${RUNNER_TEMP}/srs-health.json" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 2
+          done
+          SRS_HEALTH="$(cat "${RUNNER_TEMP}/srs-health.json")"
+          echo "${SRS_HEALTH}"
 
           ROOM="$(curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
             -d '{"title":"Kubernetes CI live room","categoryId":1}' \
             "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms")"
+          echo "${ROOM}" | tee "${RUNNER_TEMP}/room.json"
           echo "${ROOM}" | jq -e \
             '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://127.0.0.1:1935/live/")) and (.data.pullUrl | startswith("/srs/live/"))'
           curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/srs/api/v1/versions" \
