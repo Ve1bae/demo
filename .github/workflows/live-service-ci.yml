@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - live-service
-    paths:
-      - "live-service/**"
-      - ".github/workflows/live-service-ci.yml"
   pull_request:
     paths:
       - "live-service/**"
