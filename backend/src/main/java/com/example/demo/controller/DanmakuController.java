@@ -7,6 +7,7 @@ import com.example.demo.service.DanmakuService;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,6 +51,11 @@ public class DanmakuController {
             @PathVariable Long videoId,
             @RequestBody Map<String, Object> requestBody) {
 
+        String content = requestBody == null ? null : (String) requestBody.get("content");
+        if (!StringUtils.hasText(content)) {
+            return ResponseEntity.ok(ApiResponse.error(400, "弹幕内容不能为空"));
+        }
+
         Video video = videoService.getVideoById(videoId);
         if (video == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
@@ -57,7 +63,7 @@ public class DanmakuController {
 
         Danmaku danmaku = new Danmaku();
         danmaku.setVideoUrl(video.getVideoUrl());
-        danmaku.setContent((String) requestBody.get("content"));
+        danmaku.setContent(content.trim());
 
         Object timeSeconds = requestBody.get("timeSeconds");
         if (timeSeconds instanceof Number number) {

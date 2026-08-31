@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
@@ -23,10 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
-
-    private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
-    private static final int SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
-    private static final int MAX_DANMU_CONTENT_LENGTH = 255;
 
     private final RoomLikesService roomLikesService;
     private final LiveDanmuService liveDanmuService;
@@ -40,14 +35,9 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
             closeQuietly(session);
             return;
         }
-        WebSocketSession managedSession = new ConcurrentWebSocketSessionDecorator(
-                session,
-                SEND_TIME_LIMIT_MILLIS,
-                SEND_BUFFER_SIZE_LIMIT
-        );
-        roomSessions.computeIfAbsent(roomId, key -> new ConcurrentHashMap<>()).put(session.getId(), managedSession);
+        roomSessions.computeIfAbsent(roomId, key -> new ConcurrentHashMap<>()).put(session.getId(), session);
         broadcastOnlineCount(roomId);
-        sendLikeCount(managedSession, roomId);
+        sendLikeCount(session, roomId);
     }
 
     @Override
@@ -73,24 +63,17 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         }
 
         String content = asString(payload.get("content"));
-        if (content == null || content.isBlank() || content.trim().length() > MAX_DANMU_CONTENT_LENGTH) {
-            log.warn("Ignore invalid live danmu, roomId={}, length={}", roomId, content == null ? 0 : content.trim().length());
+        if (content == null || content.isBlank() || content.length() > 255) {
             return;
         }
 
-        LiveDanmu danmu;
-        try {
-            danmu = liveDanmuService.saveDanmu(
-                    roomId,
-                    asLong(payload.get("userId")),
-                    asString(payload.getOrDefault("username", "游客")),
-                    content.trim(),
-                    asString(payload.getOrDefault("color", "#ffffff"))
-            );
-        } catch (RuntimeException e) {
-            log.warn("Ignore live danmu save failure, roomId={}, message={}", roomId, e.getMessage());
-            return;
-        }
+        LiveDanmu danmu = liveDanmuService.saveDanmu(
+                roomId,
+                asLong(payload.get("userId")),
+                asString(payload.getOrDefault("username", "游客")),
+                content.trim(),
+                asString(payload.getOrDefault("color", "#ffffff"))
+        );
         broadcastJson(roomId, Map.of(
                 "type", "danmu",
                 "id", danmu.getId(),
@@ -133,26 +116,33 @@ public class LiveInteractWebSocketHandler extends TextWebSocketHandler {
         if (sessions == null || sessions.isEmpty()) {
             return;
         }
-        sessions.entrySet().removeIf(entry -> !entry.getValue().isOpen());
-        if (sessions.isEmpty()) {
-            roomSessions.remove(roomId);
-            return;
-        }
         sessions.values().forEach(session -> sendJson(session, payload));
     }
 
     private void sendJson(WebSocketSession session, Map<String, Object> payload) {
-        if (!session.isOpen()) {
-            return;
-        }
-        try {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
-        } catch (Exception e) {
+        // A WebSocket session cannot serialize concurrent writes itself. Online-count
+        // callbacks and business broadcasts can arrive on different servlet threads.
+        synchronized (session) {
             if (!session.isOpen()) {
+                removeSession(session);
                 return;
             }
-            log.warn("Send live interact message failed: {}", e.getMessage());
+            try {
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
+            } catch (IOException | IllegalStateException e) {
+                removeSession(session);
+                log.warn("Send live interact message failed: {}", e.getMessage());
+            }
         }
+    }
+
+    private void removeSession(WebSocketSession session) {
+        roomSessions.forEach((roomId, sessions) -> {
+            sessions.remove(session.getId(), session);
+            if (sessions.isEmpty()) {
+                roomSessions.remove(roomId, sessions);
+            }
+        });
     }
 
     private Long getRoomId(WebSocketSession session) {

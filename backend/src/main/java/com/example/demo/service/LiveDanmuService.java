@@ -13,12 +13,13 @@ import java.util.List;
 @Service
 public class LiveDanmuService extends ServiceImpl<LiveDanmuMapper, LiveDanmu> {
 
-    private static final int MAX_CONTENT_LENGTH = 255;
-
     public LiveDanmu saveDanmu(Long roomId, Long userId, String username, String content, String color) {
-        String normalizedContent = content == null ? "" : content.trim();
-        if (normalizedContent.isBlank() || normalizedContent.length() > MAX_CONTENT_LENGTH) {
-            throw new IllegalArgumentException("弹幕内容为空或超过 " + MAX_CONTENT_LENGTH + " 字");
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("弹幕内容不能为空");
+        }
+        String normalizedContent = content.trim();
+        if (normalizedContent.length() > 255) {
+            throw new IllegalArgumentException("弹幕内容不能超过255个字符");
         }
         LiveDanmu danmu = new LiveDanmu();
         danmu.setRoomId(roomId);

@@ -51,6 +51,7 @@ CREATE TABLE `video` (
   `url_720p` varchar(500) DEFAULT NULL,
   `url_1080p` varchar(500) DEFAULT NULL,
   `default_quality` varchar(20) DEFAULT NULL,
+  `tags` varchar(500) DEFAULT NULL COMMENT 'Video tags',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
   PRIMARY KEY (`id`),
@@ -123,3 +124,51 @@ CREATE TABLE IF NOT EXISTS `live_danmu` (
   PRIMARY KEY (`id`),
   KEY `idx_live_danmu_room_time` (`room_id`, `send_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Live room danmu table';
+
+-- Recommendation and video interaction relation tables
+CREATE TABLE IF NOT EXISTS `user_follow` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `follow_user_id` bigint(20) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_follow_user_target` (`user_id`, `follow_user_id`),
+  KEY `idx_user_follow_user_id` (`user_id`),
+  KEY `idx_user_follow_target_id` (`follow_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User follow table';
+
+CREATE TABLE IF NOT EXISTS `user_interest` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `tag` varchar(50) NOT NULL,
+  `score` int(11) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_interest_tag` (`user_id`, `tag`),
+  KEY `idx_user_interest_user_score` (`user_id`, `score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User interest table';
+
+CREATE TABLE IF NOT EXISTS `view_history` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `video_id` bigint(20) NOT NULL,
+  `view_count` int(11) NOT NULL DEFAULT '1',
+  `progress_seconds` int(11) NOT NULL DEFAULT '0',
+  `last_viewed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_view_history_user_video` (`user_id`, `video_id`),
+  KEY `idx_view_history_user_id` (`user_id`),
+  KEY `idx_view_history_video_id` (`video_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Video view history table';
+
+CREATE TABLE IF NOT EXISTS `comment_like` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `comment_id` bigint(20) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_comment_like_user_comment` (`user_id`, `comment_id`),
+  KEY `idx_comment_like_comment_id` (`comment_id`),
+  KEY `idx_comment_like_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Comment like table';

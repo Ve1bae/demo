@@ -1,0 +1,293 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main, docker]
+  pull_request:
+    branches: [main, docker]
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '22'
+  E2E_VIDEO_ID: '931001'
+  E2E_USER_ID: '930001'
+  # Docker Compose publishes the MySQL service on the runner's port 3307.
+  SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3307/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  MINIO_ENDPOINT: http://127.0.0.1:9000
+  LIVE_RTMP_BASE_URL: rtmp://127.0.0.1/live
+  LIVE_HTTP_BASE_URL: http://127.0.0.1:8081
+  VIDEO_TRANSCODE_ENABLED: 'false'
+  MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+  SPRING_DATASOURCE_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+  SPRING_DATASOURCE_USERNAME: ${{ secrets.MYSQL_ROOT_USERNAME }}
+  MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+  MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+  MINIO_ACCESS_KEY: ${{ secrets.MINIO_ROOT_USER }}
+  MINIO_SECRET_KEY: ${{ secrets.MINIO_ROOT_PASSWORD }}
+
+jobs:
+  backend-tests:
+    name: Backend unit, API and WebSocket tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Start infrastructure
+        run: docker compose up -d mysql minio srs
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..60}; do
+            mysql_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-mysql 2>/dev/null || true)
+            minio_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-minio 2>/dev/null || true)
+            if [ "$mysql_status" = healthy ] && [ "$minio_status" = healthy ]; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          RUN_UC03_API_TESTS: 'true'
+        run: bash ./mvnw -B test
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v
+
+  http-e2e:
+    name: HTTP E2E UC04-06 and UC07
+    needs: backend-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Start infrastructure
+        run: docker compose up -d mysql minio srs
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..60}; do
+            mysql_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-mysql 2>/dev/null || true)
+            minio_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-minio 2>/dev/null || true)
+            if [ "$mysql_status" = healthy ] && [ "$minio_status" = healthy ]; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup bash ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
+          for i in {1..60}; do
+            curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2
+          done
+          cat ../backend-e2e.log
+          exit 1
+      - name: Seed HTTP E2E video data
+        run: docker compose exec -T mysql sh -c 'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" hangyin_video' < frontend/demo/e2e/fixtures/recommendation.sql
+      - name: Run UC04-06 HTTP E2E
+        env:
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: node scripts/video-e2e.mjs
+      - name: Run UC07 HTTP E2E
+        env:
+          UC07_E2E_BASE_URL: http://127.0.0.1:8080
+        run: node scripts/uc07-e2e.mjs
+      - name: Upload HTTP E2E reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: http-e2e-reports
+          path: |
+            backend/target/e2e-reports
+            backend-e2e.log
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v
+
+  frontend-e2e:
+    name: Frontend build and browser E2E
+    needs: http-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VITE_API_HOST: 127.0.0.1
+      VITE_API_PORT: '8080'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/demo/package-lock.json
+      - name: Start infrastructure
+        run: docker compose up -d mysql minio srs
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..60}; do
+            mysql_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-mysql 2>/dev/null || true)
+            minio_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-minio 2>/dev/null || true)
+            if [ "$mysql_status" = healthy ] && [ "$minio_status" = healthy ]; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup bash ./mvnw -B spring-boot:run > ../backend-e2e.log 2>&1 &
+          for i in {1..60}; do
+            curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && exit 0 || sleep 2
+          done
+          cat ../backend-e2e.log
+          exit 1
+      - name: Seed browser E2E data
+        run: docker compose exec -T mysql sh -c 'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" hangyin_video' < frontend/demo/e2e/fixtures/recommendation.sql
+      - name: Install frontend dependencies
+        working-directory: frontend/demo
+        run: npm ci
+      - name: Build frontend
+        working-directory: frontend/demo
+        run: npm run build
+      - name: Install browser dependencies
+        working-directory: frontend/demo
+        run: npx playwright install --with-deps chromium
+      - name: Run UC03 browser E2E
+        working-directory: frontend/demo
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: npm run test:e2e:uc03
+      - name: Run UC04-06 browser E2E
+        working-directory: frontend/demo
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: npm run test:e2e:uc04-06
+      - name: Run UC07-10 browser E2E
+        working-directory: frontend/demo
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_API_BASE: http://127.0.0.1:8080/api
+        run: npm run test:e2e:uc07-10
+      - name: Upload browser reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-reports
+          path: |
+            frontend/demo/playwright-report
+            frontend/demo/test-results
+            backend-e2e.log
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v
+
+  build-images:
+    name: Build container images
+    needs: frontend-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build backend image
+        run: docker build -t hangyin/backend:ci ./backend
+      - name: Build frontend image
+        run: docker build -t hangyin/frontend:ci ./frontend/demo
+
+  kubernetes:
+    name: Kubernetes deploy and health check
+    needs: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build images for kind
+        run: |
+          docker build -t hangyin/backend:ci ./backend
+          docker build -t hangyin/frontend:ci ./frontend/demo
+      - name: Create kind cluster
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind create cluster --name hangyin-ci --wait 120s
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl create secret generic app-secrets -n hangyin \
+            --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+            --from-literal=SPRING_DATASOURCE_USERNAME="$SPRING_DATASOURCE_USERNAME" \
+            --from-literal=SPRING_DATASOURCE_PASSWORD="$SPRING_DATASOURCE_PASSWORD" \
+            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            --from-literal=MINIO_ACCESS_KEY="$MINIO_ACCESS_KEY" \
+            --from-literal=MINIO_SECRET_KEY="$MINIO_SECRET_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create configmap mysql-init --from-file=01-demo.sql=demo.sql -n hangyin
+          kind load docker-image hangyin/backend:ci --name hangyin-ci
+          kind load docker-image hangyin/frontend:ci --name hangyin-ci
+          kubectl apply -f k8s/mysql.yaml -f k8s/minio.yaml -f k8s/srs.yaml
+          kubectl apply -f k8s/backend.yaml -f k8s/frontend.yaml
+          kubectl rollout status deployment/mysql -n hangyin --timeout=180s
+          kubectl rollout status deployment/minio -n hangyin --timeout=180s
+          kubectl rollout status deployment/srs -n hangyin --timeout=180s
+          kubectl rollout status deployment/backend -n hangyin --timeout=240s
+          kubectl rollout status deployment/frontend -n hangyin --timeout=180s
+      - name: Kubernetes health check
+        run: |
+          kubectl port-forward service/backend 18080:8080 -n hangyin > backend-k8s-port-forward.log 2>&1 &
+          kubectl port-forward service/frontend 15173:80 -n hangyin > frontend-k8s-port-forward.log 2>&1 &
+          for i in {1..30}; do
+            curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null
+          curl --fail --silent http://127.0.0.1:15173/ >/dev/null
+          kubectl get pods,services -n hangyin
+      - name: Upload Kubernetes logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kubernetes-reports
+          path: |
+            backend-k8s-port-forward.log
+            frontend-k8s-port-forward.log
+            k8s/*.yaml
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name hangyin-ci || true

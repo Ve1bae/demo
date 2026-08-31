@@ -8,6 +8,7 @@ import com.example.demo.service.UserService;
 import com.example.demo.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,6 +54,11 @@ public class CommentController {
             @RequestBody Map<String, Object> requestBody,
             @RequestHeader(value = "X-User-Id", required = false) Long headerUserId) {
 
+        String content = requestBody == null ? null : (String) requestBody.get("content");
+        if (!StringUtils.hasText(content)) {
+            return ResponseEntity.ok(ApiResponse.error(400, "评论内容不能为空"));
+        }
+
         Video video = videoService.getVideoById(videoId);
         if (video == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "视频不存在"));
@@ -60,7 +66,7 @@ public class CommentController {
 
         Comment comment = new Comment();
         comment.setVideoId(videoId);
-        comment.setContent((String) requestBody.get("content"));
+        comment.setContent(content.trim());
 
         Object parentId = requestBody.get("parentId");
         if (parentId != null && !"null".equals(parentId.toString())) {
