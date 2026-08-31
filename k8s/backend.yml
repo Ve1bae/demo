@@ -37,9 +37,10 @@ spec:
               valueFrom: {secretKeyRef: {name: hangyin-secrets, key: minio-user}}
             - name: MINIO_SECRET_KEY
               valueFrom: {secretKeyRef: {name: hangyin-secrets, key: minio-password}}
-            - name: LIVE_RTMP_BASE_URL
+            - {name: MINIO_BUCKET, value: hangyin-video}
+            - name: LIVE_SRS_RTMP_BASE_URL
               value: "rtmp://srs:1935/live"
-            - name: LIVE_HTTP_BASE_URL
+            - name: LIVE_SRS_HTTP_BASE_URL
               value: "http://srs:8080"
             - {name: LIVE_TRANSCODE_ENABLED, value: "false"}
             - {name: VIDEO_TRANSCODE_ENABLED, value: "false"}

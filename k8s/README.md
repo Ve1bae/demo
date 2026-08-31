@@ -62,10 +62,17 @@ kubectl -n hangyin rollout status deployment/backend --timeout=240s
 kubectl -n hangyin rollout status deployment/live-service --timeout=240s
 kubectl -n hangyin rollout status deployment/frontend --timeout=180s
 kubectl -n hangyin port-forward service/frontend 8080:80
+kubectl -n hangyin port-forward service/srs 1935:1935
 ```
 
-Then open `http://127.0.0.1:8080`. The live-service API can be checked directly with
+Then open `http://127.0.0.1:8080`. Keep the SRS port-forward running when publishing to
+the RTMP URL returned by the live-service. The live-service API can be checked directly with
 `kubectl -n hangyin port-forward service/live-service 8090:8090`.
+
+The `Live Service CI/CD` GitHub Actions workflow builds commit-versioned backend,
+live-service and frontend images, creates a disposable Kind cluster, provisions PVC-backed
+MySQL and MinIO, deploys SRS and all application workloads, then publishes a generated test
+stream and verifies the frontend, backend API, live API, SRS API and HTTP-FLV path.
 
 The PVCs use Docker Desktop's default `local-path` storage class. They are suitable for
 local verification; production should use managed MySQL/MinIO or a replicated storage class.

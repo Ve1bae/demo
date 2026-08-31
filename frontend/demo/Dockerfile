@@ -1,5 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /workspace
+ARG VITE_API_PORT=8080
+ENV VITE_API_PORT=${VITE_API_PORT}
 COPY package*.json ./
 RUN npm ci
 COPY . .

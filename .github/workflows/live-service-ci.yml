@@ -1,4 +1,4 @@
-name: Live Service CI
+name: Live Service CI/CD
 
 on:
   push:
@@ -6,7 +6,11 @@ on:
       - live-service
   pull_request:
     paths:
+      - "backend/**"
+      - "frontend/demo/**"
       - "live-service/**"
+      - "k8s/**"
+      - "demo.sql"
       - ".github/workflows/live-service-ci.yml"
   workflow_dispatch:
 
@@ -14,74 +18,220 @@ permissions:
   contents: read
 
 env:
-  IMAGE_NAME: hangyin/live-service
+  IMAGE_TAG: ${{ github.sha }}
+  KUBE_NAMESPACE: hangyin
+  KIND_CLUSTER: live-ci
+  FRONTEND_PORT: "18080"
 
 jobs:
-  test-package-smoke:
-    name: Test, image and Kubernetes smoke deployment
+  test-build-deploy-smoke:
+    name: Test, build and deploy the complete Kubernetes stack
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
+    services:
+      test-mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hangyin_video
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
-          cache-dependency-path: live-service/pom.xml
-      - name: Run tests and package service
+          cache-dependency-path: |
+            backend/pom.xml
+            live-service/pom.xml
+
+      - name: Test and package live service
         working-directory: live-service
         run: mvn -B verify
-      - name: Build versioned container image
+
+      - name: Test and package main backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-mysql-client ffmpeg
+          mysql -h 127.0.0.1 -P 3306 -u root -proot hangyin_video < demo.sql
+          cd backend
+          chmod +x mvnw
+          ./mvnw -B verify
+
+      - name: Build versioned application images
         run: |
           docker buildx build --load --platform linux/amd64 --provenance=false \
-            --build-arg IMAGE_VERSION="${GITHUB_SHA}" \
-            --build-arg VCS_REF="${GITHUB_SHA}" \
-            --tag "${IMAGE_NAME}:${GITHUB_SHA}" live-service
-          docker image inspect "${IMAGE_NAME}:${GITHUB_SHA}"
+            --tag "hangyin/backend:${IMAGE_TAG}" backend
+          docker buildx build --load --platform linux/amd64 --provenance=false \
+            --build-arg IMAGE_VERSION="${IMAGE_TAG}" \
+            --build-arg VCS_REF="${IMAGE_TAG}" \
+            --tag "hangyin/live-service:${IMAGE_TAG}" live-service
+          docker buildx build --load --platform linux/amd64 --provenance=false \
+            --build-arg VITE_API_PORT="${FRONTEND_PORT}" \
+            --tag "hangyin/frontend:${IMAGE_TAG}" frontend/demo
+          docker image inspect \
+            "hangyin/backend:${IMAGE_TAG}" \
+            "hangyin/live-service:${IMAGE_TAG}" \
+            "hangyin/frontend:${IMAGE_TAG}"
+
       - name: Create disposable Kubernetes cluster
         uses: helm/kind-action@v1
         with:
-          cluster_name: live-ci
-      - name: Deploy database and live service
+          cluster_name: ${{ env.KIND_CLUSTER }}
+
+      - name: Load application images into Kind
         run: |
-          kind load docker-image "${IMAGE_NAME}:${GITHUB_SHA}" --name live-ci
+          kind load docker-image \
+            "hangyin/backend:${IMAGE_TAG}" \
+            "hangyin/live-service:${IMAGE_TAG}" \
+            "hangyin/frontend:${IMAGE_TAG}" \
+            --name "${KIND_CLUSTER}"
+
+      - name: Create runtime configuration
+        run: |
+          if ! kubectl get storageclass -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{end}' | grep -q .; then
+            kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+            kubectl -n local-path-storage rollout status deployment/local-path-provisioner --timeout=180s
+          fi
+          kubectl apply -f k8s/namespace.yml
           DB_PASSWORD="$(openssl rand -hex 24)"
-          kubectl create secret generic live-db-secret --from-literal=password="${DB_PASSWORD}"
-          kubectl create configmap live-db-init \
-            --from-file=001_live_schema.sql=live-service/sql/001_live_schema.sql
-          kubectl apply -f live-service/k8s/mysql.yml
-          kubectl rollout status deployment/live-mysql --timeout=240s
-          kubectl set image -f live-service/k8s/live-service.yml \
-            live-service="${IMAGE_NAME}:${GITHUB_SHA}" --local -o yaml > "${RUNNER_TEMP}/live-service.yml"
-          kubectl apply -f "${RUNNER_TEMP}/live-service.yml"
-          kubectl apply -f live-service/k8s/live-service-service.yml
-          kubectl rollout status deployment/live-service --timeout=240s
-      - name: Verify health, live room and WebSocket APIs
+          kubectl -n "${KUBE_NAMESPACE}" create secret generic hangyin-secrets \
+            --from-literal=db-password="${DB_PASSWORD}" \
+            --from-literal=minio-user=minioadmin \
+            --from-literal=minio-password="$(openssl rand -hex 24)" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "${KUBE_NAMESPACE}" create configmap hangyin-main-db-init \
+            --from-file=001_demo.sql=demo.sql \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "${KUBE_NAMESPACE}" create configmap live-db-init \
+            --from-file=001_live_schema.sql=live-service/sql/001_live_schema.sql \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f k8s/configmaps.yml
+
+      - name: Deploy persistent data and infrastructure
         run: |
-          kubectl port-forward service/live-service 18090:8090 > "${RUNNER_TEMP}/live-port-forward.log" 2>&1 &
-          for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:18090/actuator/health | jq -e '.status == "UP"' >/dev/null; then break; fi
-            if [ "${attempt}" -eq 40 ]; then cat "${RUNNER_TEMP}/live-port-forward.log"; exit 1; fi
+          kubectl apply -f k8s/pvc.yml
+          kubectl apply -f k8s/mysql.yml
+          kubectl apply -f k8s/live-mysql.yml
+          kubectl apply -f k8s/srs.yml
+          kubectl apply -f k8s/minio.yml
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/mysql --timeout=300s
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/live-mysql --timeout=300s
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/srs --timeout=240s
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/minio --timeout=240s
+
+      - name: Deploy versioned application workloads
+        run: |
+          kubectl apply -f k8s/backend.yml
+          kubectl apply -f k8s/live-service.yml
+          kubectl apply -f k8s/frontend.yml
+          kubectl -n "${KUBE_NAMESPACE}" set image deployment/backend \
+            backend="hangyin/backend:${IMAGE_TAG}"
+          kubectl -n "${KUBE_NAMESPACE}" set image deployment/live-service \
+            live-service="hangyin/live-service:${IMAGE_TAG}"
+          kubectl -n "${KUBE_NAMESPACE}" set image deployment/frontend \
+            frontend="hangyin/frontend:${IMAGE_TAG}"
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/backend --timeout=300s
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/live-service --timeout=300s
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/frontend --timeout=240s
+
+      - name: Verify the deployed full stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl -n "${KUBE_NAMESPACE}" port-forward service/frontend "${FRONTEND_PORT}:80" \
+            > "${RUNNER_TEMP}/frontend-port-forward.log" 2>&1 &
+          FRONTEND_FORWARD_PID=$!
+          kubectl -n "${KUBE_NAMESPACE}" port-forward service/srs 1935:1935 \
+            > "${RUNNER_TEMP}/srs-port-forward.log" 2>&1 &
+          SRS_FORWARD_PID=$!
+          FFMPEG_PID=""
+          trap 'kill ${FFMPEG_PID} ${SRS_FORWARD_PID} ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/" > /dev/null; then
+              break
+            fi
+            if [ "${attempt}" -eq 60 ]; then
+              cat "${RUNNER_TEMP}/frontend-port-forward.log"
+              exit 1
+            fi
             sleep 2
           done
-          RESPONSE="$(curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
-            -d '{"title":"CI live room","categoryId":1}' http://127.0.0.1:18090/api/live/rooms)"
-          echo "${RESPONSE}" | jq -e '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://"))'
-          ROOM_ID="$(echo "${RESPONSE}" | jq -r '.data.roomId')"
-          curl -fsS "http://127.0.0.1:18090/api/live/rooms/${ROOM_ID}/like" | jq -e '.code == 200 and .data.likeCount == 0'
-          curl -fsS http://127.0.0.1:18090/api/live/srs/health | jq -e '.code == 200 and .data.enabled == false'
+
+          curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/videos/recommend" \
+            | jq -e '.code == 200'
+          SRS_HEALTH="$(curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/live/srs/health")"
+          echo "${SRS_HEALTH}" | jq -e \
+            '.code == 200 and .data.enabled == true and .data.reachable == true'
+
+          ROOM="$(curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
+            -d '{"title":"Kubernetes CI live room","categoryId":1}' \
+            "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms")"
+          echo "${ROOM}" | jq -e \
+            '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://127.0.0.1:1935/live/")) and (.data.pullUrl | startswith("/srs/live/"))'
+          curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/srs/api/v1/versions" \
+            | jq -e '.code == 0'
+          ROOM_ID="$(echo "${ROOM}" | jq -r '.data.roomId')"
+          STREAM_NAME="$(echo "${ROOM}" | jq -r '.data.streamName')"
+
+          ffmpeg -hide_banner -loglevel error -re \
+            -f lavfi -i testsrc=size=320x240:rate=10 \
+            -f lavfi -i sine=frequency=1000:sample_rate=44100 \
+            -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
+            -c:a aac -f flv "rtmp://127.0.0.1:1935/live/${STREAM_NAME}" \
+            > "${RUNNER_TEMP}/ffmpeg-srs.log" 2>&1 &
+          FFMPEG_PID=$!
+          for attempt in $(seq 1 30); do
+            if curl -sS --max-time 3 \
+              "http://127.0.0.1:${FRONTEND_PORT}/srs/live/${STREAM_NAME}.flv" \
+              -o "${RUNNER_TEMP}/live-smoke.flv" || [ "$?" -eq 28 ]; then
+              if head -c 3 "${RUNNER_TEMP}/live-smoke.flv" | grep -q FLV; then
+                break
+              fi
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              cat "${RUNNER_TEMP}/ffmpeg-srs.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms/${ROOM_ID}" \
+            | jq -e '.code == 200 and .data.active == true'
+          curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms/${ROOM_ID}/like" \
+            | jq -e '.code == 200 and .data.likeCount == 0'
+          curl -fsS -X POST -H 'X-User-Id: 10' \
+            "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms/${ROOM_ID}/close" \
+            | jq -e '.code == 200 and .data.status == "offline"'
+
+          kubectl -n "${KUBE_NAMESPACE}" get pods,services,persistentvolumeclaims -o wide
+
       - name: Collect Kubernetes diagnostics on failure
         if: failure()
         run: |
-          kubectl get pods -o wide || true
-          kubectl describe pods || true
-          kubectl logs deployment/live-mysql --tail=200 || true
-          kubectl logs deployment/live-service --tail=200 || true
+          kubectl get nodes -o wide || true
+          kubectl -n "${KUBE_NAMESPACE}" get all,persistentvolumeclaims -o wide || true
+          kubectl -n "${KUBE_NAMESPACE}" describe pods || true
+          for deployment in mysql live-mysql srs minio backend live-service frontend; do
+            kubectl -n "${KUBE_NAMESPACE}" logs "deployment/${deployment}" --all-containers --tail=200 || true
+          done
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: live-service-test-reports
-          path: live-service/target/surefire-reports/
-          if-no-files-found: error
+          name: full-stack-test-and-deployment-reports
+          path: |
+            live-service/target/surefire-reports/
+            ${{ runner.temp }}/*.log
+          if-no-files-found: warn

@@ -30,9 +30,9 @@ spec:
             - name: DB_PASSWORD
               valueFrom: {secretKeyRef: {name: hangyin-secrets, key: db-password}}
             - name: LIVE_SRS_RTMP_BASE_URL
-              value: "rtmp://srs:1935/live"
+              value: "rtmp://127.0.0.1:1935/live"
             - name: LIVE_SRS_HTTP_BASE_URL
-              value: "http://srs:8080"
+              value: "/srs"
             - name: LIVE_SRS_API_BASE_URL
               value: "http://srs:1985"
             - {name: LIVE_SRS_PROBE_ENABLED, value: "true"}
