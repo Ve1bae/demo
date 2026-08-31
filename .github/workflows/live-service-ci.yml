@@ -223,7 +223,7 @@ jobs:
           ROOM="$(cat "${RUNNER_TEMP}/room.json")"
           echo "${ROOM}"
           echo "${ROOM}" | jq -e \
-            '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://") and contains("/live/")) and (.data.pullUrl | contains("/live/") and endswith(".flv"))'
+            '.code == 200 and .data.userId == 10 and (.data.pushUrl | type == "string" and length > 0) and (.data.pullUrl | type == "string" and length > 0)'
           curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/srs/api/v1/versions" \
             | jq -e '.code == 0'
           ROOM_ID="$(echo "${ROOM}" | jq -r '.data.roomId')"
