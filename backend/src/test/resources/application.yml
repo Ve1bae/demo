@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+minio:
+  endpoint: http://127.0.0.1:9000
+  public-base-url: http://127.0.0.1:8082/video
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: hangyin-video
+
+live:
+  srs:
+    rtmp-base-url: rtmp://127.0.0.1/live
+    http-base-url: http://127.0.0.1:8081
+
+video:
+  transcode:
+    enabled: false

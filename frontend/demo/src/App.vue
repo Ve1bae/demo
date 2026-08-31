@@ -1898,6 +1898,10 @@ const sendLiveDanmu = () => {
   if (!content) {
     return
   }
+  if (content.length > 255) {
+    alert('弹幕内容不能超过 255 字')
+    return
+  }
   if (!liveWs.value || liveWs.value.readyState !== WebSocket.OPEN) {
     alert('直播互动连接未建立，请稍后再试')
     return

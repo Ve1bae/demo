@@ -6,6 +6,8 @@ response*.txt
 *测试报告*.*
 backend/backend/
 backend/uploads/
+backend/src/main/resources/application.yml
+backend/src/main/resources/application.properties
 frontend/demo/dist/
 node_modules/
 .idea/
