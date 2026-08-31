@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: hangyin_video
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the environment}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mkj162829}
     ports:
       - "3307:3306"
     volumes:
@@ -34,8 +34,8 @@ services:
     container_name: hangyin-minio
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in the environment}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in the environment}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-3dfbf77d62bf4fd8b7463e62fcea4800dd51f8fc20264f03a1542256ae0da5bc}
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -70,12 +70,12 @@ services:
       - "8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?Set SPRING_DATASOURCE_USERNAME in the environment}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD in the environment}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-mkj162829}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_BASE_URL: http://localhost:8082/video
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in the environment}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in the environment}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-3dfbf77d62bf4fd8b7463e62fcea4800dd51f8fc20264f03a1542256ae0da5bc}
       MINIO_BUCKET: hangyin-video
       LIVE_RTMP_BASE_URL: rtmp://localhost/live
       LIVE_HTTP_BASE_URL: http://localhost:8081

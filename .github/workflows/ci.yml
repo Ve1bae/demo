@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: [uc07cicd]
+    branches: [docker]
   pull_request:
-    branches: [uc07cicd]
+    branches: [docker]
 
 permissions:
   contents: read
