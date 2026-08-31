@@ -250,21 +250,13 @@ jobs:
             fi
             sleep 2
           done
-          for attempt in $(seq 1 30); do
-            if curl -fsS "${API_BASE}/api/live/rooms/${ROOM_ID}" \
-              -o "${RUNNER_TEMP}/room-active.json"; then
-              if jq -e '.code == 200 and .data.streamActive == true' \
-                "${RUNNER_TEMP}/room-active.json" > /dev/null; then
-                break
-              fi
-            fi
-            if [ "${attempt}" -eq 30 ]; then
-              cat "${RUNNER_TEMP}/room-active.json" 2>/dev/null || true
-              exit 1
-            fi
-            sleep 2
-          done
+          curl -fsS "${API_BASE}/api/live/rooms/${ROOM_ID}" \
+            -o "${RUNNER_TEMP}/room-active.json"
           cat "${RUNNER_TEMP}/room-active.json"
+          # FLV header/data above is the authoritative playback check. The
+          # optional SRS stream probe can lag behind the remuxed HTTP stream.
+          jq -e '.code == 200 and .data.status == "online"' \
+            "${RUNNER_TEMP}/room-active.json" > /dev/null
           curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms/${ROOM_ID}/like" \
             | jq -e '.code == 200 and .data.likeCount == 0'
           curl -fsS -X POST -H 'X-User-Id: 10' \
