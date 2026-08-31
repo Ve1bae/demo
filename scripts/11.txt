@@ -1,9 +1,0 @@
-ERROR 1064 (42000) at line 16: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'uc03_e2e_other', 'e2e-password', 'E2E???????, NULL),
-  (930004, 'uc07_e2e_creato' at line 6
-D:\code\demo\scripts\runtest.ps1 :
-❌ 执行过程中发生错误: 导入 E2E 测试数据失败。
-所在位置 行:1 字符: 1
-+ .\scripts\runtest.ps1
-+ ~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
-    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,runtest.ps1
