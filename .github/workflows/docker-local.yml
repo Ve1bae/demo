@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: [uc07cicd]
+    branches: [docker]
   pull_request:
-    branches: [uc07cicd]
+    branches: [docker]
 
 permissions:
   contents: read
@@ -229,55 +229,74 @@ jobs:
         run: docker build -t hangyin/frontend:ci ./frontend/demo
 
   kubernetes:
-    name: Kubernetes deploy and health check
+    name: Deploy to local Docker Desktop Kubernetes
     needs: build-images
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 20
+    env:
+      KUBE_CONTEXT: docker-desktop
+      KUBE_NAMESPACE: hangyin
+      IMAGE_TAG: ${{ github.sha }}
+      BACKEND_NODE_PORT: '30080'
+      FRONTEND_NODE_PORT: '30573'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Build images for kind
+      - name: Verify Docker Desktop Kubernetes
+        shell: pwsh
         run: |
-          docker build -t hangyin/backend:ci ./backend
-          docker build -t hangyin/frontend:ci ./frontend/demo
-      - name: Create kind cluster
+          docker version
+          kubectl config use-context $env:KUBE_CONTEXT
+          kubectl version --client
+          kubectl cluster-info
+      - name: Build local images
+        shell: pwsh
         run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-          kind create cluster --name hangyin-ci --wait 120s
+          docker pull minio/minio:latest
+          docker build -t hangyin/backend:$env:IMAGE_TAG ./backend
+          docker build --build-arg VITE_API_PORT=$env:BACKEND_NODE_PORT -t hangyin/frontend:$env:IMAGE_TAG ./frontend/demo
       - name: Deploy to Kubernetes
+        shell: pwsh
         run: |
           kubectl apply -f k8s/namespace.yaml
-          kubectl create secret generic app-secrets -n hangyin \
-            --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
-            --from-literal=SPRING_DATASOURCE_USERNAME="$SPRING_DATASOURCE_USERNAME" \
-            --from-literal=SPRING_DATASOURCE_PASSWORD="$SPRING_DATASOURCE_PASSWORD" \
-            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
-            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
-            --from-literal=MINIO_ACCESS_KEY="$MINIO_ACCESS_KEY" \
-            --from-literal=MINIO_SECRET_KEY="$MINIO_SECRET_KEY" \
+          kubectl create secret generic app-secrets -n $env:KUBE_NAMESPACE `
+            --from-literal=MYSQL_ROOT_PASSWORD=$env:MYSQL_ROOT_PASSWORD `
+            --from-literal=SPRING_DATASOURCE_USERNAME=$env:SPRING_DATASOURCE_USERNAME `
+            --from-literal=SPRING_DATASOURCE_PASSWORD=$env:SPRING_DATASOURCE_PASSWORD `
+            --from-literal=MINIO_ROOT_USER=$env:MINIO_ROOT_USER `
+            --from-literal=MINIO_ROOT_PASSWORD=$env:MINIO_ROOT_PASSWORD `
+            --from-literal=MINIO_ACCESS_KEY=$env:MINIO_ACCESS_KEY `
+            --from-literal=MINIO_SECRET_KEY=$env:MINIO_SECRET_KEY `
             --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create configmap mysql-init --from-file=01-demo.sql=demo.sql -n hangyin
-          kind load docker-image hangyin/backend:ci --name hangyin-ci
-          kind load docker-image hangyin/frontend:ci --name hangyin-ci
+          kubectl create configmap mysql-init --from-file=01-demo.sql=demo.sql -n $env:KUBE_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
           kubectl apply -f k8s/mysql.yaml -f k8s/minio.yaml -f k8s/srs.yaml
           kubectl apply -f k8s/backend.yaml -f k8s/frontend.yaml
+          kubectl set image deployment/backend backend=hangyin/backend:$env:IMAGE_TAG -n $env:KUBE_NAMESPACE
+          kubectl set image deployment/frontend frontend=hangyin/frontend:$env:IMAGE_TAG -n $env:KUBE_NAMESPACE
+          kubectl patch service backend -n $env:KUBE_NAMESPACE --type merge -p "{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"port\":8080,\"targetPort\":8080,\"nodePort\":$env:BACKEND_NODE_PORT}]}}"
+          kubectl patch service frontend -n $env:KUBE_NAMESPACE --type merge -p "{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"port\":80,\"targetPort\":80,\"nodePort\":$env:FRONTEND_NODE_PORT}]}}"
+          kubectl patch service minio -n $env:KUBE_NAMESPACE --type merge -p '{"spec":{"type":"NodePort","ports":[{"name":"api","port":9000,"targetPort":9000,"nodePort":30900}]}}'
+          kubectl set env deployment/backend -n $env:KUBE_NAMESPACE MINIO_PUBLIC_BASE_URL=http://localhost:30900/hangyin-video
           kubectl rollout status deployment/mysql -n hangyin --timeout=180s
           kubectl rollout status deployment/minio -n hangyin --timeout=180s
           kubectl rollout status deployment/srs -n hangyin --timeout=180s
           kubectl rollout status deployment/backend -n hangyin --timeout=240s
           kubectl rollout status deployment/frontend -n hangyin --timeout=180s
       - name: Kubernetes health check
+        shell: pwsh
         run: |
-          kubectl port-forward service/backend 18080:8080 -n hangyin > backend-k8s-port-forward.log 2>&1 &
-          kubectl port-forward service/frontend 15173:80 -n hangyin > frontend-k8s-port-forward.log 2>&1 &
-          for i in {1..30}; do
-            curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null && break
-            sleep 2
-          done
-          curl --fail --silent http://127.0.0.1:18080/api/live/rooms >/dev/null
-          curl --fail --silent http://127.0.0.1:15173/ >/dev/null
+          $backend = "http://localhost:$env:BACKEND_NODE_PORT/api/live/rooms"
+          $frontend = "http://localhost:$env:FRONTEND_NODE_PORT/"
+          for ($i = 0; $i -lt 30; $i++) {
+            try {
+              Invoke-WebRequest -UseBasicParsing -Uri $backend -TimeoutSec 5 | Out-Null
+              Invoke-WebRequest -UseBasicParsing -Uri $frontend -TimeoutSec 5 | Out-Null
+              break
+            } catch {
+              if ($i -eq 29) { throw }
+              Start-Sleep -Seconds 2
+            }
+          }
           kubectl get pods,services -n hangyin
       - name: Upload Kubernetes logs
         if: always()
@@ -285,9 +304,4 @@ jobs:
         with:
           name: kubernetes-reports
           path: |
-            backend-k8s-port-forward.log
-            frontend-k8s-port-forward.log
             k8s/*.yaml
-      - name: Delete kind cluster
-        if: always()
-        run: kind delete cluster --name hangyin-ci || true
