@@ -205,10 +205,23 @@ jobs:
           SRS_HEALTH="$(cat "${RUNNER_TEMP}/srs-health.json")"
           echo "${SRS_HEALTH}"
 
-          ROOM="$(curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
-            -d '{"title":"Kubernetes CI live room","categoryId":1}' \
-            "http://127.0.0.1:${FRONTEND_PORT}/api/live/rooms")"
-          echo "${ROOM}" | tee "${RUNNER_TEMP}/room.json"
+          for attempt in $(seq 1 30); do
+            if curl -fsS -H 'Content-Type: application/json' -H 'X-User-Id: 10' \
+              -d '{"title":"Kubernetes CI live room","categoryId":null}' \
+              "${API_BASE}/api/live/rooms" \
+              -o "${RUNNER_TEMP}/room.json"; then
+              if jq -e '.code == 200' "${RUNNER_TEMP}/room.json" > /dev/null; then
+                break
+              fi
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              cat "${RUNNER_TEMP}/room.json" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 2
+          done
+          ROOM="$(cat "${RUNNER_TEMP}/room.json")"
+          echo "${ROOM}"
           echo "${ROOM}" | jq -e \
             '.code == 200 and .data.userId == 10 and (.data.pushUrl | startswith("rtmp://127.0.0.1:1935/live/")) and (.data.pullUrl | startswith("/srs/live/"))'
           curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/srs/api/v1/versions" \
