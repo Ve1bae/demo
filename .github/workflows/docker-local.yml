@@ -231,7 +231,7 @@ jobs:
   kubernetes:
     name: Deploy to local Docker Desktop Kubernetes
     needs: build-images
-    runs-on: MUGSCUP
+    runs-on: [MUGSCUP]
     timeout-minutes: 20
     env:
       KUBE_CONTEXT: docker-desktop
