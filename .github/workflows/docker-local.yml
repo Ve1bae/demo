@@ -231,7 +231,7 @@ jobs:
   kubernetes:
     name: Deploy to local Docker Desktop Kubernetes
     needs: build-images
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: [self-hosted, MUGSCUP]
     timeout-minutes: 20
     env:
       KUBE_CONTEXT: docker-desktop
@@ -243,20 +243,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Verify Docker Desktop Kubernetes
-        shell: pwsh
+        shell: powershell
         run: |
           docker version
           kubectl config use-context $env:KUBE_CONTEXT
           kubectl version --client
           kubectl cluster-info
       - name: Build local images
-        shell: pwsh
+        shell: powershell
         run: |
           docker pull minio/minio:latest
           docker build -t hangyin/backend:$env:IMAGE_TAG ./backend
           docker build --build-arg VITE_API_PORT=$env:BACKEND_NODE_PORT -t hangyin/frontend:$env:IMAGE_TAG ./frontend/demo
       - name: Deploy to Kubernetes
-        shell: pwsh
+        shell: powershell
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl create secret generic app-secrets -n $env:KUBE_NAMESPACE `
@@ -283,7 +283,7 @@ jobs:
           kubectl rollout status deployment/backend -n hangyin --timeout=240s
           kubectl rollout status deployment/frontend -n hangyin --timeout=180s
       - name: Kubernetes health check
-        shell: pwsh
+        shell: powershell
         run: |
           $backend = "http://localhost:$env:BACKEND_NODE_PORT/api/live/rooms"
           $frontend = "http://localhost:$env:FRONTEND_NODE_PORT/"
