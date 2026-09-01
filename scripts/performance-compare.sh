@@ -73,7 +73,7 @@ run_case() {
   rps="$(awk -v n="$total" -v s="$elapsed" 'BEGIN{printf "%.2f",n/s}')"
   avg="$(awk -F '\t' '{sum+=$2} END{printf "%.2f",NR?sum/NR*1000:0}' "${requests}")"
   p95="$(awk -F '\t' '{print $2*1000}' "${requests}" | sort -n | awk '{a[NR]=$1} END{if(NR){i=int((NR*95+99)/100);printf "%.2f",a[i]}else print "0.00"}')"
-  error_rate="$(awk -v e="$errors" -v n="$total" 'BEGIN{printf "%.2f",n>0?e*100/n:0}')"
+  error_rate="$(awk -v e="$errors" -v n="$total" 'BEGIN{printf "%.2f",(n > 0 ? e * 100 / n : 0)}')"
   cpu="$(awk '{sum+=$1} END{printf "%.2f",NR?sum/NR:0}' "${samples}")"
   rss="$(awk '{if($2>max)max=$2} END{printf "%.2f",max/1024}' "${samples}")"
   echo "${mode},${endpoint},${repetition},${PERF_CONCURRENCY},${elapsed},${total},${successes},${errors},${rps},${avg},${p95},${error_rate},${cpu},${rss}" >> "${RESULTS}"
