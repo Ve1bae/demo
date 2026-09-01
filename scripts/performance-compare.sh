@@ -18,7 +18,8 @@ RESULTS="${PERF_OUTPUT_DIR}/performance-results.csv"
 echo 'mode,endpoint,repetition,concurrency,duration_seconds,requests,successes,errors,throughput_rps,avg_ms,p95_ms,error_rate,cpu_avg_pct,rss_peak_mb' > "${RESULTS}"
 
 wait_ready() {
-  local name="$1" base="$2" pid="$3" log="$4" deadline=$((SECONDS + 180)) body="${PERF_OUTPUT_DIR}/${name}-ready.body"
+  local name="$1" base="$2" pid="$3" log="$4"
+  local deadline=$((SECONDS + 180)) body="${PERF_OUTPUT_DIR}/${name}-ready.body"
   while (( SECONDS < deadline )); do
     if [[ -n "${pid}" ]] && ! kill -0 "${pid}" 2>/dev/null; then
       echo "${name} process ${pid} exited before readiness" >&2
