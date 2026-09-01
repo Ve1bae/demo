@@ -3,11 +3,15 @@ name: Video Service CI
 on:
   push:
     branches:
+      - videoplayer
       - video-service
     paths:
       - "video-service/**"
       - ".github/workflows/video-service-ci.yml"
   pull_request:
+    branches:
+      - videoplayer
+      - video-service
     paths:
       - "video-service/**"
       - ".github/workflows/video-service-ci.yml"
@@ -80,7 +84,7 @@ jobs:
           curl -fsS http://127.0.0.1:18082/actuator/info | jq -e '.app.name == "video-service"'
 
           # 插入测试数据
-          kubectl -n video-service exec -it mysql-0 -- mysql -uroot -proot video_db \
+          kubectl -n video-service exec mysql-0 -- mysql -uroot -proot video_db \
             -e "INSERT INTO video (id, title, author, user_id, play_url) VALUES (1, 'CI test', 'tester', 1, 'http://test/video.mp4') ON DUPLICATE KEY UPDATE title='CI test';"
 
           # 验证推荐接口
