@@ -18,6 +18,24 @@ DB_PASSWORD=******
 
 数据库表结构见 `src/main/resources/schema.sql`，MySQL 部署脚本见 `sql/003_recommendation_schema.sql`。
 
+默认不调用尚未联调的用户服务，登录请求会降级为游客偏好。用户服务接口就绪后，同时设置
+`USER_SERVICE_ENABLED=true` 和 `USER_SERVICE_BASE_URL` 才会启用 HTTP 偏好查询。
+
+## Docker 与真实 MySQL API 测试
+
+PowerShell 中设置仅用于本机的数据库密码，然后启动隔离测试环境：
+
+```powershell
+$env:VIDEO_SERVICE_DB_PASSWORD = "<本机测试密码>"
+docker compose -f compose.test.yml up -d --build
+node scripts/api-smoke-test.mjs
+docker compose -f compose.test.yml down -v
+```
+
+服务地址为 `http://127.0.0.1:8083`，健康检查地址为
+`http://127.0.0.1:8083/actuator/health`。API 测试的原始请求和响应保存在
+`target/api-test-results/api-results.json`。
+
 ## 验证
 
 ```text

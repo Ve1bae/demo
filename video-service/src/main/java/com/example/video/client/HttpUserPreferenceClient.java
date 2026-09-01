@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Component
-@ConditionalOnProperty(prefix = "user-service", name = "base-url")
+@ConditionalOnProperty(prefix = "user-service", name = "enabled", havingValue = "true")
 public class HttpUserPreferenceClient implements UserPreferenceClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;

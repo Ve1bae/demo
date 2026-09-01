@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: [uc07cicd]
+    branches: [uc07cicd, main, feature/video-service, 'feature/video-service-*']
   pull_request:
-    branches: [uc07cicd]
+    branches: [uc07cicd, feature/video-service, main]
 
 permissions:
   contents: read
@@ -23,8 +23,137 @@ env:
   VIDEO_TRANSCODE_ENABLED: 'false'
 
 jobs:
+  video-service-tests:
+    name: Video service unit, API and image tests
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/video-service') || github.base_ref == 'feature/video-service' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VIDEO_SERVICE_DB_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+      VIDEO_SERVICE_IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Prepare isolated database password
+        shell: bash
+        run: |
+          if [ -z "$VIDEO_SERVICE_DB_PASSWORD" ]; then
+            echo "VIDEO_SERVICE_DB_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          fi
+      - name: Run video service unit and H2 API tests
+        working-directory: video-service
+        run: mvn -B -ntp test
+      - name: Build and start video service with MySQL
+        working-directory: video-service
+        run: docker compose -f compose.test.yml up -d --build
+      - name: Run live MySQL API tests
+        working-directory: video-service
+        run: node scripts/api-smoke-test.mjs
+      - name: Save container logs
+        if: always()
+        working-directory: video-service
+        run: docker compose -f compose.test.yml logs --no-color > target/video-service-container.log
+      - name: Upload video service test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: video-service-test-reports-${{ github.sha }}
+          path: |
+            video-service/target/surefire-reports
+            video-service/target/api-test-results
+            video-service/target/video-service-container.log
+      - name: Stop video service test environment
+        if: always()
+        working-directory: video-service
+        run: docker compose -f compose.test.yml down -v
+
+  uc03-browser-e2e:
+    name: UC03 browser E2E
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/video-service') || github.base_ref == 'feature/video-service' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VITE_API_HOST: 127.0.0.1
+      VITE_API_PORT: '8080'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/demo/package-lock.json
+      - name: Start test infrastructure
+        run: docker compose up -d mysql minio srs
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..60}; do
+            mysql_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-mysql 2>/dev/null || true)
+            minio_status=$(docker inspect --format='{{.State.Health.Status}}' hangyin-minio 2>/dev/null || true)
+            if [ "$mysql_status" = healthy ] && [ "$minio_status" = healthy ]; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+      - name: Start monolith backend
+        working-directory: backend
+        run: |
+          nohup bash ./mvnw -B spring-boot:run > ../backend-uc03-e2e.log 2>&1 &
+          for i in {1..60}; do
+            curl --fail --silent 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1' >/dev/null && exit 0 || sleep 2
+          done
+          cat ../backend-uc03-e2e.log
+          exit 1
+      - name: Seed UC03 browser test data
+        run: docker compose exec -T mysql mysql --default-character-set=utf8mb4 -uroot -proot hangyin_video < frontend/demo/e2e/fixtures/recommendation.sql
+      - name: Install frontend dependencies
+        working-directory: frontend/demo
+        run: npm ci
+      - name: Build frontend
+        working-directory: frontend/demo
+        run: npm run build
+      - name: Install Chromium
+        working-directory: frontend/demo
+        run: npx playwright install --with-deps chromium
+      - name: Run UC03 Playwright tests
+        working-directory: frontend/demo
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:5173
+        run: npm run test:e2e:uc03
+      - name: Upload UC03 browser reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: uc03-browser-e2e-${{ github.sha }}
+          path: |
+            frontend/demo/playwright-report
+            frontend/demo/test-results
+            backend-uc03-e2e.log
+      - name: Stop UC03 browser test environment
+        if: always()
+        run: docker compose down -v
+
   backend-tests:
     name: Backend unit, API and WebSocket tests
+    if: github.ref == 'refs/heads/uc07cicd' || github.base_ref == 'uc07cicd'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -188,6 +317,8 @@ jobs:
           CI: true
           E2E_BASE_URL: http://127.0.0.1:5173
           E2E_API_BASE: http://127.0.0.1:8080/api
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/uc04-06
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/uc04-06-playwright-junit.xml
         run: npm run test:e2e:uc04-06
       - name: Run UC07-10 browser E2E
         working-directory: frontend/demo
@@ -195,6 +326,8 @@ jobs:
           CI: true
           E2E_BASE_URL: http://127.0.0.1:5173
           E2E_API_BASE: http://127.0.0.1:8080/api
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/uc07-10
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/uc07-10-playwright-junit.xml
         run: npm run test:e2e:uc07-10
       - name: Upload browser reports
         if: always()

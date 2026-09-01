@@ -1,0 +1,32 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: video_db
+      MYSQL_ROOT_PASSWORD: ${VIDEO_SERVICE_DB_PASSWORD:?set VIDEO_SERVICE_DB_PASSWORD}
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./sql/003_recommendation_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./sql/004_recommendation_test_data.sql:/docker-entrypoint-initdb.d/02-test-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  video-service:
+    image: hangyin/video-service:${VIDEO_SERVICE_IMAGE_TAG:-ci}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${VIDEO_SERVICE_DB_PASSWORD:?set VIDEO_SERVICE_DB_PASSWORD}
+      APP_VERSION: ${VIDEO_SERVICE_IMAGE_TAG:-ci}
+    ports:
+      - "8083:8083"
+    depends_on:
+      mysql:
+        condition: service_healthy

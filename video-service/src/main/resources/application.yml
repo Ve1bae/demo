@@ -13,8 +13,24 @@ spring:
     init:
       mode: ${SPRING_SQL_INIT_MODE:never}
 
+user-service:
+  enabled: ${USER_SERVICE_ENABLED:false}
+  base-url: ${USER_SERVICE_BASE_URL:http://user-service:8080}
+
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
         include: health,info
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: ${APP_VERSION:0.1.0-SNAPSHOT}
