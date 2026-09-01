@@ -402,7 +402,7 @@ jobs:
           echo $! > "${RUNNER_TEMP}/microservice.pid"
           resolve_java_pid() {
             local jar="$1" fallback="$2" candidate attempt
-            for attempt in $(seq 1 30); do
+            for attempt in $(seq 1 180); do
               if kill -0 "${fallback}" 2>/dev/null; then
                 printf '%s\n' "${fallback}"
                 return 0
@@ -415,6 +415,9 @@ jobs:
               done
               sleep 1
             done
+            echo "Timed out resolving Java process for ${jar}" >&2
+            tail -n 120 "${RUNNER_TEMP}/monolith-performance.log" >&2 || true
+            tail -n 120 "${RUNNER_TEMP}/microservice-performance.log" >&2 || true
             return 1
           }
           export PERF_MONOLITH_PID="$(resolve_java_pid "${MONOLITH_JAR}" "$(cat "${RUNNER_TEMP}/monolith.pid")")"
