@@ -1,0 +1,18 @@
+flowchart LR
+  User[游客/用户/主播]
+  FE[Frontend + Nginx]
+  BE[Backend service]
+  LS[Live service]
+  DB[(MySQL)]
+  LDB[(Live MySQL)]
+  Minio[(MinIO)]
+  SRS[SRS RTMP/HTTP-FLV/API]
+  User --> FE
+  FE --> BE
+  FE --> LS
+  FE --> SRS
+  BE --> DB
+  BE --> Minio
+  LS --> LDB
+  LS --> SRS
+  User -. RTMP publish .-> SRS

@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor A as 主播
+  participant FE as 前端
+  participant LS as LiveService
+  participant DB as live-mysql
+  participant SRS as SRS
+  A->>FE: 创建直播间
+  FE->>LS: POST /api/live/rooms
+  LS->>DB: INSERT live_room(status=online)
+  DB-->>LS: roomId
+  LS-->>FE: pushUrl/pullUrl
+  A->>SRS: RTMP publish(streamName)
+  SRS-->>FE: HTTP-FLV /live/{stream}.flv
+  FE->>LS: 查询房间状态
+  LS-->>FE: online + streamActive(探测值)
+  A->>FE: 关闭直播
+  FE->>LS: POST /rooms/{id}/close
+  LS->>DB: UPDATE status=offline
+  LS-->>FE: offline

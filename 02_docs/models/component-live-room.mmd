@@ -1,0 +1,15 @@
+sequenceDiagram
+  participant C as LiveController
+  participant S as LiveService
+  participant R as LiveRepository
+  participant H as SrsHealthService
+  participant W as LiveWebSocketHandler
+  C->>S: createRoom(userId, request)
+  S->>R: insertRoom(...)
+  R-->>S: roomId
+  S->>H: health/isStreamActive
+  H-->>S: SRS status
+  S-->>C: LiveRoomView
+  W->>S: addDanmu/addLike
+  S->>R: persist interaction
+  W-->>W: broadcast

@@ -1,0 +1,35 @@
+# 测试计划与报告索引
+
+## 1. 测试分层
+
+| 层级 | 目标 | 当前入口 | 证据 |
+| --- | --- | --- | --- |
+| 单元测试 | 关键规则、边界和异常分支 | `backend/src/test/.../LiveUnitTest.java`、`live-service/src/test/.../LiveServiceUnitTest.java` | Surefire XML/控制台日志 |
+| 集成/API | Controller、数据库、WebSocket、SRS 健康接口 | `ApiIntegrationTest.java`、`LiveApiIntegrationTest.java` | Maven 报告 |
+| E2E | 从 API 或页面走完完整业务流程 | `LiveE2ETest.java`、`frontend/demo/e2e/live-ui.spec.js` | Playwright/Maven 报告 |
+| Kubernetes 冒烟 | 镜像、PVC、rollout、API、RTMP、FLV | `.github/workflows/live-service-ci.yml` | Actions run 和 artifact |
+
+## 2. 有效性标准
+
+- 每个测试必须有断言，不能只检查进程退出码。
+- 每个用例覆盖主成功、至少一个备选或异常路径。
+- 测试失败必须让流水线停止后续部署验证。
+- 报告需记录总数、通过数、失败数、失败原因、运行环境和提交 SHA。
+
+## 3. 已验证结果
+
+### 原系统 CI
+
+历史报告：[`04_tests/直播测试报告.md`](../04_tests/直播测试报告.md)，提交 `6ca62fe`，17/17 通过。
+
+### Kubernetes 全栈 CI
+
+Workflow：[`../.github/workflows/live-service-ci.yml`](../.github/workflows/live-service-ci.yml)。最近成功运行：
+
+- [Live Service CI/CD #9](https://github.com/Ve1bae/demo/actions/runs/33372890154)
+- 提交：`5fe0c0b`
+- 通过步骤：构建、Kind、PVC、MySQL、SRS、MinIO、三应用 rollout、API、RTMP、HTTP-FLV、直播状态、点赞和关闭直播。
+
+## 4. 仍需补充的测试证据
+
+PDF 要求“清单中的全部业务场景（用例）”均有测试。当前直播核心链路证据较完整，但用户注册、上传、评论、关注和视频收藏等场景还需要在 `04_tests` 中补充对应 API/E2E 测试编号与原始报告，不能用已有直播报告替代。

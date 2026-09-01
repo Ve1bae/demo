@@ -1,0 +1,15 @@
+sequenceDiagram
+  participant Req as CreateLiveRoomRequest
+  participant S as LiveService
+  participant Repo as LiveRepository
+  participant Room as LiveRoomView
+  participant Health as SrsHealthService
+  Req->>S: title/categoryId/userId
+  S->>S: validate + generate streamName
+  S->>Repo: insertRoom(pushUrl, playUrl)
+  Repo-->>S: roomId
+  S->>Repo: findRoom(roomId)
+  Repo-->>S: persisted row
+  S->>Health: isStreamActive(streamName)
+  Health-->>S: boolean or false
+  S-->>Room: enriched immutable view
