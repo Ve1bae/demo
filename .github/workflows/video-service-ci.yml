@@ -22,7 +22,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/demo-video-service
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner | lower }}/demo-video-service
 
 jobs:
   test-package-smoke:
