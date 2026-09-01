@@ -1,0 +1,22 @@
+server:
+  port: ${SERVER_PORT:8081}
+spring:
+  application:
+    name: user-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/user_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:mkj162829}
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+info:
+  service:
+    name: user-service
+    version: 0.0.1-SNAPSHOT

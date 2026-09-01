@@ -5,12 +5,14 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: hangyin_video
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mkj162829}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-3dfbf77d62bf4fd8b7463e62fcea4800dd51f8fc20264f03a1542256ae0da5bc}
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./demo.sql:/docker-entrypoint-initdb.d/01-demo.sql:ro
+      - ./infra/mysql/user-db.sql:/docker-entrypoint-initdb.d/02-user-db.sql:ro
+      - ./infra/mysql/migrate-user-db.sql:/docker-entrypoint-initdb.d/03-migrate-user-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", 'mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent']
       interval: 5s
@@ -94,6 +96,23 @@ services:
         condition: service_healthy
       srs:
         condition: service_started
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: hangyin-user-service
+    restart: unless-stopped
+    ports:
+      - "18081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-mkj162829}
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   frontend:
     build:
