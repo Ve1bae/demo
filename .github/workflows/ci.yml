@@ -52,6 +52,11 @@ jobs:
           fi
       - name: Run video service unit and H2 API tests
         working-directory: video-service
+        env:
+          SPRING_DATASOURCE_URL: 'jdbc:h2:mem:video_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE'
+          SPRING_DATASOURCE_USERNAME: sa
+          SPRING_DATASOURCE_PASSWORD: ''
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
         run: mvn -B -ntp test
       - name: Build and start video service with MySQL
         working-directory: video-service
