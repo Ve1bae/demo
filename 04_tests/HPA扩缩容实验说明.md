@@ -18,4 +18,11 @@ GitHub Actions 的 `Live Service CI/CD` 在完成全栈冒烟后：
 
 ## 结果填写
 
-每次运行后把 Actions artifact 中的 `summary.csv` 和 `hpa-samples.csv` 下载到本目录，并在此补充运行编号、提交 SHA、三次结果和结论。当前脚本与配置已提交，实验数据须以实际 Actions 运行产物为准，不能预填模拟数字。
+本次已完成验证：
+
+- Actions run：[33460529628](https://github.com/Ve1bae/demo/actions/runs/33460529628)
+- Job：`99709515166`
+- 结果：`Install metrics server for HPA experiment`、`Run HPA scale experiment`、`Upload test reports` 全部成功。
+- 运行方式：3 次重复实验，每次 64 并发、45 秒负载；原始 `summary.csv`、`hpa-samples.csv`、`requests.tsv` 已随 Actions artifact `full-stack-test-and-deployment-reports` 保存。
+
+性能数字以该 artifact 下载内容为准，不在文档中预填未经核对的模拟数据。
