@@ -9,6 +9,7 @@ backend/uploads/
 backend/src/main/resources/application.yml
 backend/src/main/resources/application.properties
 frontend/demo/dist/
+user-service/target/
 node_modules/
 .idea/
 .vscode/
