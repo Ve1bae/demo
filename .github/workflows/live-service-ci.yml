@@ -383,7 +383,7 @@ jobs:
           set -euo pipefail
           MONOLITH_JAR="$(find "${RUNNER_TEMP}/backend/target" -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' -print -quit)"
           MICRO_JAR="$(find live-service/target -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' -print -quit)"
-          setsid env -u RUNNER_TRACKING_ID java -jar "${MONOLITH_JAR}" \
+          env -u RUNNER_TRACKING_ID nohup java -jar "${MONOLITH_JAR}" \
             --server.port=18081 \
             --spring.datasource.url='jdbc:mysql://127.0.0.1:3306/baseline_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true' \
             --spring.datasource.username=root --spring.datasource.password=root \
@@ -393,15 +393,32 @@ jobs:
           echo $! > "${RUNNER_TEMP}/monolith.pid"
           # live-service reads its datasource from DB_URL/DB_USERNAME/DB_PASSWORD
           # (the Spring property names are intentionally not used by this app).
-          setsid env -u RUNNER_TRACKING_ID \
+          env -u RUNNER_TRACKING_ID nohup \
             DB_URL='jdbc:mysql://127.0.0.1:3306/micro_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true' \
             DB_USERNAME=root DB_PASSWORD=root SERVER_PORT=18082 \
             LIVE_SRS_PROBE_ENABLED=false \
             java -jar "${MICRO_JAR}" \
             > "${RUNNER_TEMP}/microservice-performance.log" 2>&1 &
           echo $! > "${RUNNER_TEMP}/microservice.pid"
-          export PERF_MONOLITH_PID="$(cat "${RUNNER_TEMP}/monolith.pid")"
-          export PERF_MICROSERVICE_PID="$(cat "${RUNNER_TEMP}/microservice.pid")"
+          resolve_java_pid() {
+            local jar="$1" fallback="$2" candidate attempt
+            for attempt in $(seq 1 30); do
+              if kill -0 "${fallback}" 2>/dev/null; then
+                printf '%s\n' "${fallback}"
+                return 0
+              fi
+              for candidate in $(pgrep -f -- "${jar}" || true); do
+                if kill -0 "${candidate}" 2>/dev/null; then
+                  printf '%s\n' "${candidate}"
+                  return 0
+                fi
+              done
+              sleep 1
+            done
+            return 1
+          }
+          export PERF_MONOLITH_PID="$(resolve_java_pid "${MONOLITH_JAR}" "$(cat "${RUNNER_TEMP}/monolith.pid")")"
+          export PERF_MICROSERVICE_PID="$(resolve_java_pid "${MICRO_JAR}" "$(cat "${RUNNER_TEMP}/microservice.pid")")"
           export PERF_MONOLITH_LOG="${RUNNER_TEMP}/monolith-performance.log"
           export PERF_MICROSERVICE_LOG="${RUNNER_TEMP}/microservice-performance.log"
           export PERF_OUTPUT_DIR="${RUNNER_TEMP}/hangyin-performance"
