@@ -9,6 +9,8 @@ set -euo pipefail
 : "${PERF_MICROSERVICE_URL:=http://127.0.0.1:18082}"
 : "${PERF_MONOLITH_PID:=}"
 : "${PERF_MICROSERVICE_PID:=}"
+: "${PERF_MONOLITH_LOG:=}"
+: "${PERF_MICROSERVICE_LOG:=}"
 
 mkdir -p "${PERF_OUTPUT_DIR}"
 rm -f "${PERF_OUTPUT_DIR}"/*
@@ -16,11 +18,22 @@ RESULTS="${PERF_OUTPUT_DIR}/performance-results.csv"
 echo 'mode,endpoint,repetition,concurrency,duration_seconds,requests,successes,errors,throughput_rps,avg_ms,p95_ms,error_rate,cpu_avg_pct,rss_peak_mb' > "${RESULTS}"
 
 wait_ready() {
-  local base="$1" deadline=$((SECONDS + 120))
+  local name="$1" base="$2" pid="$3" log="$4" deadline=$((SECONDS + 180)) body="${PERF_OUTPUT_DIR}/${name}-ready.body"
   while (( SECONDS < deadline )); do
-    if curl -fsS "${base}/api/live/rooms?page=1&pageSize=10" -o /dev/null; then return 0; fi
+    if [[ -n "${pid}" ]] && ! kill -0 "${pid}" 2>/dev/null; then
+      echo "${name} process ${pid} exited before readiness" >&2
+      [[ -z "${log}" ]] || tail -n 120 "${log}" >&2 || true
+      return 1
+    fi
+    if curl -fsS --connect-timeout 2 --max-time 5 \
+      "${base}/api/live/rooms?page=1&pageSize=10" -o "${body}"; then
+      return 0
+    fi
     sleep 2
   done
+  echo "Timed out waiting for ${name} at ${base}" >&2
+  [[ -z "${log}" ]] || tail -n 120 "${log}" >&2 || true
+  [[ ! -s "${body}" ]] || head -c 2000 "${body}" >&2 || true
   return 1
 }
 
@@ -65,12 +78,13 @@ run_case() {
   echo "${mode},${endpoint},${repetition},${PERF_CONCURRENCY},${elapsed},${total},${successes},${errors},${rps},${avg},${p95},${error_rate},${cpu},${rss}" >> "${RESULTS}"
 }
 
-wait_ready "${PERF_MONOLITH_URL}"; wait_ready "${PERF_MICROSERVICE_URL}"
 endpoints=( '/api/live/rooms?page=1&pageSize=10' '/api/live/rooms/1' '/api/live/rooms/1/like' )
 for mode in monolith microservice; do
   base="${PERF_MONOLITH_URL}"; pid="${PERF_MONOLITH_PID}"
-  if [[ "${mode}" == microservice ]]; then base="${PERF_MICROSERVICE_URL}"; pid="${PERF_MICROSERVICE_PID}"; fi
+  log="${PERF_MONOLITH_LOG}"
+  if [[ "${mode}" == microservice ]]; then base="${PERF_MICROSERVICE_URL}"; pid="${PERF_MICROSERVICE_PID}"; log="${PERF_MICROSERVICE_LOG}"; fi
   if [[ -z "${pid}" ]] || ! kill -0 "${pid}" 2>/dev/null; then echo "Missing PID for ${mode}" >&2; exit 1; fi
+  wait_ready "${mode}" "${base}" "${pid}" "${log}"
   for repetition in $(seq 1 "${PERF_REPETITIONS}"); do
     for endpoint in "${endpoints[@]}"; do run_case "${mode}" "${base}" "${endpoint}" "${repetition}" "${pid}"; done
   done
