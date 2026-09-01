@@ -378,7 +378,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/live-service"
           mvn -B -DskipTests package
 
-      - name: Start both versions on the same runner
+      - name: Start both versions and run performance comparison
         run: |
           set -euo pipefail
           MONOLITH_JAR="$(find "${RUNNER_TEMP}/backend/target" -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
@@ -401,10 +401,6 @@ jobs:
             nohup java -jar "${MICRO_JAR}" \
             > "${RUNNER_TEMP}/microservice-performance.log" 2>&1 &
           echo $! > "${RUNNER_TEMP}/microservice.pid"
-
-      - name: Run three-repeat performance comparison
-        run: |
-          set -euo pipefail
           export PERF_MONOLITH_PID="$(cat "${RUNNER_TEMP}/monolith.pid")"
           export PERF_MICROSERVICE_PID="$(cat "${RUNNER_TEMP}/microservice.pid")"
           export PERF_MONOLITH_LOG="${RUNNER_TEMP}/monolith-performance.log"
