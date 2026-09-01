@@ -8,6 +8,7 @@ This directory deploys the local full stack to the Docker Desktop Kubernetes clu
 - `minio.yml`: object storage, backed by `hangyin-minio-data`.
 - `backend.yml`, `live-service.yml`: Spring services.
 - `frontend.yml`: Vue application served by Nginx, proxying API/WebSocket/video traffic.
+- `hpa.yml`: CPU-based HorizontalPodAutoscaler for `live-service` (1-3 replicas).
 
 Build and load images into Docker Desktop's Kind node from this directory's parent:
 
@@ -76,3 +77,19 @@ stream and verifies the frontend, backend API, live API, SRS API and HTTP-FLV pa
 
 The PVCs use Docker Desktop's default `local-path` storage class. They are suitable for
 local verification; production should use managed MySQL/MinIO or a replicated storage class.
+
+## HPA experiment
+
+The GitHub Actions workflow installs metrics-server in the disposable Kind cluster, applies
+`hpa.yml`, and runs `scripts/hpa-smoke.sh`. The experiment sends concurrent requests to the
+live-room list API, samples HPA CPU/replica state, and writes `hpa-samples.csv`,
+`pod-samples.csv`, `requests.tsv`, and `summary.csv` to the Actions artifact. It requires the
+deployment to scale above one ready replica and return to one ready replica after load stops.
+
+For a local cluster with metrics-server installed:
+
+```bash
+kubectl apply -f k8s/hpa.yml
+HPA_SERVICE_URL=http://127.0.0.1:18080/api/live/rooms?page=1\&pageSize=10 \
+  HPA_OUTPUT_DIR=./docs/tmp/hangyin-hpa scripts/hpa-smoke.sh
+```

@@ -12,7 +12,7 @@
 | Dockerfile、数据库脚本、README | 已完成 | `backend/Dockerfile`、`live-service/Dockerfile`、`frontend/demo/Dockerfile`、`demo.sql`、`k8s/README.md` |
 | Kubernetes、PVC、SRS、自动部署 | 已完成 | `k8s/*.yml`、`.github/workflows/live-service-ci.yml`，run #9 成功 |
 | 至少 3 个业务微服务 | 当前明确 2 个业务后端服务 | 需继续拆分至少第 3 个业务服务，不能把网关/前端/数据库计入 |
-| HPA 扩缩容实验 | 未完成 | 增加 HPA、压力脚本、至少 3 次原始数据 |
+| HPA 扩缩容实验 | 已接入 CI，待新 run 产出数据 | `k8s/hpa.yml`、`scripts/hpa-smoke.sh`；CI 重复 3 次并上传 CSV 原始数据 |
 | 故障处理实验 | 未完成 | 注入依赖故障/延迟，补超时/备用结果证据 |
 | 单体与微服务性能对比 | 未完成 | 同机、同数据、同脚本运行至少 3 次并记录 P95/错误率/资源 |
 | 项目管理材料 | 未纳入仓库 | 准备 `05_management`：站会、看板截图、任务证据、权重确认 |

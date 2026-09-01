@@ -8,6 +8,7 @@
 | 集成/API | Controller、数据库、WebSocket、SRS 健康接口 | `ApiIntegrationTest.java`、`LiveApiIntegrationTest.java` | Maven 报告 |
 | E2E | 从 API 或页面走完完整业务流程 | `LiveE2ETest.java`、`frontend/demo/e2e/live-ui.spec.js` | Playwright/Maven 报告 |
 | Kubernetes 冒烟 | 镜像、PVC、rollout、API、RTMP、FLV | `.github/workflows/live-service-ci.yml` | Actions run 和 artifact |
+| HPA 扩缩容实验 | CPU 加压、扩容、降载、缩容 | `scripts/hpa-smoke.sh` + `k8s/hpa.yml` | `hpa-samples.csv`、`pod-samples.csv`、`summary.csv` |
 
 ## 2. 有效性标准
 
@@ -15,6 +16,7 @@
 - 每个用例覆盖主成功、至少一个备选或异常路径。
 - 测试失败必须让流水线停止后续部署验证。
 - 报告需记录总数、通过数、失败数、失败原因、运行环境和提交 SHA。
+- HPA 报告需记录并发数、负载时长、吞吐量、平均/P95 延迟、错误率、目标/实际 CPU、扩容前后 Pod 数量，并至少重复 3 次。
 
 ## 3. 已验证结果
 
