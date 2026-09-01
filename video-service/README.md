@@ -19,7 +19,8 @@ DB_PASSWORD=******
 数据库表结构见 `src/main/resources/schema.sql`，MySQL 部署脚本见 `sql/003_recommendation_schema.sql`。
 
 默认不调用尚未联调的用户服务，登录请求会降级为游客偏好。用户服务接口就绪后，同时设置
-`USER_SERVICE_ENABLED=true` 和 `USER_SERVICE_BASE_URL` 才会启用 HTTP 偏好查询。
+`USER_SERVICE_ENABLED=true` 和 `USER_SERVICE_BASE_URL` 才会启用 HTTP 偏好查询。用户服务容器默认地址为
+`http://user-service:8081`；偏好接口路径和返回字段以组内最终契约为准。
 
 ## Docker 与真实 MySQL API 测试
 

@@ -15,7 +15,7 @@ spring:
 
 user-service:
   enabled: ${USER_SERVICE_ENABLED:false}
-  base-url: ${USER_SERVICE_BASE_URL:http://user-service:8080}
+  base-url: ${USER_SERVICE_BASE_URL:http://user-service:8081}
 
 management:
   endpoint:
