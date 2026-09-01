@@ -9,6 +9,7 @@
 | E2E | 从 API 或页面走完完整业务流程 | `LiveE2ETest.java`、`frontend/demo/e2e/live-ui.spec.js` | Playwright/Maven 报告 |
 | Kubernetes 冒烟 | 镜像、PVC、rollout、API、RTMP、FLV | `.github/workflows/live-service-ci.yml` | Actions run 和 artifact |
 | HPA 扩缩容实验 | CPU 加压、扩容、降载、缩容 | `scripts/hpa-smoke.sh` + `k8s/hpa.yml` | `hpa-samples.csv`、`pod-samples.csv`、`summary.csv` |
+| 性能对比实验 | 单体与微服务同条件压测 | `scripts/performance-compare.sh` | `performance-results.csv` 及原始请求/进程采样 |
 
 ## 2. 有效性标准
 

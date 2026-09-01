@@ -11,6 +11,9 @@ on:
       - "live-service/**"
       - "k8s/**"
       - "demo.sql"
+      - "scripts/**"
+      - "02_docs/**"
+      - "04_tests/**"
       - ".github/workflows/live-service-ci.yml"
   workflow_dispatch:
 
@@ -315,4 +318,105 @@ jobs:
             live-service/target/surefire-reports/
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/hangyin-hpa/
+          if-no-files-found: warn
+
+  performance-compare:
+    name: Monolith versus microservice performance comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      performance-mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - name: Check out full history for monolith baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: |
+            backend/pom.xml
+            live-service/pom.xml
+
+      - name: Install benchmark dependencies
+        run: sudo apt-get update && sudo apt-get install -y default-mysql-client procps
+
+      - name: Prepare identical benchmark data
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -P 3306 -u root -proot -e \
+            "CREATE DATABASE baseline_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE micro_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          git archive monolith-start | tar -x -C "${RUNNER_TEMP}"
+          mysql -h 127.0.0.1 -P 3306 -u root -proot baseline_db < "${RUNNER_TEMP}/demo.sql"
+          mysql -h 127.0.0.1 -P 3306 -u root -proot micro_db < live-service/sql/001_live_schema.sql
+          for db in baseline_db micro_db; do
+            for i in $(seq 1 100); do
+              printf "INSERT INTO live_room (user_id,category_id,title,stream_name,push_url,play_url,status) VALUES (10,1,'Performance room %s','perf_%s','rtmp://127.0.0.1/live/perf_%s','/live/perf_%s.flv','online');\n" "$i" "$i" "$i" "$i"
+            done | mysql -h 127.0.0.1 -P 3306 -u root -proot "${db}"
+          done
+
+      - name: Build monolith baseline and microservice
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/backend"
+          chmod +x mvnw
+          ./mvnw -B -DskipTests package
+          cd "${GITHUB_WORKSPACE}/live-service"
+          mvn -B -DskipTests package
+
+      - name: Start both versions on the same runner
+        run: |
+          set -euo pipefail
+          MONOLITH_JAR="$(find "${RUNNER_TEMP}/backend/target" -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
+          MICRO_JAR="$(find live-service/target -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
+          nohup java -jar "${MONOLITH_JAR}" \
+            --server.port=18081 \
+            --spring.datasource.url='jdbc:mysql://127.0.0.1:3306/baseline_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true' \
+            --spring.datasource.username=root --spring.datasource.password=root \
+            --live.srs.rtmp-base-url=rtmp://127.0.0.1:1935/live \
+            --live.srs.http-base-url=http://127.0.0.1:8081 \
+            --video.transcode.enabled=false > "${RUNNER_TEMP}/monolith-performance.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/monolith.pid"
+          nohup java -jar "${MICRO_JAR}" \
+            --server.port=18082 \
+            --spring.datasource.url='jdbc:mysql://127.0.0.1:3306/micro_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true' \
+            --spring.datasource.username=root --spring.datasource.password=root \
+            --live.srs.probe-enabled=false > "${RUNNER_TEMP}/microservice-performance.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/microservice.pid"
+
+      - name: Run three-repeat performance comparison
+        run: |
+          set -euo pipefail
+          export PERF_MONOLITH_PID="$(cat "${RUNNER_TEMP}/monolith.pid")"
+          export PERF_MICROSERVICE_PID="$(cat "${RUNNER_TEMP}/microservice.pid")"
+          export PERF_OUTPUT_DIR="${RUNNER_TEMP}/hangyin-performance"
+          export PERF_CONCURRENCY=16
+          export PERF_DURATION_SECONDS=30
+          export PERF_REPETITIONS=3
+          chmod +x scripts/performance-compare.sh
+          scripts/performance-compare.sh
+
+      - name: Upload performance comparison results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monolith-microservice-performance-comparison
+          path: |
+            ${{ runner.temp }}/hangyin-performance/
+            ${{ runner.temp }}/monolith-performance.log
+            ${{ runner.temp }}/microservice-performance.log
           if-no-files-found: warn

@@ -23,6 +23,8 @@
 - `component-live-room.mmd`：直播间组件级顺序图
 - `object-live-room.mmd`：直播间对象级顺序图
 
+性能对比实验入口：[`scripts/performance-compare.sh`](../scripts/performance-compare.sh)，实验说明见 [`04_tests/性能对比实验说明.md`](../04_tests/性能对比实验说明.md)。
+
 Git 基线标签：`monolith-start`（改造前原系统基线）。
 
 ## 使用规则
