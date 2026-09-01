@@ -22,7 +22,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner | lower }}/demo-video-service
+  IMAGE_NAME: "ghcr.io/${{ github.repository_owner | lower }}/demo-video-service"
 
 jobs:
   test-package-smoke:
@@ -46,16 +46,18 @@ jobs:
 
       - name: Build versioned container image
         run: |
-          docker buildx build --load --platform linux/amd64 --provenance=false \
-            --build-arg IMAGE_VERSION="${GITHUB_SHA}" \
-            --build-arg VCS_REF="${GITHUB_SHA}" \
+          docker buildx build --load --platform linux/amd64 \
             --tag "${IMAGE_NAME}:${GITHUB_SHA}" video-service
           docker image inspect "${IMAGE_NAME}:${GITHUB_SHA}"
 
       - name: Create disposable Kubernetes cluster
-        uses: helm/kind-action@v1
-        with:
-          cluster_name: video-ci
+        run: |
+          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+          sudo install -m 755 kind /usr/local/bin/kind
+          curl -Lo kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
+          sudo install -m 755 kubectl /usr/local/bin/kubectl
+          kind create cluster --name video-ci --wait 120s
+          kind version && kubectl version --client
 
       - name: Deploy database and video service
         run: |
