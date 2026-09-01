@@ -393,11 +393,11 @@ jobs:
           echo $! > "${RUNNER_TEMP}/monolith.pid"
           # live-service reads its datasource from DB_URL/DB_USERNAME/DB_PASSWORD
           # (the Spring property names are intentionally not used by this app).
-          env -u RUNNER_TRACKING_ID nohup \
+          env -u RUNNER_TRACKING_ID \
             DB_URL='jdbc:mysql://127.0.0.1:3306/micro_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true' \
             DB_USERNAME=root DB_PASSWORD=root SERVER_PORT=18082 \
             LIVE_SRS_PROBE_ENABLED=false \
-            java -jar "${MICRO_JAR}" \
+            nohup java -jar "${MICRO_JAR}" \
             > "${RUNNER_TEMP}/microservice-performance.log" 2>&1 &
           echo $! > "${RUNNER_TEMP}/microservice.pid"
           resolve_java_pid() {
