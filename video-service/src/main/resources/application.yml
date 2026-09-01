@@ -1,0 +1,53 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: video-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:liyuhao2006.}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:always}
+      continue-on-error: true
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: video-service
+    description: Video on-demand microservice
+    version: 0.0.1-SNAPSHOT
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:hangyin-video}
+
+video:
+  transcode:
+    enabled: ${VIDEO_TRANSCODE_ENABLED:false}
+  chunk-dir: ${VIDEO_CHUNK_DIR:C:/hangyin/chunks}
+
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8081}

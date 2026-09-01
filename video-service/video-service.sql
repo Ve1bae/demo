@@ -1,0 +1,104 @@
+-- video-service 专属建表脚本
+-- 独占 Schema: video_db (由 application.yml 中 createDatabaseIfNotExist=true 自动创建)
+
+USE video_db;
+
+-- 1. Video table
+CREATE TABLE IF NOT EXISTS `video` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Video ID',
+  `title` varchar(255) NOT NULL COMMENT 'Video title',
+  `description` text DEFAULT NULL COMMENT 'Video description',
+  `cover_url` varchar(500) DEFAULT NULL COMMENT 'Cover URL',
+  `play_url` varchar(500) DEFAULT NULL COMMENT 'Primary play URL',
+  `author` varchar(100) DEFAULT NULL COMMENT 'Author name',
+  `user_id` bigint(20) DEFAULT NULL COMMENT 'Uploader user ID',
+  `category_id` int(11) DEFAULT NULL COMMENT 'Category ID',
+  `tags` varchar(500) DEFAULT NULL COMMENT 'Video tags',
+  `duration` int(11) DEFAULT NULL COMMENT 'Duration in seconds',
+  `status` varchar(20) DEFAULT 'public' COMMENT 'Video status',
+  `play_count` int(11) DEFAULT '0' COMMENT 'Play count',
+  `like_count` int(11) DEFAULT '0' COMMENT 'Like count',
+  `favorite_count` int(11) DEFAULT '0' COMMENT 'Favorite count',
+  `comment_count` int(11) DEFAULT '0' COMMENT 'Comment count',
+  `video_url` varchar(500) DEFAULT NULL COMMENT 'Original video URL',
+  `url_240p` varchar(500) DEFAULT NULL,
+  `url_360p` varchar(500) DEFAULT NULL,
+  `url_480p` varchar(500) DEFAULT NULL,
+  `url_720p` varchar(500) DEFAULT NULL,
+  `url_1080p` varchar(500) DEFAULT NULL,
+  `default_quality` varchar(20) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
+  PRIMARY KEY (`id`),
+  KEY `idx_video_created_at` (`created_at`),
+  KEY `idx_video_video_url` (`video_url`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Video table';
+
+-- 2. Comment table
+CREATE TABLE IF NOT EXISTS `comment` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Comment ID',
+  `video_id` bigint(20) NOT NULL COMMENT 'Related video ID',
+  `user_id` bigint(20) NOT NULL COMMENT 'Comment user ID',
+  `content` text NOT NULL COMMENT 'Comment content',
+  `parent_id` bigint(20) DEFAULT NULL COMMENT 'Parent comment ID',
+  `like_count` int(11) DEFAULT '0' COMMENT 'Like count',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  KEY `idx_comment_video_id` (`video_id`),
+  KEY `idx_comment_user_id` (`user_id`),
+  KEY `idx_comment_parent_id` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Comment table';
+
+-- 3. Comment like table
+CREATE TABLE IF NOT EXISTS `comment_like` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `comment_id` bigint(20) NOT NULL,
+  `user_id` bigint(20) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_comment_like` (`comment_id`, `user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Comment like relation';
+
+-- 4. Danmaku table
+CREATE TABLE IF NOT EXISTS `danmaku` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Danmaku ID',
+  `video_url` varchar(500) NOT NULL COMMENT 'Related video URL',
+  `content` text NOT NULL COMMENT 'Danmaku content',
+  `color` varchar(20) DEFAULT '#ffffff' COMMENT 'Danmaku color',
+  `time` double NOT NULL COMMENT 'Danmaku time in seconds',
+  `user_id` varchar(100) NOT NULL COMMENT 'Sender ID',
+  `is_user` tinyint(1) DEFAULT '0' COMMENT 'Whether sent by current user',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  PRIMARY KEY (`id`),
+  KEY `idx_danmaku_video_url` (`video_url`),
+  KEY `idx_danmaku_user_id` (`user_id`),
+  KEY `idx_danmaku_time` (`time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Danmaku table';
+
+-- 5. User-video relation table
+CREATE TABLE IF NOT EXISTS `user_video` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  `user_id` bigint(20) NOT NULL COMMENT 'User ID',
+  `video_id` bigint(20) NOT NULL COMMENT 'Video ID',
+  `liked` tinyint(1) DEFAULT '0' COMMENT 'Liked flag',
+  `favorited` tinyint(1) DEFAULT '0' COMMENT 'Favorited flag',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_video` (`user_id`, `video_id`),
+  KEY `idx_user_video_user_id` (`user_id`),
+  KEY `idx_user_video_video_id` (`video_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User video relation table';
+
+-- 6. View history table
+CREATE TABLE IF NOT EXISTS `view_history` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) DEFAULT NULL,
+  `video_id` bigint(20) DEFAULT NULL,
+  `view_count` int(11) DEFAULT '0',
+  `last_viewed_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `progress_seconds` int(11) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_view_history_user_id` (`user_id`),
+  KEY `idx_view_history_video_id` (`video_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='View history table';
