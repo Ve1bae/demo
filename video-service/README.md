@@ -6,6 +6,9 @@ UC-03 视频推荐的独立微服务实现，当前提供推荐接口：
 
 登录用户通过 `X-User-Id` 请求头传递用户编号。视频和观看历史只从 video-service 自己的数据库读取；关注作者和兴趣标签通过 `UserPreferenceClient` 从 user-service 获取。未配置 user-service 时使用游客偏好降级，不跨库查询用户表。
 
+接口说明见 `../doc/UC-03-视频推荐微服务接口契约.md`。可导入 Swagger Editor、Apifox 等工具的定义见
+`../doc/UC-03-video-service.openapi.yaml`。
+
 ## 本地运行
 
 配置 MySQL 连接环境变量后启动：
