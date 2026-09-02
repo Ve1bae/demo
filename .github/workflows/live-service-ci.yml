@@ -310,7 +310,8 @@ jobs:
           trap 'kill ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
           ready=false
           for attempt in $(seq 1 60); do
-            kubectl -n "${KUBE_NAMESPACE}" get endpoints live-service -o wide || true
+            kubectl -n "${KUBE_NAMESPACE}" get endpointslice \
+              -l kubernetes.io/service-name=live-service -o wide || true
             kill "${FRONTEND_FORWARD_PID}" 2>/dev/null || true
             kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" \
               > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &

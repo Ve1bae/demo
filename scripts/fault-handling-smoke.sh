@@ -27,7 +27,9 @@ record_health() {
   duration=$((end - start))
   observed="unknown"
   if [[ -s "${body_file}" ]]; then
-    observed="$(jq -r '.data.reachable // "unknown"' "${body_file}" 2>/dev/null || echo unknown)"
+    observed="$(jq -r '.data.reachable | tostring' "${body_file}" 2>/dev/null || echo unknown)"
+  else
+    echo "Empty health response: ${body_file}" >&2
   fi
   passed=false
   if [[ "${curl_ok}" == true ]] && [[ "${observed}" == "${expected}" ]]; then
@@ -69,12 +71,14 @@ echo 'Fault handling experiment: SRS outage, timeout fallback, recovery, and Pod
 poll_health srs-baseline baseline true
 
 kubectl -n "${KUBE_NAMESPACE}" scale deployment/srs --replicas=0
-kubectl -n "${KUBE_NAMESPACE}" get deployment/srs pods -o wide || true
+kubectl -n "${KUBE_NAMESPACE}" get deployment/srs -o wide || true
+kubectl -n "${KUBE_NAMESPACE}" get pods -o wide || true
 poll_health srs-outage degraded false
 
 kubectl -n "${KUBE_NAMESPACE}" scale deployment/srs --replicas=1
 rollout srs
-kubectl -n "${KUBE_NAMESPACE}" get deployment/srs pods -o wide
+kubectl -n "${KUBE_NAMESPACE}" get deployment/srs -o wide
+kubectl -n "${KUBE_NAMESPACE}" get pods -o wide
 poll_health srs-outage recovered true
 
 # Point the live service at a reserved, unroutable address to prove the
@@ -82,13 +86,15 @@ poll_health srs-outage recovered true
 kubectl -n "${KUBE_NAMESPACE}" set env deployment/live-service \
   LIVE_SRS_API_BASE_URL=http://192.0.2.1:1985
 rollout live-service
-kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service pods -o wide
+kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service -o wide
+kubectl -n "${KUBE_NAMESPACE}" get pods -o wide
 poll_health srs-timeout timeout false
 
 kubectl -n "${KUBE_NAMESPACE}" set env deployment/live-service \
   LIVE_SRS_API_BASE_URL=http://srs:1985
 rollout live-service
-kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service pods -o wide
+kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service -o wide
+kubectl -n "${KUBE_NAMESPACE}" get pods -o wide
 poll_health srs-timeout recovered true
 
 # Delete the application Pod and verify the Deployment replaces it while the
@@ -96,7 +102,8 @@ poll_health srs-timeout recovered true
 kubectl -n "${KUBE_NAMESPACE}" delete pod \
   -l app.kubernetes.io/name=live-service --wait=false
 rollout live-service
-kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service pods -o wide
+kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service -o wide
+kubectl -n "${KUBE_NAMESPACE}" get pods -o wide
 poll_health live-service-pod-restart recovered true
 
 cat "${RESULTS}"
