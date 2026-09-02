@@ -306,22 +306,23 @@ jobs:
           FAULT_OUTPUT_DIR: "${{ runner.temp }}/hangyin-fault"
         run: |
           set -euo pipefail
-          kubectl -n "${KUBE_NAMESPACE}" port-forward service/frontend "18081:80" \
-            > "${RUNNER_TEMP}/fault-frontend-port-forward.log" 2>&1 &
+          kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" \
+            > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &
           FRONTEND_FORWARD_PID=$!
           trap 'kill ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then break; fi
             if [ "${attempt}" -eq 30 ]; then
-              cat "${RUNNER_TEMP}/fault-frontend-port-forward.log"
+              cat "${RUNNER_TEMP}/fault-live-service-port-forward.log"
               exit 1
             fi
             if ! kill -0 "${FRONTEND_FORWARD_PID}" 2>/dev/null; then
-              cat "${RUNNER_TEMP}/fault-frontend-port-forward.log"
+              cat "${RUNNER_TEMP}/fault-live-service-port-forward.log"
               exit 1
             fi
             sleep 2
           done
+          kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service deployment/srs pods -o wide
           chmod +x scripts/fault-handling-smoke.sh
           scripts/fault-handling-smoke.sh
 
