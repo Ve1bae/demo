@@ -308,23 +308,25 @@ jobs:
           set -euo pipefail
           FRONTEND_FORWARD_PID=""
           trap 'kill ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
+          forward_loop() {
+            while true; do
+              kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" || true
+              sleep 1
+            done
+          }
+          forward_loop > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &
+          FRONTEND_FORWARD_PID=$!
           ready=false
           for attempt in $(seq 1 60); do
             kubectl -n "${KUBE_NAMESPACE}" get endpointslice \
               -l kubernetes.io/service-name=live-service -o wide || true
-            kill "${FRONTEND_FORWARD_PID}" 2>/dev/null || true
-            kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" \
-              > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &
-            FRONTEND_FORWARD_PID=$!
-            for probe in $(seq 1 5); do
-              if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then
-                ready=true
-                break 2
-              fi
-              sleep 1
-            done
+            if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then
+              ready=true
+              break
+            fi
             if ! kill -0 "${FRONTEND_FORWARD_PID}" 2>/dev/null; then
               cat "${RUNNER_TEMP}/fault-live-service-port-forward.log" || true
+              exit 1
             fi
             sleep 2
           done
