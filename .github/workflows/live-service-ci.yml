@@ -306,22 +306,33 @@ jobs:
           FAULT_OUTPUT_DIR: "${{ runner.temp }}/hangyin-fault"
         run: |
           set -euo pipefail
-          kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" \
-            > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &
-          FRONTEND_FORWARD_PID=$!
+          FRONTEND_FORWARD_PID=""
           trap 'kill ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 30); do
-            if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then break; fi
-            if [ "${attempt}" -eq 30 ]; then
-              cat "${RUNNER_TEMP}/fault-live-service-port-forward.log"
-              exit 1
-            fi
+          ready=false
+          for attempt in $(seq 1 60); do
+            kubectl -n "${KUBE_NAMESPACE}" get endpoints live-service -o wide || true
+            kill "${FRONTEND_FORWARD_PID}" 2>/dev/null || true
+            kubectl -n "${KUBE_NAMESPACE}" port-forward service/live-service "18081:8090" \
+              > "${RUNNER_TEMP}/fault-live-service-port-forward.log" 2>&1 &
+            FRONTEND_FORWARD_PID=$!
+            for probe in $(seq 1 5); do
+              if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then
+                ready=true
+                break 2
+              fi
+              sleep 1
+            done
             if ! kill -0 "${FRONTEND_FORWARD_PID}" 2>/dev/null; then
-              cat "${RUNNER_TEMP}/fault-live-service-port-forward.log"
-              exit 1
+              cat "${RUNNER_TEMP}/fault-live-service-port-forward.log" || true
             fi
             sleep 2
           done
+          if [ "${ready}" != true ]; then
+            cat "${RUNNER_TEMP}/fault-live-service-port-forward.log"
+            kubectl -n "${KUBE_NAMESPACE}" describe service/live-service || true
+            kubectl -n "${KUBE_NAMESPACE}" get pods -o wide || true
+            exit 1
+          fi
           kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service deployment/srs pods -o wide
           chmod +x scripts/fault-handling-smoke.sh
           scripts/fault-handling-smoke.sh
