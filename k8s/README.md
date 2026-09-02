@@ -93,3 +93,11 @@ kubectl apply -f k8s/hpa.yml
 HPA_SERVICE_URL=http://127.0.0.1:18080/api/live/rooms?page=1\&pageSize=10 \
   HPA_OUTPUT_DIR=./docs/tmp/hangyin-hpa scripts/hpa-smoke.sh
 ```
+
+## Fault handling experiment
+
+The CI workflow also runs `scripts/fault-handling-smoke.sh`. It scales SRS down,
+checks the live-service fallback health response, restores SRS, points the probe at
+a reserved unreachable address to verify bounded timeout behavior, and deletes the
+live-service Pod to verify Deployment self-healing. Results are written to
+`fault-results.csv` and uploaded with the run artifact.

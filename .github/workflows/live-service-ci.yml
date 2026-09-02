@@ -299,6 +299,28 @@ jobs:
               scripts/hpa-smoke.sh
           done
 
+      - name: Run fault handling experiment
+        shell: bash
+        env:
+          FAULT_SERVICE_URL: "http://127.0.0.1:${{ env.FRONTEND_PORT }}/api/live/srs/health"
+          FAULT_OUTPUT_DIR: "${{ runner.temp }}/hangyin-fault"
+        run: |
+          set -euo pipefail
+          kubectl -n "${KUBE_NAMESPACE}" port-forward service/frontend "${FRONTEND_PORT}:80" \
+            > "${RUNNER_TEMP}/fault-frontend-port-forward.log" 2>&1 &
+          FRONTEND_FORWARD_PID=$!
+          trap 'kill ${FRONTEND_FORWARD_PID} 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS "${FAULT_SERVICE_URL}" -o /dev/null; then break; fi
+            if [ "${attempt}" -eq 30 ]; then
+              cat "${RUNNER_TEMP}/fault-frontend-port-forward.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          chmod +x scripts/fault-handling-smoke.sh
+          scripts/fault-handling-smoke.sh
+
       - name: Collect Kubernetes diagnostics on failure
         if: failure()
         run: |
@@ -318,6 +340,7 @@ jobs:
             live-service/target/surefire-reports/
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/hangyin-hpa/
+            ${{ runner.temp }}/hangyin-fault/
           if-no-files-found: warn
 
   performance-compare:

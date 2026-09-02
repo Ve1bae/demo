@@ -13,7 +13,7 @@
 | Kubernetes、PVC、SRS、自动部署 | 已完成 | `k8s/*.yml`、`.github/workflows/live-service-ci.yml`，run #9 成功 |
 | 至少 3 个业务微服务 | 当前明确 2 个业务后端服务 | 需继续拆分至少第 3 个业务服务，不能把网关/前端/数据库计入 |
 | HPA 扩缩容实验 | 已完成并验证 | `k8s/hpa.yml`、`scripts/hpa-smoke.sh`；Actions run `33460529628` 的 HPA 步骤和 artifact 均成功，重复 3 次并上传 CSV 原始数据 |
-| 故障处理实验 | 未完成 | 注入依赖故障/延迟，补超时/备用结果证据 |
+| 故障处理实验 | 已接入，待新 run 产出证据 | `scripts/fault-handling-smoke.sh` 注入 SRS 下线、探测超时和 live-service Pod 重启，记录 `fault-results.csv`；SRS 探测有连接/读取超时 |
 | 单体与微服务性能对比 | 已接入 CI，待新 run 产出原始数据 | `scripts/performance-compare.sh`；同一 runner/数据库/数据/脚本，3 接口各重复 3 次，上传性能 CSV |
 | 项目管理材料 | 未纳入仓库 | 准备 `05_management`：站会、看板截图、任务证据、权重确认 |
 | 答辩材料 | 未纳入仓库 | 准备 `06_defense`：PPT、技术总结、演示备用材料 |

@@ -8,6 +8,7 @@
 | REQ-06 | UC-06 观看与互动 | SYS-SEQ-06 | COMP-SEQ-06 | OBJ-SEQ-06 | `LiveWebSocketHandler`、`LiveService` | `LS-UT-02..05`、`LS-IT-02..06`、`LS-E2E-01` | 已通过 |
 | REQ-06 | UC-07 结束直播 | SYS-SEQ-07 | COMP-SEQ-07 | OBJ-SEQ-07 | `LiveService.closeRoom`、`LiveRepository.closeRoom` | `LS-UT-06`、`LS-IT-01/04`、`LS-E2E-01` | 已通过 |
 | REQ-07 | UC-08 自动部署 | SYS-SEQ-08 | COMP-SEQ-08 | OBJ-SEQ-08 | `.github/workflows/live-service-ci.yml`、`k8s/*.yml` | `K8S-TC-01` | 已通过，run #9 |
+| REQ-08 | UC-08 自动部署故障处理 | SYS-SEQ-08 | COMP-SEQ-08 | OBJ-SEQ-08 | `SrsHealthService`、`scripts/fault-handling-smoke.sh`、`.github/workflows/live-service-ci.yml` | `K8S-FAULT-01` | 已接入 CI，待新 run 产出证据 |
 | REQ-01 | UC-01 注册登录推荐 | 待补 | 待补 | 待补 | `UserController`、`VideoController` | `BE-TC-USER-*` 待补 | 部分完成 |
 | REQ-02/03 | UC-02 上传播放 | 待补 | 待补 | 待补 | `VideoController`、`MinioController` | `BE-TC-VIDEO-*` 待补 | 部分完成 |
 | REQ-04 | UC-03 评论互动 | 待补 | 待补 | 待补 | `CommentController`、`DanmakuController` | `BE-TC-COMMENT-*` 待补 | 部分完成 |
