@@ -13,3 +13,6 @@ user-service/target/
 node_modules/
 .idea/
 .vscode/
+.legacy-monolith/
+_legacy-monolith/
+_artifacts/

@@ -1,0 +1,50 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LIVE_DB_PASSWORD:?Set LIVE_DB_PASSWORD before starting Compose}
+      MYSQL_DATABASE: live_db
+    ports:
+      - "127.0.0.1:13308:3306"
+    volumes:
+      - live_mysql_data:/var/lib/mysql
+      - ./sql/001_live_schema.sql:/docker-entrypoint-initdb.d/001_live_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  live-service:
+    image: hangyin/live-service:${IMAGE_TAG:-0.1.0}
+    build:
+      context: .
+      args:
+        IMAGE_VERSION: ${IMAGE_TAG:-0.1.0}
+        VCS_REF: ${VCS_REF:-local}
+        MAVEN_MIRROR_URL: ${MAVEN_MIRROR_URL:-https://maven.aliyun.com/repository/public}
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/live_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${LIVE_DB_PASSWORD:?Set LIVE_DB_PASSWORD before starting Compose}
+      LIVE_SRS_RTMP_BASE_URL: ${LIVE_SRS_RTMP_BASE_URL:-rtmp://host.docker.internal:1935/live}
+      LIVE_SRS_HTTP_BASE_URL: ${LIVE_SRS_HTTP_BASE_URL:-http://host.docker.internal:8081}
+      LIVE_SRS_API_BASE_URL: ${LIVE_SRS_API_BASE_URL:-http://host.docker.internal:1985}
+      LIVE_SRS_PROBE_ENABLED: ${LIVE_SRS_PROBE_ENABLED:-false}
+    ports:
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8090/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  live_mysql_data:

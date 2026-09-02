@@ -1,0 +1,12 @@
+{
+  "name": "video-service-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "video-service 真实端到端测试：Playwright 走完整操作链路（真实 MySQL + MinIO + 后端），报告记录每一步输入输出",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2"
+  }
+}

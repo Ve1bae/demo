@@ -1,0 +1,124 @@
+services:
+  mysql-user:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-microservices-local}
+      MYSQL_DATABASE: user_db
+    ports: ["127.0.0.1:3310:3306"]
+    volumes:
+      - microservices_user_db:/var/lib/mysql
+      - ./infra/mysql/user-db.sql:/docker-entrypoint-initdb.d/02-user-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mysql-video:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_VIDEO_PASSWORD:-microservices-video}
+      MYSQL_DATABASE: video_db
+    ports: ["127.0.0.1:3311:3306"]
+    volumes:
+      - microservices_video_db:/var/lib/mysql
+      - ./video-service/sql/001_video_schema.sql:/docker-entrypoint-initdb.d/01-video-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mysql-live:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_LIVE_PASSWORD:-microservices-live}
+      MYSQL_DATABASE: live_db
+    ports: ["127.0.0.1:3312:3306"]
+    volumes:
+      - microservices_live_db:/var/lib/mysql
+      - ./live-service/sql/001_live_schema.sql:/docker-entrypoint-initdb.d/01-live-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-microservices-minio}
+    command: server /data --console-address ":9001"
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: [microservices_minio_data:/data]
+
+  srs:
+    image: ossrs/srs:5
+    ports: ["127.0.0.1:1935:1935", "127.0.0.1:8081:8080", "127.0.0.1:1985:1985"]
+    volumes: [./infra/srs/srs.conf:/usr/local/srs/conf/srs.conf:ro]
+    command: ["./objs/srs", "-c", "conf/srs.conf"]
+
+  user-service:
+    build: ./user-service
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-user:3306/user_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-microservices-local}
+    depends_on: { mysql-user: { condition: service_healthy } }
+
+  video-service:
+    build: ./video-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-video:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_VIDEO_PASSWORD:-microservices-video}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_BASE_URL: http://127.0.0.1:8080/video
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-microservices-minio}
+      MINIO_BUCKET: hangyin-video
+      USER_SERVICE_ENABLED: "true"
+      USER_SERVICE_BASE_URL: http://user-service:8081
+      VIDEO_TRANSCODE_ENABLED: "true"
+    depends_on:
+      mysql-video: { condition: service_healthy }
+      minio: { condition: service_started }
+      user-service: { condition: service_started }
+
+  live-service:
+    build: ./live-service
+    environment:
+      DB_URL: jdbc:mysql://mysql-live:3306/live_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_LIVE_PASSWORD:-microservices-live}
+      LIVE_SRS_RTMP_BASE_URL: rtmp://127.0.0.1:1935/live
+      LIVE_SRS_INTERNAL_RTMP_BASE_URL: rtmp://srs:1935/live
+      LIVE_SRS_HTTP_BASE_URL: http://127.0.0.1:8081
+      LIVE_SRS_API_BASE_URL: http://srs:1985
+      LIVE_SRS_PROBE_ENABLED: "false"
+      USER_SERVICE_BASE_URL: http://user-service:8081
+    depends_on:
+      mysql-live: { condition: service_healthy }
+      srs: { condition: service_started }
+      user-service: { condition: service_started }
+
+  api-gateway:
+    image: nginx:1.27-alpine
+    ports: ["127.0.0.1:8080:80"]
+    volumes: [./gateway/nginx.microservices.conf:/etc/nginx/nginx.conf:ro]
+    depends_on: [user-service, video-service, live-service]
+
+  frontend:
+    build: ./frontend/demo
+    ports: ["127.0.0.1:5173:80"]
+    depends_on: [api-gateway]
+
+volumes:
+  microservices_user_db:
+    external: true
+    name: hangyin-microservices_microservices_user_db
+  microservices_video_db:
+  microservices_live_db:
+  microservices_minio_data:

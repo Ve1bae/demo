@@ -1,6 +1,6 @@
-$ErrorActionPreference = 'Stop'
-# Docker writes harmless password warnings to stderr; use its exit code for failure detection.
-$PSNativeCommandUseErrorActionPreference = $false
+# Windows PowerShell 5.1 promotes native stderr (including Docker warnings) to errors.
+# Docker command exit codes are checked explicitly below.
+$ErrorActionPreference = 'Continue'
 $composeFile = Join-Path $PSScriptRoot '..\docker-compose.user-service-e2e.yml'
 $composeArgs = @('-f', $composeFile, '-p', 'user-service-e2e')
 $env:USER_SERVICE_E2E_BASE_URL = if ($env:USER_SERVICE_E2E_BASE_URL) { $env:USER_SERVICE_E2E_BASE_URL } else { 'http://127.0.0.1:18082' }

@@ -1,66 +1,69 @@
-name: user-service
-
+name: microservices-cicd
 on:
-  push:
-    branches: [user-service]
-  pull_request:
-    branches: [user-service]
-
+  push: { branches: [microservice] }
+  pull_request: { branches: [microservice] }
+permissions: { contents: read, packages: write }
+env: { COMPOSE_FILE: docker-compose.microservices.yml }
 jobs:
-  service-build-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: user-service
-            port: 8081
-    name: ${{ matrix.name }} build and test
+      matrix: { service: [user-service, video-service, live-service] }
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-      - name: Test service
-        working-directory: ${{ matrix.name }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21', cache: maven }
+      - name: Unit tests
+        working-directory: ${{ matrix.service }}
         run: mvn -B test
-      - name: Build image
-        run: docker build -t hangyin/${{ matrix.name }}:${{ github.sha }} ${{ matrix.name }}
-
-  compose-validation:
+  validate-compose:
     runs-on: ubuntu-latest
-    needs: service-build-test
     steps:
-      - uses: actions/checkout@v7
-      - name: Validate deployment definition
-        run: docker compose config --quiet
-
-  user-service-e2e:
+      - uses: actions/checkout@v4
+      - run: docker compose -f "$COMPOSE_FILE" config --quiet
+  integration:
     runs-on: ubuntu-latest
-    needs: service-build-test
-    name: user-service HTTP end-to-end test
+    needs: [test, validate-compose]
     steps:
-      - uses: actions/checkout@v7
-      - name: Start real user-service and MySQL
+      - uses: actions/checkout@v4
+      - run: docker volume create hangyin-microservices_microservices_user_db
+      - run: docker compose -f "$COMPOSE_FILE" -p ci-microservices up -d --build mysql-user mysql-video mysql-live minio srs user-service video-service live-service api-gateway
+      - name: Smoke tests
         run: |
-          docker compose -f docker-compose.user-service-e2e.yml -p user-service-e2e up -d --build
-      - name: Wait for health check
-        run: |
-          for i in {1..60}; do
-            curl --fail --silent http://127.0.0.1:18082/actuator/health && exit 0 || sleep 2
-          done
-          docker compose -f docker-compose.user-service-e2e.yml -p user-service-e2e logs user-service mysql
-          exit 1
-      - name: Run HTTP end-to-end test
-        run: USER_SERVICE_E2E_BASE_URL=http://127.0.0.1:18082 node scripts/user-service-e2e.mjs
-      - name: Upload end-to-end report and logs
+          for i in {1..90}; do curl --fail --silent http://127.0.0.1:8080/gateway/health && break || sleep 2; done
+          curl --fail http://127.0.0.1:8080/api/live/rooms
+          curl --fail 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1'
+      - if: always()
+        run: docker compose -f "$COMPOSE_FILE" -p ci-microservices logs --no-color > microservices-ci.log
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v7
+        with: { name: microservices-ci-logs, path: microservices-ci.log }
+      - if: always()
+        run: docker compose -f "$COMPOSE_FILE" -p ci-microservices down -v --remove-orphans
+  publish-images:
+    if: github.event_name == 'push'
+    needs: integration
+    runs-on: ubuntu-latest
+    strategy: { matrix: { service: [user-service, video-service, live-service] } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: ${{ github.actor }}, password: ${{ secrets.GITHUB_TOKEN }} }
+      - uses: docker/build-push-action@v6
         with:
-          name: user-service-e2e-report
-          path: user-service/target/e2e-reports
-      - name: Stop test environment
-        if: always()
-        run: docker compose -f docker-compose.user-service-e2e.yml -p user-service-e2e down -v
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
+  deploy:
+    if: github.event_name == 'push' && vars.ENABLE_MICROSERVICES_DEPLOY == 'true'
+    needs: publish-images
+    runs-on: [self-hosted, Windows, X64]
+    steps:
+      - uses: actions/checkout@v4
+      - shell: powershell
+        run: |
+          kubectl config use-context docker-desktop
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/user-service.yaml
+          kubectl rollout status deployment/user-service -n hangyin --timeout=180s

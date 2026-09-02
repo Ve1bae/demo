@@ -423,7 +423,7 @@ const qualities = computed(() => {
   return ['720P']
 })
 
-const currentQuality = ref(props.videoData.defaultQuality || '1080P')
+const currentQuality = ref(props.videoData.defaultQuality || Object.keys(props.videoData.sources || {})[0] || '原画')
 const showQualityDropdown = ref(false)
 const showSpeedDropdown = ref(false)
 
@@ -516,7 +516,7 @@ const emitToggleFollow = () => {
 
 const currentSrc = computed(() => {
   const sources = props.videoData?.sources || {}
-  return sources[currentQuality.value] || sources['720P'] || Object.values(sources)[0] || ''
+  return sources[currentQuality.value] || sources['720P'] || sources['原画'] || Object.values(sources)[0] || ''
 })
 
 const sortDanmakuByTime = () => {
@@ -759,7 +759,7 @@ const loadUserVideoStatus = async () => {
   }
   const videoId = props.videoData.id
   try {
-    const response = await fetch(`${API_BASE}/videos/${videoId}/status?userId=${currentUserId.value}`)
+    const response = await fetch(`${API_BASE}/videos/${videoId}/status`, { headers: { 'X-User-Id': String(currentUserId.value) } })
     const result = await response.json()
     if (result.code === 200) {
       liked.value = result.data.liked
@@ -780,13 +780,15 @@ const toggleLike = async () => {
     const method = liked.value ? 'DELETE' : 'POST'
     const response = await fetch(`${API_BASE}/videos/${videoId}/likes`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': String(currentUserId.value) },
       body: JSON.stringify({ userId: currentUserId.value })
     })
     const result = await response.json()
     if (result.code === 200) {
       liked.value = !liked.value
       likeCount.value = result.data.likeCount
+      props.videoData.liked = liked.value
+      props.videoData.likeCount = likeCount.value
     }
   } catch (error) {
     console.error('点赞失败:', error)
@@ -803,13 +805,15 @@ const toggleFavorite = async () => {
     const method = favorited.value ? 'DELETE' : 'POST'
     const response = await fetch(`${API_BASE}/videos/${videoId}/favorites`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': String(currentUserId.value) },
       body: JSON.stringify({ userId: currentUserId.value })
     })
     const result = await response.json()
     if (result.code === 200) {
       favorited.value = !favorited.value
       favoriteCount.value = result.data.favoriteCount
+      props.videoData.favorited = favorited.value
+      props.videoData.favoriteCount = favoriteCount.value
     }
   } catch (error) {
     console.error('收藏失败:', error)

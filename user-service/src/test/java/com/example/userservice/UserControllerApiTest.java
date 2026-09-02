@@ -6,6 +6,7 @@ import com.example.userservice.dto.UserLoginDTO;
 import com.example.userservice.entity.User;
 import com.example.userservice.entity.UserFollow;
 import com.example.userservice.mapper.UserFollowMapper;
+import com.example.userservice.mapper.UserInterestMapper;
 import com.example.userservice.service.UserAccountService;
 import com.example.userservice.vo.LoginUserVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,16 +31,19 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 class UserControllerApiTest {
     private UserAccountService accounts;
     private UserFollowMapper follows;
+    private UserInterestMapper interests;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         accounts = mock(UserAccountService.class);
         follows = mock(UserFollowMapper.class);
+        interests = mock(UserInterestMapper.class);
         when(accounts.getById(anyLong())).thenReturn(user(1L, "alice"));
         when(follows.selectCount(any(QueryWrapper.class))).thenReturn(0L);
         when(follows.selectList(any(QueryWrapper.class))).thenReturn(List.of());
-        mvc = standaloneSetup(new UserController(accounts, follows)).build();
+        when(interests.selectList(any(QueryWrapper.class))).thenReturn(List.of());
+        mvc = standaloneSetup(new UserController(accounts, follows, interests)).build();
     }
 
     @Test void registerReturnsSuccess() throws Exception {
@@ -73,6 +77,14 @@ class UserControllerApiTest {
     @Test void followingAndFollowersReturnLists() throws Exception {
         mvc.perform(get("/api/user/1/following")).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
         mvc.perform(get("/api/user/1/followers")).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test void preferencesReturnsRecommendationContract() throws Exception {
+        mvc.perform(get("/api/user/1/preferences"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.followedAuthorIds").isArray())
+                .andExpect(jsonPath("$.data.interests").isMap())
+                .andExpect(jsonPath("$.data.viewedVideoIds").isArray());
     }
 
     @Test void internalLookupReturnsUserSummary() throws Exception {

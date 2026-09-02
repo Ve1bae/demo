@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:video;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+video:
+  transcode:
+    enabled: false
+    ffmpeg-path: ffmpeg
+
+minio:
+  endpoint: http://localhost:9000
+  public-base-url: http://localhost:8082/video
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: hangyin-video

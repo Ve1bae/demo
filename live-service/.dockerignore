@@ -1,0 +1,9 @@
+target/
+.git/
+.idea/
+.vscode/
+README.md
+compose.yml
+k8s/
+sql/
+src/test/

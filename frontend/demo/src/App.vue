@@ -943,6 +943,8 @@ const setRouteHash = (page, id = null) => {
   let nextHash = `#/${page}`
   if (page === 'live-room' && id) {
     nextHash = `#/live/${id}`
+  } else if (page === 'video' && id) {
+    nextHash = `#/video/${id}`
   } else if (page === 'profile' && id) {
     nextHash = `#/profile/${id}`
   }
@@ -958,12 +960,13 @@ const parseRouteFromHash = () => {
     return { page: savedPage === 'live-room' ? 'live' : savedPage }
   }
 
-  const [page, roomId] = hashPath.split('/')
+  const [page, resourceId] = hashPath.split('/')
   if (page === 'live' && roomId) {
-    return { page: 'live-room', roomId }
+    return { page: 'live-room', roomId: resourceId }
   }
+  if (page === 'video' && resourceId) return { page: 'video', videoId: resourceId }
   if (page === 'profile') {
-    return { page: 'profile', userId: roomId }
+    return { page: 'profile', userId: resourceId }
   }
 
   if (['home', 'ranking', 'live', 'creator', 'profile', 'following', 'history'].includes(page)) {
@@ -977,6 +980,10 @@ const syncRouteFromHash = async () => {
   const route = parseRouteFromHash()
   if (route.page === 'live-room') {
     await loadLiveRoom(route.roomId)
+    return
+  }
+  if (route.page === 'video') {
+    await loadVideoById(route.videoId)
     return
   }
   if (route.page === 'profile') {
@@ -1044,12 +1051,39 @@ const openVideoPlayer = (video) => {
   }
   selectedVideo.value = video
   showVideoPlayer.value = true
+  setRouteHash('video', video.id)
   window.scrollTo(0, 0)
 }
 
 const closeVideoPlayer = () => {
   showVideoPlayer.value = false
   selectedVideo.value = null
+  setRouteHash('home')
+}
+
+const loadVideoById = async (videoId) => {
+  if (!videoId) return
+  try {
+    const res = await axios.get(`${API_BASE}/videos/${videoId}`, { headers: getAuthHeaders() })
+    if (res.data?.code === 200 && res.data.data) {
+      selectedVideo.value = convertVideoFromBackend(res.data.data)
+      try {
+        const profile = await axios.get(`${API_BASE}/user/${selectedVideo.value.userId}/profile`)
+        const user = profile.data?.data
+        if (user) {
+          selectedVideo.value.author = user.nickname || selectedVideo.value.author
+          selectedVideo.value.authorAvatarUrl = user.avatarUrl || ''
+          selectedVideo.value.authorInfo = { ...(selectedVideo.value.authorInfo || {}), ...user }
+        }
+      } catch (e) { console.warn('作者信息加载失败', e) }
+      showVideoPlayer.value = true
+      window.scrollTo(0, 0)
+      return
+    }
+  } catch (error) {
+    console.error('加载视频失败:', error)
+  }
+  setRouteHash('home')
 }
 
 const openProfile = async (userId) => {
@@ -1088,7 +1122,7 @@ const fetchHistoryData = async () => {
 
   historyLoading.value = true
   try {
-    const res = await axios.get(`${API_BASE}/user/${currentUserId.value}/history`)
+    const res = await axios.get(`${API_BASE}/videos/user/${currentUserId.value}/history`)
     const list = Array.isArray(res.data?.data) ? res.data.data : []
     historyList.value = list
       .filter((item) => item.video)
@@ -1199,6 +1233,12 @@ const loadProfile = async (userId, updateRoute = true) => {
       params: currentUserId.value ? { viewerId: currentUserId.value } : {}
     })
     const data = res.data?.data || {}
+    const [uploadsRes, favoritesRes] = await Promise.all([
+      axios.get(`${API_BASE}/videos/user/${userId}/uploads`, { headers: currentUserId.value ? { 'X-User-Id': String(currentUserId.value) } : {} }),
+      axios.get(`${API_BASE}/videos/user/${userId}/favorites`, { headers: currentUserId.value ? { 'X-User-Id': String(currentUserId.value) } : {} })
+    ])
+    data.uploads = uploadsRes.data?.data || []
+    data.favorites = favoritesRes.data?.data || []
     profileData.value = {
       ...data,
       uploads: Array.isArray(data.uploads) ? data.uploads.map(convertVideoFromBackend) : [],
@@ -1274,6 +1314,14 @@ const normalizeLoginUser = (data) => {
       avatarUrl: data.data.user.avatarUrl
     }
   }
+  if (data.data?.id) {
+    return {
+      id: data.data.id,
+      username: data.data.username,
+      nickname: data.data.nickname,
+      avatarUrl: data.data.avatarUrl
+    }
+  }
   return null
 }
 
@@ -1328,13 +1376,17 @@ const logout = () => {
 
 const convertVideoFromBackend = (video) => {
   const sources = {}
-  if (video.url240p) sources['240P'] = normalizeLanUrl(video.url240p)
-  if (video.url360p) sources['360P'] = normalizeLanUrl(video.url360p)
+  // 微服务详情接口使用 sources map；兼容旧版扁平 url 字段。
+  if (video.sources && typeof video.sources === 'object') {
+    for (const quality of ['480P', '720P', '1080P']) {
+      if (video.sources[quality]) sources[quality] = normalizeLanUrl(video.sources[quality])
+    }
+  }
   if (video.url480p) sources['480P'] = normalizeLanUrl(video.url480p)
   if (video.url720p) sources['720P'] = normalizeLanUrl(video.url720p)
   if (video.url1080p) sources['1080P'] = normalizeLanUrl(video.url1080p)
   if (Object.keys(sources).length === 0 && video.playUrl) {
-    sources['720P'] = normalizeLanUrl(video.playUrl)
+    sources['原画'] = normalizeLanUrl(video.playUrl)
   }
 
   return {
@@ -1356,7 +1408,9 @@ const convertVideoFromBackend = (video) => {
     coverUrl: normalizeLanUrl(video.coverUrl || ''),
     description: video.description || '',
     sources,
-    defaultQuality: video.defaultQuality || '720P',
+    defaultQuality: (video.defaultQuality && sources[video.defaultQuality])
+      ? video.defaultQuality
+      : (sources['720P'] ? '720P' : (sources['原画'] ? '原画' : Object.keys(sources)[0] || '原画')),
     likeCount: video.likeCount || 0,
     favoriteCount: video.favoriteCount || 0,
     commentCount: video.commentCount || 0,
@@ -1382,6 +1436,18 @@ const loadVideoList = async () => {
       videoList.value = res.data.data
         .map(convertVideoFromBackend)
         .filter((video) => video.sources['720P'] || Object.values(video.sources).length > 0)
+      await Promise.all(videoList.value.map(async (video) => {
+        if (!video.userId) return
+        try {
+          const profile = await axios.get(`${API_BASE}/user/${video.userId}/profile`)
+          const user = profile.data?.data
+          if (user) {
+            video.author = user.nickname || video.author
+            video.authorAvatarUrl = user.avatarUrl || ''
+            video.authorInfo = { ...(video.authorInfo || {}), ...user, userId: video.userId }
+          }
+        } catch (e) { /* 作者信息不可用时保留视频自身字段 */ }
+      }))
       return
     }
   } catch (error) {
@@ -2104,7 +2170,7 @@ const fetchLiveRooms = async () => {
       params: {
         page: 1,
         pageSize: 12,
-        categoryId: liveCategoryFilter.value || 0
+        ...(liveCategoryFilter.value ? { categoryId: liveCategoryFilter.value } : {})
       }
     })
     const list = res.data?.data?.list || res.data?.list || []

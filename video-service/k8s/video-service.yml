@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-service
+  labels:
+    app.kubernetes.io/name: video-service
+    app.kubernetes.io/part-of: hangyin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: video-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: video-service
+        app.kubernetes.io/part-of: hangyin
+    spec:
+      containers:
+        - name: video-service
+          image: hangyin/video-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8082
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://video-mysql:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: video-db-secret
+                  key: password
+            - name: MINIO_ENDPOINT
+              value: http://minio:9000
+            - name: MINIO_PUBLIC_BASE_URL
+              value: http://minio:8082/video
+            - name: MINIO_ACCESS_KEY
+              value: minioadmin
+            - name: MINIO_SECRET_KEY
+              value: minioadmin
+            - name: MINIO_BUCKET
+              value: hangyin-video
+            - name: VIDEO_TRANSCODE_ENABLED
+              value: "false"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 768Mi
