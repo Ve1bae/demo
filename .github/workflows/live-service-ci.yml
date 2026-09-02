@@ -333,7 +333,8 @@ jobs:
             kubectl -n "${KUBE_NAMESPACE}" get pods -o wide || true
             exit 1
           fi
-          kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service deployment/srs pods -o wide
+          kubectl -n "${KUBE_NAMESPACE}" get deployment/live-service deployment/srs -o wide
+          kubectl -n "${KUBE_NAMESPACE}" get pods -o wide
           chmod +x scripts/fault-handling-smoke.sh
           scripts/fault-handling-smoke.sh
 
