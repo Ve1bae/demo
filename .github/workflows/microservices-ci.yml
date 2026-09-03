@@ -32,6 +32,13 @@ jobs:
       - name: Smoke tests
         run: |
           for i in {1..90}; do curl --fail --silent http://127.0.0.1:8080/gateway/health && break || sleep 2; done
+          # /gateway/health is a static nginx response; wait for every Spring service too.
+          for i in {1..90}; do
+            curl --fail --silent 'http://127.0.0.1:8080/api/user/1/profile?viewerId=1' >/dev/null && \
+            curl --fail --silent 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1' >/dev/null && \
+            curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && break
+            sleep 2
+          done
           curl --fail http://127.0.0.1:8080/api/live/rooms
           curl --fail 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1'
       - if: always()
@@ -59,6 +66,13 @@ jobs:
             sleep 2
           done
           curl --fail http://127.0.0.1:8080/gateway/health
+          # The gateway endpoint above is static; wait until all upstreams accept requests.
+          for i in {1..90}; do
+            curl --fail --silent 'http://127.0.0.1:8080/api/user/1/profile?viewerId=1' >/dev/null && \
+            curl --fail --silent 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1' >/dev/null && \
+            curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null && break
+            sleep 2
+          done
       - name: Run user-service API and business E2E
         env:
           USER_SERVICE_E2E_BASE_URL: http://127.0.0.1:8080
