@@ -71,6 +71,8 @@ services:
   video-service:
     build: ./video-service
     environment:
+      TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-video:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_VIDEO_PASSWORD:-microservices-video}

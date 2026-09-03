@@ -201,7 +201,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Override
     public VideoVO getByIdWithState(Long videoId, Long viewerId) {
         Video video = getById(videoId);
-        if (video == null) throw new IllegalArgumentException("视频不存在");
+        if (video == null || "deleted".equals(video.getStatus())) throw new IllegalArgumentException("视频已不可见");
         return toVO(video, viewerId);
     }
 
@@ -243,7 +243,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Override
     public Map<String, Object> play(Long videoId, Long userId) {
         Video video = getById(videoId);
-        if (video == null) throw new IllegalArgumentException("视频不存在");
+        if (video == null || "deleted".equals(video.getStatus())) throw new IllegalArgumentException("视频已不可见");
         video.setPlayCount((video.getPlayCount() == null ? 0 : video.getPlayCount()) + 1);
         updateById(video);
         upsertViewHistory(userId, videoId);
@@ -290,11 +290,16 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                         .orderByDesc("last_viewed_at").last("limit 100"))
                 .stream().map(h -> {
                     Map<String,Object> item = new LinkedHashMap<>();
-                    item.put("video", toVO(getById(h.getVideoId()), userId));
+                    Video video = getById(h.getVideoId());
+                    // 保留历史记录，即使稿件已软删除；前端据此提示视频不可见。
+                    item.put("videoId", h.getVideoId());
+                    item.put("video", video == null || "deleted".equals(video.getStatus())
+                            ? null : toVO(video, userId));
+                    item.put("videoStatus", video == null ? "missing" : video.getStatus());
                     item.put("viewCount", h.getViewCount());
                     item.put("lastViewedAt", h.getLastViewedAt());
                     return item;
-                }).filter(i -> i.get("video") != null).toList();
+                }).toList();
     }
 
     private boolean flipRelation(Long userId, Long videoId, boolean like) {
