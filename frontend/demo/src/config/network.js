@@ -1,7 +1,7 @@
 const getApiHost = () => import.meta.env.VITE_API_HOST || window.location.hostname
-const getApiPort = () => import.meta.env.VITE_API_PORT || '8080'
+const getApiPort = () => import.meta.env.VITE_API_PORT || (window.location.port === '5173' ? '8080' : window.location.port)
 
-export const API_ORIGIN = `${window.location.protocol}//${getApiHost()}:${getApiPort()}`
+export const API_ORIGIN = import.meta.env.VITE_API_HOST || (window.location.port === '5173' ? `${window.location.protocol}//${getApiHost()}:${getApiPort()}` : window.location.origin)
 export const API_BASE = `${API_ORIGIN}/api`
 
 export const getWsOrigin = () => {
