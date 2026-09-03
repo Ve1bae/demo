@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <header class="navbar">
-      <div class="logo" @click="goHome">🚀航音视频</div>
+      <div class="logo" @click="goHome">🚀航音视频🚀</div>
 
       <div class="search-box">
         <input
