@@ -71,7 +71,9 @@ docker compose -f compose.yml down
 
 ## Kubernetes and CI
 
-`k8s/` 包含 `live-mysql`、`live-service`、Service、资源限制和健康探针。数据库密码通过运行时创建的 Kubernetes Secret 注入，数据库初始化 SQL 通过 ConfigMap 挂载。示例：
+> 正式的全栈 Kubernetes 入口是仓库根目录 [`../k8s/`](../k8s/)；本目录下的 `k8s/` 仅保留为历史兼容配置，不应与根目录清单混用。根目录配置统一使用 `hangyin` namespace、PVC 和运行时 Secret/ConfigMap。
+
+根目录 `k8s/` 包含 `live-mysql`、`live-service`、Service、资源限制和健康探针。数据库密码通过运行时创建的 Kubernetes Secret 注入，数据库初始化 SQL 通过 ConfigMap 挂载。请以根目录 README 的完整部署顺序为准。
 
 ```sh
 kubectl create secret generic live-db-secret --from-literal=password="$(openssl rand -hex 24)"
@@ -83,4 +85,4 @@ kubectl apply -f k8s/live-service-service.yml
 kubectl rollout status deployment/live-service
 ```
 
-课程 CI 会执行 JUnit 单元测试和 API/WebSocket 集成测试，构建版本化镜像，部署到临时 Kind 集群，并验证健康接口、直播间创建、播放地址和点赞查询。Kubernetes 示例中的 MySQL 使用 `emptyDir`，正式环境应替换为 PVC、托管 MySQL 或其他持久化方案。
+课程 CI 会执行 JUnit 单元测试和 API/WebSocket 集成测试，构建版本化镜像，部署到临时 Kind 集群，并验证健康接口、直播间创建、播放地址和点赞查询。根目录正式示例使用 PVC；本目录旧清单中的 `emptyDir`、旧 Secret 名称和关闭 SRS 探测配置仅用于历史参考。

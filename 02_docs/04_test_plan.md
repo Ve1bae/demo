@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | 单元测试 | 关键规则、边界和异常分支 | `backend/src/test/.../LiveUnitTest.java`、`live-service/src/test/.../LiveServiceUnitTest.java` | Surefire XML/控制台日志 |
 | 集成/API | Controller、数据库、WebSocket、SRS 健康接口 | `ApiIntegrationTest.java`、`LiveApiIntegrationTest.java` | Maven 报告 |
-| E2E | 从 API 或页面走完完整业务流程 | `LiveE2ETest.java`、`frontend/demo/e2e/live-ui.spec.js` | Playwright/Maven 报告 |
+| E2E | 从真实 API、WebSocket 或页面走完完整业务流程 | `LiveE2ETest.java`、`live-service/src/test/.../LiveServiceE2ETest.java`、`frontend/demo/e2e/live-ui.spec.js` | Surefire、Playwright HTML/JSON、`e2e-io.json` 和 Java E2E JSON |
 | Kubernetes 冒烟 | 镜像、PVC、rollout、API、RTMP、FLV | `.github/workflows/live-service-ci.yml` | Actions run 和 artifact |
 | HPA 扩缩容实验 | CPU 加压、扩容、降载、缩容 | `scripts/hpa-smoke.sh` + `k8s/hpa.yml` | `hpa-samples.csv`、`pod-samples.csv`、`summary.csv` |
 | 性能对比实验 | 单体与微服务同条件压测 | `scripts/performance-compare.sh` | `performance-results.csv` 及原始请求/进程采样 |
@@ -16,6 +16,7 @@
 
 - 每个测试必须有断言，不能只检查进程退出码。
 - 每个用例覆盖主成功、至少一个备选或异常路径。
+- 报告必须列出原始请求体/请求头、响应体、WebSocket 收发帧和页面最终状态；Playwright 由 `e2e/reporting.js` 自动采集，Java E2E 写入 `target/e2e-artifacts/`。
 - 测试失败必须让流水线停止后续部署验证。
 - 报告需记录总数、通过数、失败数、失败原因、运行环境和提交 SHA。
 - HPA 报告需记录并发数、负载时长、吞吐量、平均/P95 延迟、错误率、目标/实际 CPU、扩容前后 Pod 数量，并至少重复 3 次。

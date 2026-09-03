@@ -3,6 +3,7 @@ package com.example.live;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,8 +15,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,12 +41,27 @@ class LiveServiceE2ETest {
     private JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final List<Map<String, Object>> evidence = new CopyOnWriteArrayList<>();
+    private final List<JsonNode> receivedMessages = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void cleanDatabase() {
+        evidence.clear();
+        receivedMessages.clear();
         jdbcTemplate.update("DELETE FROM live_danmu");
         jdbcTemplate.update("DELETE FROM room_likes");
         jdbcTemplate.update("DELETE FROM live_room");
+    }
+
+    @AfterEach
+    void writeE2EEvidence() throws Exception {
+        Path output = Path.of("target", "e2e-artifacts");
+        Files.createDirectories(output);
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("test", "viewerCanOpenRoomInteractAndSeeFinalRoomState");
+        report.put("exchanges", evidence);
+        report.put("websocketReceived", receivedMessages);
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.resolve("live-service-e2e.json").toFile(), report);
     }
 
     @Test
@@ -58,8 +78,12 @@ class LiveServiceE2ETest {
 
         WsClient viewer = openWs(roomId);
         try {
-            viewer.socket.sendText("{\"type\":\"danmu\",\"userId\":20,\"username\":\"观众\",\"content\":\"大家好\"}", true).join();
-            viewer.socket.sendText("{\"type\":\"like\",\"userId\":20}", true).join();
+            String danmuPayload = "{\"type\":\"danmu\",\"userId\":20,\"username\":\"观众\",\"content\":\"大家好\"}";
+            String likePayload = "{\"type\":\"like\",\"userId\":20}";
+            evidence.add(Map.of("type", "websocket.sent", "payload", danmuPayload));
+            viewer.socket.sendText(danmuPayload, true).join();
+            evidence.add(Map.of("type", "websocket.sent", "payload", likePayload));
+            viewer.socket.sendText(likePayload, true).join();
             await(() -> viewer.messages.stream().anyMatch(message -> "danmu".equals(message.path("type").asText())
                     && "大家好".equals(message.path("content").asText())));
             await(() -> viewer.messages.stream().anyMatch(message -> "like".equals(message.path("type").asText())
@@ -92,7 +116,18 @@ class LiveServiceE2ETest {
             builder.header("Content-Type", "application/json")
                     .method(method, HttpRequest.BodyPublishers.ofString(body));
         }
-        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        Map<String, Object> exchange = new LinkedHashMap<>();
+        exchange.put("type", "http");
+        Map<String, Object> requestData = new LinkedHashMap<>();
+        requestData.put("method", method);
+        requestData.put("path", path);
+        requestData.put("userId", userId);
+        requestData.put("body", body);
+        exchange.put("request", requestData);
+        exchange.put("response", Map.of("status", response.statusCode(), "body", objectMapper.readTree(response.body())));
+        evidence.add(exchange);
+        return response;
     }
 
     private JsonNode body(HttpResponse<String> response) throws Exception {
@@ -115,7 +150,9 @@ class LiveServiceE2ETest {
                     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
                         if (last) {
                             try {
-                                messages.add(objectMapper.readTree(data.toString()));
+                                JsonNode parsed = objectMapper.readTree(data.toString());
+                                messages.add(parsed);
+                                receivedMessages.add(parsed);
                             } catch (Exception ignored) {
                                 // Malformed frames are irrelevant to this end-to-end assertion.
                             }

@@ -3,6 +3,7 @@ package com.example.demo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,8 +15,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,12 +44,27 @@ class LiveE2ETest {
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final List<Map<String, Object>> evidence = new CopyOnWriteArrayList<>();
+    private final List<JsonNode> receivedMessages = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void createTestUser() {
+        evidence.clear();
+        receivedMessages.clear();
         jdbcTemplate.update(
                 "INSERT IGNORE INTO sys_user (username, password, nickname) VALUES ('livetester', 'x', '直播测试用户')"
         );
+    }
+
+    @AfterEach
+    void writeE2EEvidence() throws Exception {
+        Path output = Path.of("target", "e2e-artifacts");
+        Files.createDirectories(output);
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("test", "fullLiveBusinessFlow");
+        report.put("exchanges", evidence);
+        report.put("websocketReceived", receivedMessages);
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.resolve("backend-live-e2e.json").toFile(), report);
     }
 
     @Test
@@ -136,7 +156,18 @@ class LiveE2ETest {
             builder.header("X-User-Id", userId);
         }
         HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        return objectMapper.readTree(response.body());
+        JsonNode parsed = objectMapper.readTree(response.body());
+        Map<String, Object> exchange = new LinkedHashMap<>();
+        exchange.put("type", "http");
+        Map<String, Object> requestData = new LinkedHashMap<>();
+        requestData.put("method", method);
+        requestData.put("path", path);
+        requestData.put("userId", userId);
+        requestData.put("body", body);
+        exchange.put("request", requestData);
+        exchange.put("response", Map.of("status", response.statusCode(), "body", parsed));
+        evidence.add(exchange);
+        return parsed;
     }
 
     private WsClient openWs(long roomId) throws Exception {
@@ -154,7 +185,9 @@ class LiveE2ETest {
                     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
                         if (last) {
                             try {
-                                messages.add(objectMapper.readTree(data.toString()));
+                                JsonNode parsed = objectMapper.readTree(data.toString());
+                                messages.add(parsed);
+                                receivedMessages.add(parsed);
                             } catch (Exception ignored) {
                                 // ignore malformed message
                             }
@@ -174,6 +207,7 @@ class LiveE2ETest {
     }
 
     private void send(WsClient client, String payload) {
+        evidence.add(Map.of("type", "websocket.sent", "payload", payload));
         client.socket.sendText(payload, true).join();
     }
 

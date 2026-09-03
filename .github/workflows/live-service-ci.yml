@@ -358,6 +358,7 @@ jobs:
           name: full-stack-test-and-deployment-reports
           path: |
             live-service/target/surefire-reports/
+            live-service/target/e2e-artifacts/
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/hangyin-hpa/
             ${{ runner.temp }}/hangyin-fault/

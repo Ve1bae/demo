@@ -55,6 +55,15 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw -B test
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-maven-test-reports
+          path: |
+            backend/target/surefire-reports/
+            backend/target/e2e-artifacts/
+          if-no-files-found: warn
 
   browser-e2e:
     name: Browser E2E tests
@@ -148,6 +157,9 @@ jobs:
         env:
           E2E_API_BASE: http://127.0.0.1:18080/api
           PLAYWRIGHT_CHANNEL: chrome
+          PLAYWRIGHT_OUTPUT_DIR: ${{ runner.temp }}/playwright/non-srs/test-results
+          PLAYWRIGHT_REPORT_DIR: ${{ runner.temp }}/playwright/non-srs/playwright-report
+          PLAYWRIGHT_JSON_FILE: ${{ runner.temp }}/playwright/non-srs/playwright-report/results.json
         run: npx playwright test --grep-invert "SRS"
       - name: Run browser E2E tests (SRS)
         working-directory: frontend/demo
@@ -155,7 +167,20 @@ jobs:
           E2E_API_BASE: http://127.0.0.1:18080/api
           RUN_SRS_E2E: "true"
           PLAYWRIGHT_CHANNEL: chrome
+          PLAYWRIGHT_OUTPUT_DIR: ${{ runner.temp }}/playwright/srs/test-results
+          PLAYWRIGHT_REPORT_DIR: ${{ runner.temp }}/playwright/srs/playwright-report
+          PLAYWRIGHT_JSON_FILE: ${{ runner.temp }}/playwright/srs/playwright-report/results.json
         run: npx playwright test --grep "SRS"
+      - name: Upload browser E2E reports and raw I/O
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-reports-and-raw-io
+          path: |
+            ${{ runner.temp }}/playwright/
+            backend.log
+            vite.log
+          if-no-files-found: warn
 
   frontend-build:
     name: Frontend build

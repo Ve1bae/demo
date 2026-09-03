@@ -1,9 +1,18 @@
 import { test, expect } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import http from 'node:http'
+import { finishCapture, recordExchange, startCapture } from './reporting.js'
 
 const API_BASE = process.env.E2E_API_BASE || 'http://127.0.0.1:18080/api'
 const WS_PATTERN = '**/ws/live/*'
+
+test.beforeEach(async ({ page }, testInfo) => {
+  startCapture(page, testInfo)
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await finishCapture(page, testInfo)
+})
 
 function checkFlvStatus(url) {
   return new Promise((resolve, reject) => {
@@ -19,20 +28,30 @@ function checkFlvStatus(url) {
   })
 }
 
-async function createRoom(request) {
-  const response = await request.post(`${API_BASE}/live/rooms`, {
+async function createRoom(request, testInfo) {
+  const input = {
+    method: 'POST',
+    url: `${API_BASE}/live/rooms`,
     headers: {
       'Content-Type': 'application/json',
       'X-User-Id': '1'
     },
-    data: {
+    body: {
       title: 'Playwright 测试直播间',
       categoryId: 1,
       coverUrl: ''
     }
+  }
+  const response = await request.post(`${API_BASE}/live/rooms`, {
+    headers: input.headers,
+    data: input.body
   })
   expect(response.ok()).toBeTruthy()
   const body = await response.json()
+  recordExchange(testInfo, 'create-room', input, {
+    status: response.status(),
+    body
+  })
   return body.data.roomId
 }
 
@@ -54,8 +73,8 @@ async function mockLiveRoomDetail(page, roomId, overrides) {
   })
 }
 
-test('详情接口异常时回退本地缓存', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('详情接口异常时回退本地缓存', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
   await seedLogin(page)
 
   await page.goto('/#/live')
@@ -70,8 +89,8 @@ test('详情接口异常时回退本地缓存', async ({ page, request }) => {
   await expect(page.locator('.live-player-panel')).toBeVisible()
 })
 
-test('pullUrl 为空时显示等待推流', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('pullUrl 为空时显示等待推流', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
   await mockLiveRoomDetail(page, roomId, {
     pullUrl: '',
     qualityUrls: {}
@@ -82,8 +101,8 @@ test('pullUrl 为空时显示等待推流', async ({ page, request }) => {
   await expect(page.locator('.player-empty')).toHaveText('等待主播推流后即可观看')
 })
 
-test('切换清晰度会重新加载播放器', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('切换清晰度会重新加载播放器', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
   await mockLiveRoomDetail(page, roomId, {
     qualityUrls: {
       '原画': 'http://127.0.0.1:8081/live/test.flv',
@@ -101,8 +120,8 @@ test('切换清晰度会重新加载播放器', async ({ page, request }) => {
   await expect(page.locator('.quality-btn strong')).toHaveText('720P')
 })
 
-test('WebSocket 未连接时发送弹幕提示连接未建立', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('WebSocket 未连接时发送弹幕提示连接未建立', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
   await seedLogin(page)
   await page.routeWebSocket(WS_PATTERN, (webSocket) => webSocket.close())
 
@@ -121,8 +140,8 @@ test('WebSocket 未连接时发送弹幕提示连接未建立', async ({ page, r
   await expect.poll(() => dialogText).toContain('直播互动连接未建立')
 })
 
-test('WebSocket 未连接时点赞保持原数量并提示', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('WebSocket 未连接时点赞保持原数量并提示', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
   await seedLogin(page)
   await page.routeWebSocket(WS_PATTERN, (webSocket) => webSocket.close())
 
@@ -142,8 +161,8 @@ test('WebSocket 未连接时点赞保持原数量并提示', async ({ page, requ
   await expect(page.locator('.live-like-btn')).toHaveText(before)
 })
 
-test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
-  const roomId = await createRoom(request)
+test('未登录发送弹幕弹出登录弹窗', async ({ page, request }, testInfo) => {
+  const roomId = await createRoom(request, testInfo)
 
   await page.goto(`/#/live/${roomId}`)
   await page.locator('.live-chat-input input[type="text"]').click()
@@ -152,13 +171,20 @@ test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
   await expect(page.locator('.modal-overlay h2')).toHaveText('欢迎来到航音')
 })
 
-test('SRS 推流后直播间能播放', async ({ page, request }) => {
+test('SRS 推流后直播间能播放', async ({ page, request }, testInfo) => {
   test.skip(!process.env.RUN_SRS_E2E, 'SRS E2E 需要设置 RUN_SRS_E2E=true 并启动 SRS')
   test.setTimeout(120_000)
 
-  const roomId = await createRoom(request)
+  const roomId = await createRoom(request, testInfo)
   const detailResponse = await request.get(`${API_BASE}/live/rooms/${roomId}`)
   const detail = await detailResponse.json()
+  recordExchange(testInfo, 'get-room-detail', {
+    method: 'GET',
+    url: `${API_BASE}/live/rooms/${roomId}`
+  }, {
+    status: detailResponse.status(),
+    body: detail
+  })
   const pushUrl = detail.data.pushUrl
   const streamKey = pushUrl.split('/').pop()
   const flvUrl = `http://127.0.0.1:8081/live/${streamKey}.flv`
@@ -179,6 +205,10 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
     '-f', 'flv',
     pushUrl
   ], { windowsHide: true })
+  recordExchange(testInfo, 'ffmpeg-publish', {
+    command: 'ffmpeg',
+    args: ['-re', '-f', 'lavfi', '-i', 'testsrc=duration=60:size=640x360:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=60', '-c:v', 'libx264', '-c:a', 'aac', '-f', 'flv', pushUrl]
+  }, { expected: 'HTTP-FLV 200 and video.currentTime > 0.5' })
 
   let ffmpegOutput = ''
   let ffmpegExitCode = null
