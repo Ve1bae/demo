@@ -93,7 +93,7 @@ npm run test:e2e:uc07-10
 ## 6. CI 证据
 
 - 历史 GitHub Actions 运行：`33468781654`（提交 `8608450`），仅作为旧 UC-03 分支基线
-- 当前工作流：`.github/workflows/microservices-ci.yml`；当前提交 push 后补充对应运行页和 Artifact 链接
+- 当前工作流：`.github/workflows/uc03-microservices-cicd.yml`；当前提交 push 后补充对应运行页和 Artifact 链接
 - 当前交付分支：`feature/uc03-microservice-delivery`
 
 当前工作区还没有提交或推送本地整合结果。任何提交前先核对文件清单并征得确认；任何推送或 PR 操作均需单独获得授权。运行生成的 Surefire、真实 API JSON、容器日志和 Playwright 报告保存在 `target/`、`e2e/report/` 或 CI Artifact，不作为源码提交。答辩验收状态以 `doc/答辩验收清单-微服务版.md` 为准。

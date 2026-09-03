@@ -1,4 +1,4 @@
-name: microservices-cicd
+name: UC-03 Microservices CI/CD
 on:
   push: { branches: [microservice, 'feature/**'] }
   pull_request: { branches: [microservice] }

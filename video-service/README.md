@@ -84,7 +84,7 @@ Invoke-RestMethod http://127.0.0.1:8082/actuator/health
 
 - **单元/API 测试**：`src/test/java/...`（Mockito + standaloneSetup MockMvc，无需外部依赖）
 - **真实端到端测试**：`e2e/`（Playwright，走真实 MySQL + MinIO + 后端，报告记录每一步输入输出）
-- **CI/CD**：根目录 `.github/workflows/microservices-ci.yml`（三个服务单元测试、Compose 联调、HTTP/浏览器 E2E、版本化镜像和 Kind Kubernetes 部署）；旧的 `video-service-ci.yml` 不属于当前 `microservice` 分支。
+- **CI/CD**：根目录 `.github/workflows/uc03-microservices-cicd.yml`（三个服务单元测试、Compose 联调、HTTP/浏览器 E2E、版本化镜像和 Kind Kubernetes 部署）；旧的 `video-service-ci.yml` 不属于当前交付分支。
 
 ## Kubernetes and CI
 
