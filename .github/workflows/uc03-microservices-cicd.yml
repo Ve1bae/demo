@@ -41,7 +41,21 @@ jobs:
       - run: docker compose -f "$COMPOSE_FILE" -p ci-microservices up -d --build mysql-user mysql-video mysql-live minio srs user-service video-service live-service api-gateway
       - name: Smoke tests
         run: |
-          for i in {1..90}; do curl --fail --silent http://127.0.0.1:8080/gateway/health && break || sleep 2; done
+          ready=0
+          for i in {1..90}; do
+            if curl --fail --silent http://127.0.0.1:8080/gateway/health >/dev/null &&
+              curl --fail --silent http://127.0.0.1:8080/api/live/rooms >/dev/null &&
+              curl --fail --silent 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo 'Timed out waiting for gateway and backend APIs'
+            exit 1
+          fi
+          curl --fail --silent http://127.0.0.1:8080/gateway/health
           curl --fail http://127.0.0.1:8080/api/live/rooms
           curl --fail 'http://127.0.0.1:8080/api/videos/recommend?page=1&pageSize=1'
       - uses: actions/setup-node@v4
