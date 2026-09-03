@@ -27,6 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose -f "$COMPOSE_FILE" config --quiet
+      - name: Deployment readiness regression tests (mocked kubectl)
+        shell: pwsh
+        run: |
+          ./scripts/test-k8s-deployment.ps1
+          ./scripts/test-local-apps-deployment.ps1
   integration:
     runs-on: ubuntu-latest
     needs: [test, validate-compose]
@@ -193,6 +198,8 @@ jobs:
           for i in {1..60}; do curl --fail --silent http://127.0.0.1:18080/gateway/health && break || sleep 2; done
           curl --fail http://127.0.0.1:18080/api/live/rooms
           curl --fail 'http://127.0.0.1:18080/api/videos/recommend?page=1&pageSize=1'
+          # This API returns HTTP 200 even when credentials/storage are broken.
+          curl --fail --silent --show-error --max-time 30 http://127.0.0.1:18080/api/minio/test | jq -e '.code == 200 and .data.connected == true'
           kubectl get pods,services,hpa -n hangyin
       - name: Run live-service HPA experiment
         shell: bash
@@ -255,3 +262,33 @@ jobs:
             ${{ runner.temp }}/live-service-*-port-forward.log
             ${{ runner.temp }}/hangyin-hpa/
             ${{ runner.temp }}/hangyin-fault/
+  deploy-local:
+    name: Deploy applications to Helium-DockerDesktop
+    # Never execute pull-request code on the user's computer.
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'Ve1bae/demo' &&
+      github.actor == github.repository_owner &&
+      github.ref == 'refs/heads/feature/uc03-microservice-delivery'
+    needs: [integration, publish-images, deploy]
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 40
+    permissions: { contents: read }
+    concurrency:
+      group: helium-dockerdesktop-hangyin
+      cancel-in-progress: false
+    steps:
+      - name: Verify runner identity before checkout
+        shell: powershell
+        run: |
+          if ($env:RUNNER_NAME -cne 'Helium-DockerDesktop') {
+            throw 'Refusing deployment on a different runner. Configure a unique runner label if multiple Windows runners exist.'
+          }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and roll out local application images
+        shell: powershell
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: ./scripts/deploy-local-apps.ps1 -ImageTag $env:RELEASE_SHA

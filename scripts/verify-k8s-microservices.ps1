@@ -24,7 +24,7 @@ Save-Kubectl 'deployments.txt' @('get', 'deployment', '-n', $Namespace, '-o', 'w
 Save-Kubectl 'hpa.txt' @('get', 'hpa', '-n', $Namespace, '-o', 'wide')
 Save-Kubectl 'events.txt' @('get', 'events', '-n', $Namespace, '--sort-by=.lastTimestamp')
 
-foreach ($deployment in @('user-service', 'video-service', 'live-service', 'api-gateway', 'frontend')) {
+foreach ($deployment in @('mysql', 'user-mysql', 'video-mysql', 'live-mysql', 'minio', 'srs', 'user-service', 'video-service', 'live-service', 'api-gateway', 'frontend')) {
     Save-Kubectl "$deployment-rollout.txt" @('rollout', 'status', "deployment/$deployment", '-n', $Namespace, '--timeout=30s')
 }
 

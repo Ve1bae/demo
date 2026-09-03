@@ -38,9 +38,15 @@ spec:
             - name: MINIO_PUBLIC_BASE_URL
               value: http://minio:8082/video
             - name: MINIO_ACCESS_KEY
-              value: minioadmin
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MINIO_ROOT_USER
             - name: MINIO_SECRET_KEY
-              value: minioadmin
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MINIO_ROOT_PASSWORD
             - name: MINIO_BUCKET
               value: hangyin-video
             - name: VIDEO_TRANSCODE_ENABLED

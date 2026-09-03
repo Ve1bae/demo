@@ -230,8 +230,13 @@ jobs:
 
   kubernetes:
     name: Deploy to local Docker Desktop Kubernetes
+    # A public PR must never execute on the owner's persistent computer.
+    if: github.event_name == 'push' && github.repository == 'Ve1bae/demo' && github.actor == github.repository_owner
     needs: build-images
     runs-on: [self-hosted, Windows, X64]
+    concurrency:
+      group: helium-dockerdesktop-hangyin
+      cancel-in-progress: false
     timeout-minutes: 20
     env:
       KUBE_CONTEXT: docker-desktop

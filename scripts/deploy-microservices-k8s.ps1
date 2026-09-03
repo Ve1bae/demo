@@ -87,7 +87,8 @@ Invoke-Kubectl @('set', 'image', 'deployment/frontend', "frontend=$Registry/fron
 
 Invoke-Kubectl @('apply', '-f', (Join-Path $root 'k8s/microservices-hpa.yaml'))
 
-foreach ($deployment in @('user-service', 'video-service', 'live-service', 'api-gateway', 'frontend')) {
+# Dependencies must also be ready; healthy business APIs alone do not prove storage works.
+foreach ($deployment in @('mysql', 'user-mysql', 'video-mysql', 'live-mysql', 'minio', 'srs', 'user-service', 'video-service', 'live-service', 'api-gateway', 'frontend')) {
     Invoke-Kubectl @('rollout', 'status', "deployment/$deployment", '-n', $Namespace, '--timeout=240s')
 }
 
