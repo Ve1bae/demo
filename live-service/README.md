@@ -84,3 +84,25 @@ kubectl rollout status deployment/live-service
 ```
 
 课程 CI 会执行 JUnit 单元测试和 API/WebSocket 集成测试，构建版本化镜像，部署到临时 Kind 集群，并验证健康接口、直播间创建、播放地址和点赞查询。Kubernetes 示例中的 MySQL 使用 `emptyDir`，正式环境应替换为 PVC、托管 MySQL 或其他持久化方案。
+
+## 专项压力、扩缩容和故障恢复
+
+完整的直播服务非功能测试说明位于根目录 `doc/live-service-专项非功能测试说明-20260903.md`。
+
+准备一个 `online` 状态的直播间后，可执行 REST 与 WebSocket 压力测试：
+
+```powershell
+Set-Location live-service
+.\pressure\run-pressure.ps1 -BaseUrl http://127.0.0.1:8090 -RoomId <online-room-id> -Runs 3
+```
+
+Kubernetes HPA 专项负载和 Pod 故障恢复入口分别为：
+
+```powershell
+.\scripts\live-service-hpa-load-test.ps1 -Namespace hangyin
+.\scripts\live-service-fault-drill.ps1 -Namespace hangyin
+```
+
+微服务 CI 使用根目录中的 `scripts/hpa-smoke.sh` 和 `scripts/fault-handling-smoke.sh` 执行同类专项实验，并上传原始 HPA 采样、请求统计、故障场景 JSON 和恢复日志。
+
+压力测试结果写入 `live-service/pressure-results/`，HPA 和故障演练结果写入 `evidence/`。只有保存原始输出并观察到副本变化或实例恢复，才能在报告中标记为“实测通过”；脚本和配置本身不能替代实测证据。

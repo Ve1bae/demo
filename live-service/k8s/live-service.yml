@@ -40,7 +40,7 @@ spec:
             - name: LIVE_SRS_API_BASE_URL
               value: http://srs:1985
             - name: LIVE_SRS_PROBE_ENABLED
-              value: "false"
+              value: "true"
           startupProbe:
             httpGet:
               path: /actuator/health

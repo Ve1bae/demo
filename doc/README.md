@@ -41,7 +41,8 @@
 - `video-service/scripts/api-smoke-test.mjs`（真实 MySQL API，默认端口 8082）
 - `video-service/e2e/`（完整 video-service 的 Playwright 链路）
 - `video-service/pressure/`（k6 压力测试脚本和运行入口）
-- `scripts/hpa-load-test.ps1`、`scripts/fault-drill-microservices.ps1`（HPA 和故障演练）
+- `scripts/hpa-load-test.ps1`、`scripts/fault-drill-microservices.ps1`（微服务通用 HPA 和依赖故障演练）
+- `scripts/hpa-smoke.sh`、`scripts/fault-handling-smoke.sh`（live-service 专项 HPA、SRS 故障降级和 Pod 自愈实验）
 - `evidence/`（Compose、Kubernetes、HPA 和故障演练的真实输出）
 
 ## 3. 文档与测试报告

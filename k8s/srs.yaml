@@ -13,6 +13,9 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
+    - name: api
+      port: 1985
+      targetPort: 1985
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -35,3 +38,4 @@ spec:
           ports:
             - containerPort: 1935
             - containerPort: 8080
+            - containerPort: 1985

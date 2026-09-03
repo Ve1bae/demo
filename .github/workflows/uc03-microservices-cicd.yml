@@ -194,6 +194,45 @@ jobs:
           curl --fail http://127.0.0.1:18080/api/live/rooms
           curl --fail 'http://127.0.0.1:18080/api/videos/recommend?page=1&pageSize=1'
           kubectl get pods,services,hpa -n hangyin
+      - name: Run live-service HPA experiment
+        shell: bash
+        env:
+          KUBE_NAMESPACE: hangyin
+          HPA_SERVICE_URL: "http://127.0.0.1:18081/api/live/rooms?page=1&pageSize=10"
+          HPA_OUTPUT_DIR: ${{ runner.temp }}/hangyin-hpa/live-service
+          HPA_WORKERS: "32"
+          HPA_LOAD_SECONDS: "75"
+          HPA_SCALE_WAIT_SECONDS: "180"
+        run: |
+          set -euo pipefail
+          kubectl -n "$KUBE_NAMESPACE" port-forward service/live-service 18081:8090 > "$RUNNER_TEMP/live-service-hpa-port-forward.log" 2>&1 &
+          FORWARD_PID=$!
+          trap 'kill "$FORWARD_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent "$HPA_SERVICE_URL" -o /dev/null; then break; fi
+            if [ "$attempt" -eq 60 ]; then cat "$RUNNER_TEMP/live-service-hpa-port-forward.log"; exit 1; fi
+            sleep 2
+          done
+          chmod +x scripts/hpa-smoke.sh
+          scripts/hpa-smoke.sh
+      - name: Run live-service fault handling experiment
+        shell: bash
+        env:
+          KUBE_NAMESPACE: hangyin
+          FAULT_SERVICE_URL: http://127.0.0.1:18082/api/live/srs/health
+          FAULT_OUTPUT_DIR: ${{ runner.temp }}/hangyin-fault/live-service
+        run: |
+          set -euo pipefail
+          kubectl -n "$KUBE_NAMESPACE" port-forward service/live-service 18082:8090 > "$RUNNER_TEMP/live-service-fault-port-forward.log" 2>&1 &
+          FORWARD_PID=$!
+          trap 'kill "$FORWARD_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent "$FAULT_SERVICE_URL" -o /dev/null; then break; fi
+            if [ "$attempt" -eq 60 ]; then cat "$RUNNER_TEMP/live-service-fault-port-forward.log"; exit 1; fi
+            sleep 2
+          done
+          chmod +x scripts/fault-handling-smoke.sh
+          scripts/fault-handling-smoke.sh
       - if: always()
         run: |
           kubectl get pods,services,hpa -n hangyin > k8s-status.txt || true
@@ -206,3 +245,6 @@ jobs:
             k8s-status.txt
             k8s-events.txt
             k8s-port-forward.log
+            ${{ runner.temp }}/live-service-*-port-forward.log
+            ${{ runner.temp }}/hangyin-hpa/
+            ${{ runner.temp }}/hangyin-fault/

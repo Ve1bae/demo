@@ -3,6 +3,7 @@ package com.example.live.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -11,6 +12,9 @@ import java.util.Map;
 
 @Service
 public class SrsHealthService {
+    private static final int SRS_CONNECT_TIMEOUT_MS = 1000;
+    private static final int SRS_READ_TIMEOUT_MS = 2000;
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -21,7 +25,10 @@ public class SrsHealthService {
     private boolean probeEnabled;
 
     public SrsHealthService() {
-        this.restClient = RestClient.create();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(SRS_CONNECT_TIMEOUT_MS);
+        requestFactory.setReadTimeout(SRS_READ_TIMEOUT_MS);
+        this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
     public boolean probeEnabled() {
