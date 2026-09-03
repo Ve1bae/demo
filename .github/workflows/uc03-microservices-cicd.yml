@@ -127,7 +127,9 @@ jobs:
     if: github.event_name == 'push'
     needs: integration
     runs-on: ubuntu-latest
-    strategy: { matrix: { service: [user-service, video-service, live-service] } }
+    strategy:
+      fail-fast: false
+      matrix: { service: [user-service, video-service, live-service] }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -139,7 +141,7 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/ve1bae/${{ matrix.service }}:${{ github.sha }}
   deploy:
     if: github.event_name == 'push'
     needs: integration
