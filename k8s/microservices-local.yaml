@@ -124,6 +124,7 @@ spec:
       containers:
         - name: minio
           image: minio/minio:latest
+          imagePullPolicy: IfNotPresent
           args: [server, /data]
           env:
             - { name: MINIO_ROOT_USER, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MINIO_ROOT_USER } } }
@@ -209,7 +210,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata: { name: api-gateway, namespace: hangyin }
-spec: { type: NodePort, selector: { app: api-gateway }, ports: [{ port: 80, targetPort: 80, nodePort: 30080 }] }
+spec: { type: NodePort, selector: { app: api-gateway }, ports: [{ port: 80, targetPort: 80 }] }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -249,7 +250,7 @@ data:
 apiVersion: v1
 kind: Service
 metadata: { name: frontend, namespace: hangyin }
-spec: { type: NodePort, selector: { app: frontend }, ports: [{ port: 80, nodePort: 30573 }] }
+spec: { type: NodePort, selector: { app: frontend }, ports: [{ port: 80 }] }
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -168,6 +168,8 @@ jobs:
           kubectl -n hangyin create configmap mysql-user-schema --from-file=user-db.sql=infra/mysql/user-db.sql --dry-run=client -o yaml | kubectl apply -f -
           kubectl -n hangyin create configmap mysql-video-schema --from-file=video-schema.sql=video-service/sql/001_video_schema.sql --dry-run=client -o yaml | kubectl apply -f -
           kubectl -n hangyin create configmap mysql-live-schema --from-file=live-schema.sql=live-service/sql/001_live_schema.sql --dry-run=client -o yaml | kubectl apply -f -
+          # Recreate NodePort services so stale/conflicting local ports are released.
+          kubectl -n hangyin delete service api-gateway frontend --ignore-not-found
           kubectl apply -f k8s/microservices-local.yaml
           kubectl -n hangyin set image deployment/user-service user-service=hangyin/user-service:${{ github.sha }}
           kubectl -n hangyin set image deployment/video-service video-service=hangyin/video-service:${{ github.sha }}
@@ -184,19 +186,21 @@ jobs:
           kubectl -n hangyin rollout status deployment/frontend --timeout=180s
       - name: Run deployed API and E2E regression
         shell: powershell
-        env:
-          API_REGRESSION_BASE: http://127.0.0.1:30080/api
-          E2E_API_BASE: http://127.0.0.1:30080/api
-          USER_SERVICE_E2E_BASE_URL: http://127.0.0.1:30080
-          USER_SERVICE_E2E_HEALTH_URL: http://127.0.0.1:30080/gateway/health
-          USER_SERVICE_E2E_SKIP_INFO: 'true'
-          LIVE_E2E_API_BASE: http://127.0.0.1:30080/api
-          LIVE_E2E_WS_BASE: ws://127.0.0.1:30080
         run: |
+          $apiPort = kubectl -n hangyin get service api-gateway -o jsonpath='{.spec.ports[0].nodePort}'
+          if (-not $apiPort) { throw 'api-gateway NodePort was not assigned' }
+          $apiBase = "http://127.0.0.1:$apiPort"
           for ($i = 0; $i -lt 60; $i++) {
-            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:30080/gateway/health -TimeoutSec 5 | Out-Null; break }
+            try { Invoke-WebRequest -UseBasicParsing "$apiBase/gateway/health" -TimeoutSec 5 | Out-Null; break }
             catch { if ($i -eq 59) { throw }; Start-Sleep -Seconds 2 }
           }
+          $env:API_REGRESSION_BASE = "$apiBase/api"
+          $env:E2E_API_BASE = "$apiBase/api"
+          $env:USER_SERVICE_E2E_BASE_URL = $apiBase
+          $env:USER_SERVICE_E2E_HEALTH_URL = "$apiBase/gateway/health"
+          $env:USER_SERVICE_E2E_SKIP_INFO = 'true'
+          $env:LIVE_E2E_API_BASE = "$apiBase/api"
+          $env:LIVE_E2E_WS_BASE = $apiBase.Replace('http://', 'ws://')
           node scripts/microservices-api-regression.mjs
           node scripts/user-service-e2e.mjs
           node live-smoke-test.mjs
