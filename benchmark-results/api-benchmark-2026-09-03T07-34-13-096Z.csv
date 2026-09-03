@@ -1,0 +1,7 @@
+run,case,method,path,concurrency,requests,throughput,avgMs,p95Ms,errors,errorRate
+1,"video-detail","GET","/videos/1",1,785,261.6666666666667,3.8172205095541423,5.416400000000067,0,0
+2,"video-detail","GET","/videos/1",1,792,264,3.7829228535353563,8.119200000000092,0,0
+1,"comments-list","GET","/videos/1/comments?page=1&pageSize=50",1,688,229.33333333333334,4.352767441860489,6.653000000000247,0,0
+2,"comments-list","GET","/videos/1/comments?page=1&pageSize=50",1,658,219.33333333333334,4.5581417933130215,6.897999999999229,0,0
+1,"play-counter","POST","/videos/1/play",1,281,93.66666666666667,10.696891459074717,14.527600000001257,0,0
+2,"play-counter","POST","/videos/1/play",1,321,107,9.355647352025052,11.934900000000198,0,0

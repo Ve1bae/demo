@@ -1,5 +1,5 @@
-const apiBase = 'http://127.0.0.1:18080/api'
-const wsBase = 'ws://127.0.0.1:18080'
+const apiBase = (process.env.LIVE_E2E_API_BASE || 'http://127.0.0.1:18080/api').replace(/\/+$/, '')
+const wsBase = process.env.LIVE_E2E_WS_BASE || apiBase.replace(/^http/, 'ws').replace(/\/api$/, '')
 const userId = 1
 
 const request = async (path, options = {}) => {

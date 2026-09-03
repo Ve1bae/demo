@@ -1,0 +1,265 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: microservices-secrets
+  namespace: hangyin
+type: Opaque
+stringData:
+  MYSQL_PASSWORD: microservices-local
+  MYSQL_VIDEO_PASSWORD: microservices-video
+  MYSQL_LIVE_PASSWORD: microservices-live
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: microservices-minio
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-user-init
+  namespace: hangyin
+data:
+  user-db.sql: |
+    CREATE DATABASE IF NOT EXISTS user_db;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-video-init
+  namespace: hangyin
+data:
+  video-schema.sql: |
+    CREATE DATABASE IF NOT EXISTS video_db;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-live-init
+  namespace: hangyin
+data:
+  live-schema.sql: |
+    CREATE DATABASE IF NOT EXISTS live_db;
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mysql-user, namespace: hangyin }
+spec: { selector: { app: mysql-user }, ports: [{ port: 3306 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mysql-user, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: mysql-user } }
+  template:
+    metadata: { labels: { app: mysql-user } }
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          env:
+            - { name: MYSQL_DATABASE, value: user_db }
+            - { name: MYSQL_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MYSQL_PASSWORD } } }
+          ports: [{ containerPort: 3306 }]
+          volumeMounts: [{ name: schema, mountPath: /docker-entrypoint-initdb.d/01-schema.sql, subPath: user-db.sql }]
+      volumes: [{ name: schema, configMap: { name: mysql-user-schema } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mysql-video, namespace: hangyin }
+spec: { selector: { app: mysql-video }, ports: [{ port: 3306 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mysql-video, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: mysql-video } }
+  template:
+    metadata: { labels: { app: mysql-video } }
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          env:
+            - { name: MYSQL_DATABASE, value: video_db }
+            - { name: MYSQL_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MYSQL_VIDEO_PASSWORD } } }
+          ports: [{ containerPort: 3306 }]
+          volumeMounts: [{ name: schema, mountPath: /docker-entrypoint-initdb.d/01-schema.sql, subPath: video-schema.sql }]
+      volumes: [{ name: schema, configMap: { name: mysql-video-schema } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mysql-live, namespace: hangyin }
+spec: { selector: { app: mysql-live }, ports: [{ port: 3306 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mysql-live, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: mysql-live } }
+  template:
+    metadata: { labels: { app: mysql-live } }
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          env:
+            - { name: MYSQL_DATABASE, value: live_db }
+            - { name: MYSQL_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MYSQL_LIVE_PASSWORD } } }
+          ports: [{ containerPort: 3306 }]
+          volumeMounts: [{ name: schema, mountPath: /docker-entrypoint-initdb.d/01-schema.sql, subPath: live-schema.sql }]
+      volumes: [{ name: schema, configMap: { name: mysql-live-schema } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: minio, namespace: hangyin }
+spec: { selector: { app: minio }, ports: [{ port: 9000 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: minio, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: minio } }
+  template:
+    metadata: { labels: { app: minio } }
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:latest
+          args: [server, /data]
+          env:
+            - { name: MINIO_ROOT_USER, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MINIO_ROOT_USER } } }
+            - { name: MINIO_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: microservices-secrets, key: MINIO_ROOT_PASSWORD } } }
+          ports: [{ containerPort: 9000 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: user-service, namespace: hangyin }
+spec: { selector: { app: user-service }, ports: [{ port: 8081 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: user-service, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: user-service } }
+  template:
+    metadata: { labels: { app: user-service } }
+    spec:
+      containers:
+        - name: user-service
+          image: hangyin/user-service:local
+          imagePullPolicy: Never
+          env:
+            - { name: SERVER_PORT, value: "8081" }
+            - { name: SPRING_DATASOURCE_URL, value: jdbc:mysql://mysql-user:3306/user_db }
+            - { name: SPRING_DATASOURCE_USERNAME, value: root }
+            - { name: SPRING_DATASOURCE_PASSWORD, value: microservices-local }
+          ports: [{ containerPort: 8081 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: video-service, namespace: hangyin }
+spec: { selector: { app: video-service }, ports: [{ port: 8082 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: video-service, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: video-service } }
+  template:
+    metadata: { labels: { app: video-service } }
+    spec:
+      containers:
+        - name: video-service
+          image: hangyin/video-service:local
+          imagePullPolicy: Never
+          env:
+            - { name: SPRING_DATASOURCE_URL, value: jdbc:mysql://mysql-video:3306/video_db }
+            - { name: SPRING_DATASOURCE_USERNAME, value: root }
+            - { name: SPRING_DATASOURCE_PASSWORD, value: microservices-video }
+            - { name: MINIO_ENDPOINT, value: http://minio:9000 }
+            - { name: MINIO_ACCESS_KEY, value: minioadmin }
+            - { name: MINIO_SECRET_KEY, value: microservices-minio }
+            - { name: MINIO_BUCKET, value: hangyin-video }
+            - { name: USER_SERVICE_BASE_URL, value: http://user-service:8081 }
+          ports: [{ containerPort: 8082 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: live-service, namespace: hangyin }
+spec: { selector: { app: live-service }, ports: [{ port: 8090 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: live-service, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: live-service } }
+  template:
+    metadata: { labels: { app: live-service } }
+    spec:
+      containers:
+        - name: live-service
+          image: hangyin/live-service:local
+          imagePullPolicy: Never
+          env:
+            - { name: DB_URL, value: jdbc:mysql://mysql-live:3306/live_db }
+            - { name: DB_USERNAME, value: root }
+            - { name: DB_PASSWORD, value: microservices-live }
+            - { name: USER_SERVICE_BASE_URL, value: http://user-service:8081 }
+          ports: [{ containerPort: 8090 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: api-gateway, namespace: hangyin }
+spec: { selector: { app: api-gateway }, ports: [{ port: 80 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: api-gateway, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: api-gateway } }
+  template:
+    metadata: { labels: { app: api-gateway } }
+    spec:
+      containers:
+        - name: api-gateway
+          image: nginx:1.27-alpine
+          volumeMounts: [{ name: config, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf }]
+          ports: [{ containerPort: 80 }]
+      volumes:
+        - name: config
+          configMap: { name: api-gateway-config }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: api-gateway-config, namespace: hangyin }
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server { listen 80;
+        location = /gateway/health { default_type application/json; return 200 '{"status":"UP"}'; }
+        location /api/user/ { proxy_pass http://user-service:8081; }
+        location /api/videos/ { proxy_pass http://video-service:8082; }
+        location /api/comments/ { proxy_pass http://video-service:8082; }
+        location /api/minio/ { proxy_pass http://video-service:8082; }
+        location /api/live/ { proxy_pass http://live-service:8090; }
+        location /ws/live/ { proxy_pass http://live-service:8090; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection upgrade; }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: frontend, namespace: hangyin }
+spec: { type: NodePort, selector: { app: frontend }, ports: [{ port: 80, nodePort: 30573 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: frontend, namespace: hangyin }
+spec:
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata: { labels: { app: frontend } }
+    spec:
+      containers:
+        - name: frontend
+          image: hangyin/frontend:local
+          imagePullPolicy: Never
+          ports: [{ containerPort: 80 }]

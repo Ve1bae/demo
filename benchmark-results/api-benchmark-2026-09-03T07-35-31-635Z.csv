@@ -1,0 +1,4 @@
+run,case,method,path,concurrency,requests,throughput,avgMs,p95Ms,errors,errorRate
+1,"video-detail","GET","/videos/1",1,288,288,3.5762982638888903,5.439099999999996,0,0
+1,"comments-list","GET","/videos/1/comments?page=1&pageSize=50",1,453,453,2.2049549668874233,3.97829999999999,0,0
+1,"play-counter","POST","/videos/1/play",1,144,144,6.958801388888876,9.10609999999997,0,0

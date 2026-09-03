@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 const baseUrl = (process.env.USER_SERVICE_E2E_BASE_URL || 'http://127.0.0.1:18081').replace(/\/+$/, '');
+const healthUrl = (process.env.USER_SERVICE_E2E_HEALTH_URL || `${baseUrl}/actuator/health`).replace(/\/+$/, '');
 const reportPath = resolve(process.env.USER_SERVICE_E2E_REPORT || 'user-service/target/e2e-reports/user-service-e2e-report.md');
 const suffix = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 const alice = { username: `e2e_alice_${suffix}`, password: 'e2e-password', nickname: `E2E Alice ${suffix}` };
@@ -62,8 +63,12 @@ async function writeReport(error) {
 }
 
 try {
-  await request('E2E-01 健康检查', 'GET', '/actuator/health', { verify: data => data.status === 'UP' });
-  await request('E2E-02 服务信息', 'GET', '/actuator/info');
+  const healthResponse = await fetch(healthUrl);
+  const healthText = await healthResponse.text();
+  const healthData = healthText ? JSON.parse(healthText) : null;
+  cases.push({ name: 'E2E-01 健康检查', method: 'GET', path: healthUrl, input: { headers: {} }, status: healthResponse.status, output: healthData, passed: healthResponse.status === 200 && healthData?.status === 'UP' });
+  if (!cases.at(-1).passed) throw new Error('E2E-01 健康检查失败');
+  if (process.env.USER_SERVICE_E2E_SKIP_INFO !== 'true') await request('E2E-02 服务信息', 'GET', '/actuator/info');
   await request('E2E-03 注册 Alice', 'POST', '/api/user/register', { body: alice, verify: data => data.code === 200 });
   await request('E2E-04 注册 Bob', 'POST', '/api/user/register', { body: bob, verify: data => data.code === 200 });
   const login = await request('E2E-05 登录 Alice', 'POST', '/api/user/login', { body: alice, verify: data => data.code === 200 && data.data?.id });

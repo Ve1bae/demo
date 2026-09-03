@@ -41,29 +41,148 @@ jobs:
         with: { name: microservices-ci-logs, path: microservices-ci.log }
       - if: always()
         run: docker compose -f "$COMPOSE_FILE" -p ci-microservices down -v --remove-orphans
+  full-e2e-regression:
+    name: Full business E2E regression through API gateway
+    runs-on: ubuntu-latest
+    needs: [test, validate-compose]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Start all microservices
+        run: |
+          docker volume create hangyin-microservices_microservices_user_db
+          docker compose -f "$COMPOSE_FILE" -p ci-microservices up -d --build mysql-user mysql-video mysql-live minio srs user-service video-service live-service api-gateway
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:8080/gateway/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:8080/gateway/health
+      - name: Run user-service API and business E2E
+        env:
+          USER_SERVICE_E2E_BASE_URL: http://127.0.0.1:8080
+          USER_SERVICE_E2E_HEALTH_URL: http://127.0.0.1:8080/gateway/health
+          USER_SERVICE_E2E_SKIP_INFO: 'true'
+          USER_SERVICE_E2E_REPORT: user-service/target/e2e-reports/ci-user-service-e2e.md
+        run: node scripts/user-service-e2e.mjs
+      - name: Upload a fixture video for video E2E
+        id: upload-video
+        run: |
+          response=$(curl --fail --silent -X POST http://127.0.0.1:8080/api/videos/upload \
+            -F 'title=CI E2E video' -F 'description=CI fixture' -F 'author=ci' \
+            -F 'duration=5' -F 'file=@frontend/demo/public/e2e/hot.mp4;type=video/mp4')
+          echo "$response" > video-upload-response.json
+          video_id=$(echo "$response" | jq -r '.data.id')
+          test "$video_id" != "null" && test -n "$video_id"
+          echo "video_id=$video_id" >> "$GITHUB_OUTPUT"
+      - name: Run video API and business E2E
+        env:
+          E2E_API_BASE: http://127.0.0.1:8080/api
+          E2E_VIDEO_ID: ${{ steps.upload-video.outputs.video_id }}
+          E2E_USER_ID: 1
+        run: node scripts/video-e2e.mjs
+      - name: Run complete public API regression
+        env:
+          API_REGRESSION_BASE: http://127.0.0.1:8080/api
+        run: node scripts/microservices-api-regression.mjs
+      - name: Run live HTTP and WebSocket business E2E
+        env:
+          LIVE_E2E_API_BASE: http://127.0.0.1:8080/api
+          LIVE_E2E_WS_BASE: ws://127.0.0.1:8080
+        run: node live-smoke-test.mjs
+      - if: always()
+        run: docker compose -f "$COMPOSE_FILE" -p ci-microservices logs --no-color > full-e2e-microservices.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microservices-full-e2e-reports
+          path: |
+            user-service/target/e2e-reports/
+            video-upload-response.json
+            full-e2e-microservices.log
+          if-no-files-found: warn
+      - if: always()
+        run: docker compose -f "$COMPOSE_FILE" -p ci-microservices down -v --remove-orphans
   publish-images:
     if: github.event_name == 'push'
     needs: integration
     runs-on: ubuntu-latest
-    strategy: { matrix: { service: [user-service, video-service, live-service] } }
+    strategy:
+      matrix:
+        include:
+          - service: user-service
+            context: ./user-service
+          - service: video-service
+            context: ./video-service
+          - service: live-service
+            context: ./live-service
+          - service: frontend
+            context: ./frontend/demo
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
         with: { registry: ghcr.io, username: ${{ github.actor }}, password: ${{ secrets.GITHUB_TOKEN }} }
       - uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          context: ${{ matrix.context }}
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
   deploy:
     if: github.event_name == 'push' && vars.ENABLE_MICROSERVICES_DEPLOY == 'true'
     needs: publish-images
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: [MUGSCUP]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - shell: powershell
         run: |
           kubectl config use-context docker-desktop
           kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/user-service.yaml
-          kubectl rollout status deployment/user-service -n hangyin --timeout=180s
+          docker build -t hangyin/user-service:${{ github.sha }} ./user-service
+          docker build -t hangyin/video-service:${{ github.sha }} ./video-service
+          docker build -t hangyin/live-service:${{ github.sha }} ./live-service
+          docker build -t hangyin/frontend:${{ github.sha }} ./frontend/demo
+          kubectl -n hangyin create configmap mysql-user-schema --from-file=user-db.sql=infra/mysql/user-db.sql --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n hangyin create configmap mysql-video-schema --from-file=video-schema.sql=video-service/sql/001_video_schema.sql --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n hangyin create configmap mysql-live-schema --from-file=live-schema.sql=live-service/sql/001_live_schema.sql --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f k8s/microservices-local.yaml
+          kubectl -n hangyin set image deployment/user-service user-service=hangyin/user-service:${{ github.sha }}
+          kubectl -n hangyin set image deployment/video-service video-service=hangyin/video-service:${{ github.sha }}
+          kubectl -n hangyin set image deployment/live-service live-service=hangyin/live-service:${{ github.sha }}
+          kubectl -n hangyin set image deployment/frontend frontend=hangyin/frontend:${{ github.sha }}
+          kubectl -n hangyin rollout status deployment/mysql-user --timeout=180s
+          kubectl -n hangyin rollout status deployment/mysql-video --timeout=180s
+          kubectl -n hangyin rollout status deployment/mysql-live --timeout=180s
+          kubectl -n hangyin rollout status deployment/minio --timeout=180s
+          kubectl -n hangyin rollout status deployment/user-service --timeout=240s
+          kubectl -n hangyin rollout status deployment/video-service --timeout=240s
+          kubectl -n hangyin rollout status deployment/live-service --timeout=240s
+          kubectl -n hangyin rollout status deployment/api-gateway --timeout=180s
+          kubectl -n hangyin rollout status deployment/frontend --timeout=180s
+          kubectl -n hangyin patch service api-gateway --type merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30080}]}}'
+          kubectl -n hangyin patch service frontend --type merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30573}]}}'
+      - name: Run deployed API and E2E regression
+        shell: powershell
+        env:
+          API_REGRESSION_BASE: http://127.0.0.1:30080/api
+          E2E_API_BASE: http://127.0.0.1:30080/api
+          USER_SERVICE_E2E_BASE_URL: http://127.0.0.1:30080
+          USER_SERVICE_E2E_HEALTH_URL: http://127.0.0.1:30080/gateway/health
+          USER_SERVICE_E2E_SKIP_INFO: 'true'
+          LIVE_E2E_API_BASE: http://127.0.0.1:30080/api
+          LIVE_E2E_WS_BASE: ws://127.0.0.1:30080
+        run: |
+          for ($i = 0; $i -lt 60; $i++) {
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:30080/gateway/health -TimeoutSec 5 | Out-Null; break }
+            catch { if ($i -eq 59) { throw }; Start-Sleep -Seconds 2 }
+          }
+          node scripts/microservices-api-regression.mjs
+          node scripts/user-service-e2e.mjs
+          node live-smoke-test.mjs
+      - name: Kubernetes status and logs
+        if: always()
+        shell: powershell
+        run: |
+          kubectl get pods,services -n hangyin
+          kubectl logs -n hangyin deployment/api-gateway --tail=100
