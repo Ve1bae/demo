@@ -205,6 +205,7 @@ jobs:
           HPA_SCALE_WAIT_SECONDS: "180"
         run: |
           set -euo pipefail
+          kubectl apply -f k8s/microservices-hpa.yaml
           kubectl -n "$KUBE_NAMESPACE" port-forward service/live-service 18081:8090 > "$RUNNER_TEMP/live-service-hpa-port-forward.log" 2>&1 &
           FORWARD_PID=$!
           trap 'kill "$FORWARD_PID" 2>/dev/null || true' EXIT

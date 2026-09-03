@@ -61,8 +61,8 @@ summarize() {
   errors=$((total - successes))
   avg="$(awk -F '\t' '{sum+=$2} END{printf "%.2f",NR?sum/NR*1000:0}' "${REQUESTS}")"
   p95="$(awk -F '\t' '{print $2*1000}' "${REQUESTS}" | sort -n | awk '{a[NR]=$1} END{if(NR){i=int((NR*95+99)/100);printf "%.2f",a[i]}else print "0.00"}')"
-  throughput="$(awk -v n="${total}" -v s="${HPA_LOAD_SECONDS}" 'BEGIN{printf "%.2f",s>0?n/s:0}')"
-  error_rate="$(awk -v e="${errors}" -v n="${total}" 'BEGIN{printf "%.2f",n>0?e*100/n:0}')"
+  throughput="$(awk -v n="${total}" -v s="${HPA_LOAD_SECONDS}" 'BEGIN{printf "%.2f",(s > 0 ? n/s : 0)}')"
+  error_rate="$(awk -v e="${errors}" -v n="${total}" 'BEGIN{printf "%.2f",(n > 0 ? e*100/n : 0)}')"
   echo "${phase},${total},${successes},${errors},${throughput},${avg},${p95},${error_rate}" >> "${SUMMARY}"
   : > "${REQUESTS}"
 }
@@ -81,7 +81,12 @@ while (( SECONDS < deadline )); do
 done
 for pid in "${PIDS[@]}"; do wait "${pid}" || true; done
 summarize load
-if (( up_seen == 0 )); then kubectl -n "${KUBE_NAMESPACE}" describe hpa "${HPA_DEPLOYMENT}" || true; exit 1; fi
+if (( up_seen == 0 )); then
+  kubectl -n "${KUBE_NAMESPACE}" get hpa "${HPA_DEPLOYMENT}" -o wide || true
+  kubectl -n "${KUBE_NAMESPACE}" get deployment "${HPA_DEPLOYMENT}" -o wide || true
+  kubectl -n "${KUBE_NAMESPACE}" describe hpa "${HPA_DEPLOYMENT}" || true
+  exit 1
+fi
 
 down_seen=0
 deadline=$((SECONDS + HPA_SCALE_WAIT_SECONDS))
@@ -91,5 +96,10 @@ while (( SECONDS < deadline )); do
   if [[ "${ready:-0}" == '1' ]]; then down_seen=1; break; fi
   sleep 5
 done
-if (( down_seen == 0 )); then kubectl -n "${KUBE_NAMESPACE}" describe hpa "${HPA_DEPLOYMENT}" || true; exit 1; fi
+if (( down_seen == 0 )); then
+  kubectl -n "${KUBE_NAMESPACE}" get hpa "${HPA_DEPLOYMENT}" -o wide || true
+  kubectl -n "${KUBE_NAMESPACE}" get deployment "${HPA_DEPLOYMENT}" -o wide || true
+  kubectl -n "${KUBE_NAMESPACE}" describe hpa "${HPA_DEPLOYMENT}" || true
+  exit 1
+fi
 cat "${SUMMARY}"
