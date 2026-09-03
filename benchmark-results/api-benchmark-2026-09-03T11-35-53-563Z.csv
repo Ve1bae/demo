@@ -1,0 +1,4 @@
+run,case,method,path,concurrency,requests,throughput,avgMs,p95Ms,errors,errorRate,cpuAvgPct,cpuMaxPct,memoryAvgMiB,memoryMaxMiB
+1,"video-detail","GET","/videos/1",1,3165,3165,0.3146960505529227,0.518799999999942,3165,1,"","","",""
+1,"comments-list","GET","/videos/1/comments?page=1&pageSize=50",1,4071,4071,0.24446199950872066,0.33750000000009095,4071,1,"","","",""
+1,"play-counter","POST","/videos/1/play",1,4078,4078,0.2442752820009789,0.346599999999853,4078,1,"","","",""

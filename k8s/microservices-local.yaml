@@ -268,7 +268,7 @@ data:
 apiVersion: v1
 kind: Service
 metadata: { name: frontend, namespace: hangyin }
-spec: { type: NodePort, selector: { app: frontend }, ports: [{ port: 80 }] }
+spec: { type: NodePort, selector: { app: frontend }, ports: [{ port: 80, nodePort: 30073 }] }
 ---
 apiVersion: apps/v1
 kind: Deployment

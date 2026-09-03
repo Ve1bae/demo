@@ -6,7 +6,9 @@ param(
   [int]$Runs = 3,
   [int]$VideoId = 1,
   [int]$UserId = 1,
-  [string]$OutputDir = 'benchmark-results'
+  [string]$OutputDir = 'benchmark-results',
+  [string]$Container = '',
+  [switch]$Seed
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,5 +20,14 @@ $env:BENCHMARK_RUNS = $Runs
 $env:BENCHMARK_VIDEO_ID = $VideoId
 $env:BENCHMARK_USER_ID = $UserId
 $env:BENCHMARK_OUTPUT_DIR = $OutputDir
+$env:BENCHMARK_CONTAINER = $Container
+if ($Seed) {
+  $seedJson = node (Join-Path $PSScriptRoot 'seed-benchmark-data.mjs') | Select-Object -Last 1
+  if ($LASTEXITCODE -ne 0) { throw 'Benchmark data seeding failed.' }
+  $seed = $seedJson | ConvertFrom-Json
+  $env:BENCHMARK_VIDEO_ID = [string]$seed.videoId
+  $env:BENCHMARK_USER_ID = [string]$seed.userId
+  Write-Host "Seeded video=$($seed.videoId), comments=$($seed.commentIds.Count)"
+}
 node (Join-Path $PSScriptRoot 'benchmark-api.mjs')
 if ($LASTEXITCODE -ne 0) { throw 'API benchmark failed.' }
