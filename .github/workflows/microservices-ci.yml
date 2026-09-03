@@ -2,6 +2,7 @@ name: microservices-cicd
 on:
   push: { branches: [microservice] }
   pull_request: { branches: [microservice] }
+  workflow_dispatch:
 permissions: { contents: read, packages: write }
 env: { COMPOSE_FILE: docker-compose.microservices.yml }
 jobs:
@@ -119,7 +120,7 @@ jobs:
       - if: always()
         run: docker compose -f "$COMPOSE_FILE" -p ci-microservices down -v --remove-orphans
   publish-images:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: integration
     runs-on: ubuntu-latest
     strategy:
@@ -149,7 +150,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ env.IMAGE_OWNER }}/${{ matrix.service }}:${{ github.sha }}
   deploy:
-    if: github.event_name == 'push' && vars.ENABLE_MICROSERVICES_DEPLOY == 'true'
+    # Deploy on pushes and manual runs to the configured Docker Desktop runner.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: publish-images
     runs-on: [MUGSCUP]
     timeout-minutes: 30
