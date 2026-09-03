@@ -1,0 +1,11 @@
+NAME                                    IMAGE                                 COMMAND                  SERVICE         CREATED          STATUS                    PORTS
+hangyin-microservices-api-gateway-1     nginx:1.27-alpine                     "/docker-entrypoint.…"   api-gateway     6 minutes ago    Up 6 minutes              127.0.0.1:8080->80/tcp
+hangyin-microservices-frontend-1        hangyin-microservices-frontend        "/docker-entrypoint.…"   frontend        6 minutes ago    Up 6 minutes              127.0.0.1:5173->80/tcp
+hangyin-microservices-live-service-1    hangyin-microservices-live-service    "java -jar /app/app.…"   live-service    6 minutes ago    Up 6 minutes (healthy)    8090/tcp
+hangyin-microservices-minio-1           minio/minio:latest                    "/usr/bin/docker-ent…"   minio           6 minutes ago    Up 6 minutes              127.0.0.1:9000-9001->9000-9001/tcp
+hangyin-microservices-mysql-live-1      mysql:8.4                             "docker-entrypoint.s…"   mysql-live      6 minutes ago    Up 6 minutes (healthy)    127.0.0.1:3312->3306/tcp
+hangyin-microservices-mysql-user-1      mysql:8.4                             "docker-entrypoint.s…"   mysql-user      6 minutes ago    Up 6 minutes (healthy)    127.0.0.1:3310->3306/tcp
+hangyin-microservices-mysql-video-1     mysql:8.4                             "docker-entrypoint.s…"   mysql-video     6 minutes ago    Up 6 minutes (healthy)    127.0.0.1:3311->3306/tcp
+hangyin-microservices-srs-1             ossrs/srs:5                           "./objs/srs -c conf/…"   srs             6 minutes ago    Up 6 minutes              127.0.0.1:1935->1935/tcp, 127.0.0.1:1985->1985/tcp, 127.0.0.1:8081->8080/tcp
+hangyin-microservices-user-service-1    hangyin-microservices-user-service    "java -jar /app/app.…"   user-service    37 seconds ago   Up 5 seconds              8081/tcp
+hangyin-microservices-video-service-1   hangyin-microservices-video-service   "java -jar /app/app.…"   video-service   36 seconds ago   Up 34 seconds (healthy)   8082/tcp

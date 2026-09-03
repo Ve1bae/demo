@@ -1,0 +1,118 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{ctex}
+\usetikzlibrary{positioning,fit,calc,arrows.meta}
+
+\tikzset{
+  component/.style={
+    draw=blue!70,
+    very thick,
+    rounded corners=1pt,
+    minimum width=42mm,
+    minimum height=18mm,
+    align=center,
+    fill=blue!3,
+    font=\small
+  },
+  layer/.style={
+    draw=gray!55,
+    rounded corners=2pt,
+    inner sep=7mm,
+    fill=gray!4
+  },
+  label/.style={
+    font=\scriptsize,
+    fill=white,
+    inner sep=1pt
+  },
+  line/.style={
+    draw=black!75,
+    thick
+  },
+  dep/.style={
+    draw=black!65,
+    dashed,
+    -{Latex[length=2mm]},
+    thick
+  }
+}
+
+\newcommand{\componentIcon}[1]{%
+  \draw[blue!70, thick] ($(#1.north east)+(-7mm,-2.5mm)$) rectangle ++(4mm,4mm);
+  \draw[blue!70, thick] ($(#1.north east)+(-8.2mm,-1.3mm)$) rectangle ++(2mm,1.3mm);
+  \draw[blue!70, thick] ($(#1.north east)+(-8.2mm,-4.4mm)$) rectangle ++(2mm,1.3mm);
+}
+
+\newcommand{\assembly}[5]{%
+  \coordinate (#1socket) at (#2);
+  \coordinate (#1ball) at (#3);
+  \draw[line] (#1socket) -- (#1ball);
+  \draw[line] ($(#1socket)+(0,1.6mm)$) arc[start angle=90,end angle=270,radius=1.6mm];
+  \draw[line, fill=white] (#1ball) circle (1.6mm);
+  \node[label, #5] at ($(#1socket)!0.5!(#1ball)$) {#4};
+}
+
+\begin{document}
+\begin{tikzpicture}[node distance=24mm and 34mm]
+  \node[component] (frontend) {«component»\\Web 前端组件};
+  \node[component, right=of frontend] (business) {«component»\\后端业务组件};
+  \node[component, below=of business] (data) {«component»\\数据访问组件};
+  \node[component, right=of business] (media) {«component»\\媒体服务组件};
+  \node[component, right=of data] (infra) {«component»\\基础设施组件};
+
+  \componentIcon{frontend}
+  \componentIcon{business}
+  \componentIcon{data}
+  \componentIcon{media}
+  \componentIcon{infra}
+
+  \node[layer, fit=(frontend)] (clientLayer) {};
+  \node[label, above left=1mm and 1mm of clientLayer.north west] {客户端层};
+  \node[layer, fit=(business)(data)(media)] (appLayer) {};
+  \node[label, above left=1mm and 1mm of appLayer.north west] {应用服务层};
+  \node[layer, fit=(infra)] (infraLayer) {};
+  \node[label, above left=1mm and 1mm of infraLayer.north west] {基础设施层};
+
+  \node[label, left=12mm of frontend] (user) {用户浏览器};
+  \draw[line, -{Latex[length=2mm]}] (user) -- (frontend);
+
+  \coordinate (apiSocket) at ($(frontend.east)+(8mm,0)$);
+  \coordinate (apiBall) at ($(business.west)+(-8mm,0)$);
+  \draw[line] (apiSocket) -- (apiBall);
+  \draw[line] ($(apiSocket)+(0,1.6mm)$) arc[start angle=90,end angle=270,radius=1.6mm];
+  \draw[line, fill=white] (apiBall) circle (1.6mm);
+  \node[label, above] at ($(apiSocket)!0.5!(apiBall)$) {业务访问接口};
+
+  \coordinate (dataSocket) at ($(business.south)+(0,-8mm)$);
+  \coordinate (dataBall) at ($(data.north)+(0,8mm)$);
+  \draw[line] (dataSocket) -- (dataBall);
+  \draw[line] ($(dataSocket)+(1.6mm,0)$) arc[start angle=0,end angle=180,radius=1.6mm];
+  \draw[line, fill=white] (dataBall) circle (1.6mm);
+  \node[label, right] at ($(dataSocket)!0.5!(dataBall)$) {数据持久化接口};
+
+  \coordinate (mediaSocket) at ($(frontend.south east)+(8mm,-2mm)$);
+  \coordinate (mediaBall) at ($(media.west)+(-8mm,0)$);
+  \draw[line] (mediaSocket) -- (mediaBall);
+  \draw[line] ($(mediaSocket)+(0,1.6mm)$) arc[start angle=90,end angle=270,radius=1.6mm];
+  \draw[line, fill=white] (mediaBall) circle (1.6mm);
+  \node[label, below] at ($(mediaSocket)!0.5!(mediaBall)$) {媒体播放接口};
+
+  \coordinate (streamSocket) at ($(business.east)+(8mm,0)$);
+  \coordinate (streamBall) at ($(media.west)+(-8mm,0)$);
+  \draw[line] (streamSocket) -- (streamBall);
+  \draw[line] ($(streamSocket)+(0,1.6mm)$) arc[start angle=90,end angle=270,radius=1.6mm];
+  \draw[line, fill=white] (streamBall) circle (1.6mm);
+  \node[label, above] at ($(streamSocket)!0.5!(streamBall)$) {直播流服务接口};
+
+  \coordinate (infraSocket) at ($(data.east)+(8mm,0)$);
+  \coordinate (infraBall) at ($(infra.west)+(-8mm,0)$);
+  \draw[line] (infraSocket) -- (infraBall);
+  \draw[line] ($(infraSocket)+(0,1.6mm)$) arc[start angle=90,end angle=270,radius=1.6mm];
+  \draw[line, fill=white] (infraBall) circle (1.6mm);
+  \node[label, above] at ($(infraSocket)!0.5!(infraBall)$) {数据读写接口};
+
+  \draw[dep] (media) -- node[label, right] {对象存储/文件代理} (infra);
+\end{tikzpicture}
+\end{document}
+
+
+

@@ -33,6 +33,7 @@ npx playwright test
 
 ## CI 运行
 
-`../.github/workflows/video-service-ci.yml` 的 `e2e` job 会自动：起 MySQL 服务容器 →
-起 MinIO 容器 → 初始化表结构 → 真实启动 video-service → 跑本目录的 Playwright 测试 →
-上传 JUnit 报告、Playwright 报告、输入输出报告。
+当前仓库的统一工作流是根目录 `.github/workflows/microservices-ci.yml`。本目录测试可作为
+video-service 独立环境的完整回归入口；微服务 CI 使用 Compose 联调并执行网关 HTTP 和前端
+浏览器 E2E，相关日志和 Playwright 报告由 `microservices-ci` Artifact 保存。不要再引用已移除的
+旧的 `video-service-ci.yml` 已不属于当前分支。

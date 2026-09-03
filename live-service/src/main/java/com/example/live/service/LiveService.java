@@ -175,6 +175,12 @@ public class LiveService {
     }
 
     private void requirePositive(Long value, String name) {
-        if (value == null || value <= 0) throw new IllegalArgumentException(name + "不合法");
+        if (value == null) {
+            if ("用户 ID".equals(name)) {
+                throw new IllegalArgumentException("请先登录后再开始直播");
+            }
+            throw new IllegalArgumentException(name + "不能为空");
+        }
+        if (value <= 0) throw new IllegalArgumentException(name + "不合法");
     }
 }

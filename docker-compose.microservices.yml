@@ -2,7 +2,7 @@ services:
   mysql-user:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-microservices-local}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD before starting microservices}
       MYSQL_DATABASE: user_db
     ports: ["127.0.0.1:3310:3306"]
     volumes:
@@ -17,12 +17,13 @@ services:
   mysql-video:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_VIDEO_PASSWORD:-microservices-video}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_VIDEO_PASSWORD:?Set MYSQL_VIDEO_PASSWORD before starting microservices}
       MYSQL_DATABASE: video_db
     ports: ["127.0.0.1:3311:3306"]
     volumes:
       - microservices_video_db:/var/lib/mysql
       - ./video-service/sql/001_video_schema.sql:/docker-entrypoint-initdb.d/01-video-schema.sql:ro
+      - ./video-service/sql/004_recommendation_test_data.sql:/docker-entrypoint-initdb.d/02-recommendation-test-data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
@@ -32,7 +33,7 @@ services:
   mysql-live:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_LIVE_PASSWORD:-microservices-live}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_LIVE_PASSWORD:?Set MYSQL_LIVE_PASSWORD before starting microservices}
       MYSQL_DATABASE: live_db
     ports: ["127.0.0.1:3312:3306"]
     volumes:
@@ -45,10 +46,10 @@ services:
       retries: 30
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-microservices-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD before starting microservices}
     command: server /data --console-address ":9001"
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: [microservices_minio_data:/data]
@@ -65,39 +66,46 @@ services:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-user:3306/user_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-microservices-local}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD before starting microservices}
     depends_on: { mysql-user: { condition: service_healthy } }
 
   video-service:
-    build: ./video-service
+    build:
+      context: ./video-service
+      args:
+        INSTALL_FFMPEG: "false"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-video:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_VIDEO_PASSWORD:-microservices-video}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_VIDEO_PASSWORD:?Set MYSQL_VIDEO_PASSWORD before starting microservices}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_BASE_URL: http://127.0.0.1:8080/video
       MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-microservices-minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD before starting microservices}
       MINIO_BUCKET: hangyin-video
       USER_SERVICE_ENABLED: "true"
       USER_SERVICE_BASE_URL: http://user-service:8081
-      VIDEO_TRANSCODE_ENABLED: "true"
+      VIDEO_TRANSCODE_ENABLED: "false"
     depends_on:
       mysql-video: { condition: service_healthy }
       minio: { condition: service_started }
       user-service: { condition: service_started }
 
   live-service:
-    build: ./live-service
+    build:
+      context: ./live-service
+      args:
+        INSTALL_FFMPEG: "false"
     environment:
       DB_URL: jdbc:mysql://mysql-live:3306/live_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: root
-      DB_PASSWORD: ${MYSQL_LIVE_PASSWORD:-microservices-live}
+      DB_PASSWORD: ${MYSQL_LIVE_PASSWORD:?Set MYSQL_LIVE_PASSWORD before starting microservices}
       LIVE_SRS_RTMP_BASE_URL: rtmp://127.0.0.1:1935/live
       LIVE_SRS_INTERNAL_RTMP_BASE_URL: rtmp://srs:1935/live
       LIVE_SRS_HTTP_BASE_URL: http://127.0.0.1:8081
       LIVE_SRS_API_BASE_URL: http://srs:1985
       LIVE_SRS_PROBE_ENABLED: "false"
+      LIVE_TRANSCODE_ENABLED: "false"
       USER_SERVICE_BASE_URL: http://user-service:8081
     depends_on:
       mysql-live: { condition: service_healthy }
@@ -117,8 +125,6 @@ services:
 
 volumes:
   microservices_user_db:
-    external: true
-    name: hangyin-microservices_microservices_user_db
   microservices_video_db:
   microservices_live_db:
   microservices_minio_data:

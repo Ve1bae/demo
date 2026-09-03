@@ -1,0 +1,81 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: hangyin-monolith-benchmark-mysql
+    environment:
+      MYSQL_DATABASE: hangyin_video
+      MYSQL_ROOT_PASSWORD: ${MONOLITH_DB_PASSWORD:-benchmark-root-password}
+    ports:
+      - "127.0.0.1:3309:3306"
+    volumes:
+      - monolith_benchmark_mysql:/var/lib/mysql
+      - ./demo.sql:/docker-entrypoint-initdb.d/01-demo.sql:ro
+      - ./performance/monolith-benchmark-data.sql:/docker-entrypoint-initdb.d/02-benchmark-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: hangyin-monolith-benchmark-minio
+    environment:
+      MINIO_ROOT_USER: ${MONOLITH_MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MONOLITH_MINIO_PASSWORD:-benchmark-minio-password}
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9009:9000"
+    volumes:
+      - monolith_benchmark_minio:/data
+
+  srs:
+    image: ossrs/srs:5
+    container_name: hangyin-monolith-benchmark-srs
+    ports:
+      - "127.0.0.1:1939:1935"
+      - "127.0.0.1:8091:8080"
+    volumes:
+      - ./infra/srs/srs.conf:/usr/local/srs/conf/srs.conf:ro
+    command: ["./objs/srs", "-c", "conf/srs.conf"]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: hangyin/backend:benchmark
+    container_name: hangyin-monolith-benchmark
+    ports:
+      - "127.0.0.1:18080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hangyin_video?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MONOLITH_DB_PASSWORD:-benchmark-root-password}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_BASE_URL: http://127.0.0.1:18080/video
+      MINIO_ACCESS_KEY: ${MONOLITH_MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MONOLITH_MINIO_PASSWORD:-benchmark-minio-password}
+      MINIO_BUCKET: hangyin-video
+      LIVE_RTMP_BASE_URL: rtmp://127.0.0.1:1939/live
+      LIVE_HTTP_BASE_URL: http://127.0.0.1:8091
+      LIVE_TRANSCODE_ENABLED: "false"
+      VIDEO_TRANSCODE_ENABLED: "false"
+      APP_HOST: 127.0.0.1
+      APP_UPLOAD_DIR: /app/uploads
+      VIDEO_CHUNK_DIR: /app/chunks
+    volumes:
+      - monolith_benchmark_uploads:/app/uploads
+      - monolith_benchmark_chunks:/app/chunks
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      srs:
+        condition: service_started
+
+volumes:
+  monolith_benchmark_mysql:
+  monolith_benchmark_minio:
+  monolith_benchmark_uploads:
+  monolith_benchmark_chunks:

@@ -1,0 +1,14 @@
+NAME                             READY   STATUS         RESTARTS      AGE     IP            NODE                    NOMINATED NODE   READINESS GATES
+api-gateway-7877b88bc4-mfqk4     1/1     Running        1 (32m ago)   32m     10.244.0.13   desktop-control-plane   <none>           <none>
+backend-5664cdffdd-fbkjj         0/1     Running        2 (9h ago)    4d13h   10.244.0.7    desktop-control-plane   <none>           <none>
+frontend-69c5bb6dfc-2zswn        1/1     Running        0             28m     10.244.0.23   desktop-control-plane   <none>           <none>
+hpa-load-20260903-014844         0/1     ErrImagePull   0             13m     10.244.0.31   desktop-control-plane   <none>           <none>
+live-mysql-bdfd86b7b-54wzw       1/1     Running        0             25m     10.244.0.26   desktop-control-plane   <none>           <none>
+live-service-f7b4cc867-zfj69     1/1     Running        0             24m     10.244.0.28   desktop-control-plane   <none>           <none>
+minio-9ddd6b565-hpscz            1/1     Running        0             32m     10.244.0.11   desktop-control-plane   <none>           <none>
+mysql-6c4c55d7d4-wmhvd           1/1     Running        0             32m     10.244.0.10   desktop-control-plane   <none>           <none>
+srs-5bd58db4c9-5626w             1/1     Running        2 (9h ago)    4d13h   10.244.0.4    desktop-control-plane   <none>           <none>
+user-mysql-c57bcb9d7-x8x54       1/1     Running        0             25m     10.244.0.24   desktop-control-plane   <none>           <none>
+user-service-5f97b7d5fd-xbplm    1/1     Running        0             25m     10.244.0.25   desktop-control-plane   <none>           <none>
+video-mysql-7c56cd74c8-bqhsq     1/1     Running        0             28m     10.244.0.21   desktop-control-plane   <none>           <none>
+video-service-7c84f598bd-6cm7z   1/1     Running        0             32m     10.244.0.18   desktop-control-plane   <none>           <none>

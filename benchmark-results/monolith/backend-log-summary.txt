@@ -1,0 +1,30 @@
+hangyin-monolith-benchmark  | 
+hangyin-monolith-benchmark  |   .   ____          _            __ _ _
+hangyin-monolith-benchmark  |  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+hangyin-monolith-benchmark  | ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+hangyin-monolith-benchmark  |  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+hangyin-monolith-benchmark  |   '  |____| .__|_| |_|_| |_\__, | / / / /
+hangyin-monolith-benchmark  |  =========|_|==============|___/=/_/_/_/
+hangyin-monolith-benchmark  | 
+hangyin-monolith-benchmark  |  :: Spring Boot ::                (v4.0.6)
+hangyin-monolith-benchmark  | 
+hangyin-monolith-benchmark  | 2026-09-02T19:32:13.536Z  INFO 1 --- [demo] [           main] com.example.demo.DemoApplication         : Starting DemoApplication v0.0.1-SNAPSHOT using Java 21.0.12 with PID 1 (/app/app.jar started by root in /app)
+hangyin-monolith-benchmark  | 2026-09-02T19:32:13.540Z  INFO 1 --- [demo] [           main] com.example.demo.DemoApplication         : No active profile set, falling back to 1 default profile: "default"
+hangyin-monolith-benchmark  | 2026-09-02T19:32:14.857Z  INFO 1 --- [demo] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+hangyin-monolith-benchmark  | 2026-09-02T19:32:14.869Z  INFO 1 --- [demo] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+hangyin-monolith-benchmark  | 2026-09-02T19:32:14.870Z  INFO 1 --- [demo] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.21]
+hangyin-monolith-benchmark  | 2026-09-02T19:32:14.896Z  INFO 1 --- [demo] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1293 ms
+hangyin-monolith-benchmark  |  _ _   |_  _ _|_. ___ _ |    _ 
+hangyin-monolith-benchmark  | | | |\/|_)(_| | |_\  |_)||_|_\ 
+hangyin-monolith-benchmark  |      /               |         
+hangyin-monolith-benchmark  |                         3.5.15 
+hangyin-monolith-benchmark  | 2026-09-02T19:32:16.770Z  INFO 1 --- [demo] [           main] m.e.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.boot.web.server.servlet.context.AnnotationConfigServletWebServerApplicationContext@7096b474
+hangyin-monolith-benchmark  | 2026-09-02T19:32:16.848Z  INFO 1 --- [demo] [           main] .w.s.a.s.AnnotationActionEndpointMapping : Supporting [WS-Addressing August 2004, WS-Addressing 1.0]
+hangyin-monolith-benchmark  | 2026-09-02T19:32:16.901Z  INFO 1 --- [demo] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+hangyin-monolith-benchmark  | 2026-09-02T19:32:16.912Z  INFO 1 --- [demo] [           main] com.example.demo.DemoApplication         : Started DemoApplication in 3.902 seconds (process running for 4.487)
+hangyin-monolith-benchmark  | 2026-09-02T19:32:16.923Z  INFO 1 --- [demo] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+hangyin-monolith-benchmark  | 2026-09-02T19:32:17.082Z  INFO 1 --- [demo] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@8d29719
+hangyin-monolith-benchmark  | 2026-09-02T19:32:17.084Z  INFO 1 --- [demo] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+hangyin-monolith-benchmark  | 2026-09-02T19:32:58.911Z  INFO 1 --- [demo] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+hangyin-monolith-benchmark  | 2026-09-02T19:32:58.912Z  INFO 1 --- [demo] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+hangyin-monolith-benchmark  | 2026-09-02T19:32:58.913Z  INFO 1 --- [demo] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms

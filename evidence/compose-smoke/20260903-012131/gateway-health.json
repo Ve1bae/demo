@@ -1,0 +1,5 @@
+{
+  "name": "gateway-health",
+  "status": 200,
+  "body": "{\"status\":\"UP\",\"gateway\":\"nginx\"}"
+}

@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-db-init
+  namespace: hangyin
+data:
+  001_video_schema.sql: |
+    CREATE TABLE IF NOT EXISTS video (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      cover_url VARCHAR(500), play_url VARCHAR(500), video_url VARCHAR(500),
+      author VARCHAR(100), user_id BIGINT, category_id INT, tags VARCHAR(500),
+      duration INT, status VARCHAR(20) NOT NULL DEFAULT 'public',
+      play_count INT NOT NULL DEFAULT 0, like_count INT NOT NULL DEFAULT 0,
+      favorite_count INT NOT NULL DEFAULT 0, comment_count INT NOT NULL DEFAULT 0,
+      url_240p VARCHAR(500), url_360p VARCHAR(500), url_480p VARCHAR(500),
+      url_720p VARCHAR(500), url_1080p VARCHAR(500), default_quality VARCHAR(20),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_video_status_created (status, created_at, id)
+    );
+    CREATE TABLE IF NOT EXISTS view_history (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, video_id BIGINT NOT NULL,
+      view_count INT NOT NULL DEFAULT 1, progress_seconds INT NOT NULL DEFAULT 0,
+      last_viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (user_id, video_id)
+    );
+    CREATE TABLE IF NOT EXISTS comment (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, video_id BIGINT NOT NULL, user_id BIGINT,
+      username VARCHAR(50), content VARCHAR(500) NOT NULL, parent_id BIGINT,
+      like_count INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_comment_video_time (video_id, created_at, id)
+    );
+    CREATE TABLE IF NOT EXISTS comment_like (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, comment_id BIGINT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (user_id, comment_id)
+    );
+    CREATE TABLE IF NOT EXISTS danmaku (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, video_id BIGINT NOT NULL, user_id BIGINT,
+      username VARCHAR(50), content VARCHAR(255) NOT NULL, color VARCHAR(20) NOT NULL DEFAULT '#ffffff',
+      time_seconds INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_danmaku_video_time (video_id, time_seconds, id)
+    );
+    CREATE TABLE IF NOT EXISTS user_video (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, video_id BIGINT NOT NULL,
+      liked BOOLEAN NOT NULL DEFAULT FALSE, favorited BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, video_id)
+    );
+
+
+

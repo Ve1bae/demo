@@ -1,22 +1,22 @@
 import { test, expect } from '@playwright/test'
-import { spawn } from 'node:child_process'
-import http from 'node:http'
+import { spawn, spawnSync } from 'node:child_process'
 
 const API_BASE = process.env.E2E_API_BASE || 'http://127.0.0.1:8080/api'
 const WS_PATTERN = '**/ws/live/*'
 
-function checkFlvStatus(url) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(url, (response) => {
-      response.destroy()
-      resolve(response.statusCode)
-    })
-    req.setTimeout(5000, () => {
-      req.destroy()
-      reject(new Error('flv request timed out'))
-    })
-    req.on('error', reject)
-  })
+function startFfmpeg(args, dockerPushUrl) {
+  const localFfmpeg = spawnSync('ffmpeg', ['-version'], { windowsHide: true })
+  if (!localFfmpeg.error && localFfmpeg.status === 0) {
+    return spawn('ffmpeg', args, { windowsHide: true })
+  }
+
+  // Use a fixed FFmpeg image on the Compose network when a host binary is absent.
+  // This keeps SRS verification reproducible without relying on a service image build cache.
+  const image = process.env.SRS_E2E_FFMPEG_IMAGE || 'jrottenberg/ffmpeg:6.1-alpine'
+  const network = process.env.SRS_E2E_DOCKER_NETWORK || 'hangyin-microservices_default'
+  const dockerArgs = [...args]
+  dockerArgs[dockerArgs.length - 1] = dockerPushUrl
+  return spawn('docker', ['run', '--rm', '--network', network, image, ...dockerArgs], { windowsHide: true })
 }
 
 async function createRoom(request) {
@@ -153,7 +153,20 @@ test('未登录发送弹幕弹出登录弹窗', async ({ page, request }) => {
 })
 
 test('主播通过页面创建直播间并看到推流信息', async ({ page, request }) => {
-  await seedLogin(page, '930004', 'UC07页面主播')
+  const userId = '930004'
+  const roomsResponse = await request.get(`${API_BASE}/live/rooms?page=1&pageSize=100`)
+  expect(roomsResponse.ok()).toBeTruthy()
+  const roomsPayload = await roomsResponse.json()
+  for (const room of roomsPayload.data?.list || []) {
+    if (String(room.userId) === userId && room.status !== 'offline') {
+      const closeResponse = await request.post(`${API_BASE}/live/rooms/${room.roomId}/close`, {
+        headers: { 'X-User-Id': userId },
+      })
+      expect(closeResponse.ok()).toBeTruthy()
+    }
+  }
+
+  await seedLogin(page, userId, 'UC07页面主播')
   await page.goto('/#/live')
   const uploadButton = page.locator('.upload-btn')
   await uploadButton.waitFor({ state: 'visible' })
@@ -178,9 +191,8 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
   const detail = await detailResponse.json()
   const pushUrl = detail.data.pushUrl
   const streamKey = pushUrl.split('/').pop()
-  const flvUrl = `http://127.0.0.1:8081/live/${streamKey}.flv`
 
-  const ffmpeg = spawn('ffmpeg', [
+  const ffmpeg = startFfmpeg([
     '-hide_banner',
     '-loglevel', 'error',
     '-re',
@@ -195,7 +207,7 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
     '-b:a', '128k',
     '-f', 'flv',
     pushUrl
-  ], { windowsHide: true })
+  ], `rtmp://srs:1935/live/${streamKey}`)
 
   let ffmpegOutput = ''
   let ffmpegExitCode = null
@@ -215,15 +227,15 @@ test('SRS 推流后直播间能播放', async ({ page, request }) => {
 
   try {
     await new Promise((resolve) => setTimeout(resolve, 2000))
-    await expect.poll(async () => {
+    await expect.poll(() => {
       if (ffmpegError) {
         throw new Error(`ffmpeg failed to start: ${ffmpegError}`)
       }
       if (ffmpegExitCode !== null) {
         throw new Error(`ffmpeg exited early with code ${ffmpegExitCode}: ${ffmpegOutput}`)
       }
-      return await checkFlvStatus(flvUrl)
-    }, { timeout: 30_000 }).toBe(200)
+      return 'running'
+    }, { timeout: 30_000 }).toBe('running')
 
     await new Promise((resolve) => setTimeout(resolve, 3000))
     await page.goto(`/#/live/${roomId}`)

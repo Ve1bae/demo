@@ -17,7 +17,13 @@ LABEL org.opencontainers.image.title="Hangyin Video Service" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}"
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/* \
+ARG INSTALL_FFMPEG=true
+RUN if [ "$INSTALL_FFMPEG" = "true" ]; then \
+      sed -i '/## Ubuntu security updates/,$d; s/ resolute-backports//' /etc/apt/sources.list.d/ubuntu.sources \
+      && apt-get update -o Acquire::Retries=5 \
+      && apt-get install -y --no-install-recommends ffmpeg \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi \
     && groupadd --system app && useradd --system --gid app app
 WORKDIR /app
 COPY --from=build --chown=app:app /workspace/target/video-service-*.jar /app/app.jar

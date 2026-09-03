@@ -8,8 +8,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const baseUrl = (process.env.BENCHMARK_BASE_URL || 'http://127.0.0.1:8080/api').replace(/\/+$/, '')
-const videoId = Number(process.env.BENCHMARK_VIDEO_ID || 1)
-const userId = Number(process.env.BENCHMARK_USER_ID || 1)
+const videoId = Number(process.env.BENCHMARK_VIDEO_ID || 930301)
+const userId = Number(process.env.BENCHMARK_USER_ID || 930001)
 const concurrencies = (process.env.BENCHMARK_CONCURRENCY || '1,10,50,100')
   .split(',').map(Number).filter(n => Number.isInteger(n) && n > 0)
 const durationSeconds = Number(process.env.BENCHMARK_DURATION_SEC || 30)

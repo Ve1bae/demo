@@ -39,7 +39,7 @@ assertThat(JSON.stringify(comments.json.data).includes(commentText), 'UC-05 æ–°è
 const danmakuText = `UC06 E2E danmaku ${Date.now()}`
 const danmaku = await request('POST', `/videos/${videoId}/danmakus`, {
   content: danmakuText,
-  timeSeconds: 1.5,
+  timeSeconds: 1,
   color: '#00ff00',
   userId
 })

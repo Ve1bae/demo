@@ -1,0 +1,5 @@
+NAME                               IMAGE                       COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+hangyin-monolith-benchmark         hangyin/backend:benchmark   "java -jar /app/app.…"   backend   10 minutes ago   Up 10 minutes             127.0.0.1:18080->8080/tcp
+hangyin-monolith-benchmark-minio   minio/minio:latest          "/usr/bin/docker-ent…"   minio     10 minutes ago   Up 10 minutes             127.0.0.1:9009->9000/tcp
+hangyin-monolith-benchmark-mysql   mysql:8.4                   "docker-entrypoint.s…"   mysql     10 minutes ago   Up 10 minutes (healthy)   127.0.0.1:3309->3306/tcp
+hangyin-monolith-benchmark-srs     ossrs/srs:5                 "./objs/srs -c conf/…"   srs       10 minutes ago   Up 10 minutes             127.0.0.1:1939->1935/tcp, 127.0.0.1:8091->8080/tcp

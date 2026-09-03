@@ -8,6 +8,8 @@
 powershell -ExecutionPolicy Bypass -File scripts/start-microservices-local.ps1
 ```
 
+启动脚本会为当前 PowerShell 进程生成本地临时密码。若需要在多个终端中执行 Compose 命令，请先在当前终端设置 `MYSQL_ROOT_PASSWORD`、`MYSQL_VIDEO_PASSWORD`、`MYSQL_LIVE_PASSWORD` 和 `MINIO_ROOT_PASSWORD`，不要把这些值提交到仓库。
+
 脚本会启动三个独立数据库（用户/视频/直播）、MinIO、SRS、三个微服务和网关。前端使用本地开发模式运行：
 
 ```powershell

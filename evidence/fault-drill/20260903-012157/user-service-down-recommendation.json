@@ -1,0 +1,4 @@
+{
+  "name": "user-service-down-recommendation",
+  "error": "Response status code does not indicate success: 504 (Gateway Time-out)."
+}

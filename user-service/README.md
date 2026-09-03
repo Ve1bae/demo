@@ -12,7 +12,7 @@
 
 ## 测试
 
-执行 API 契约测试：`..\backend\mvnw.cmd -B test`。
+执行 API 契约测试：在 `user-service` 目录运行 `mvn -B -ntp test`。
 
 执行真实 HTTP 端到端测试：`powershell -ExecutionPolicy Bypass -File scripts/run-user-service-e2e.ps1`。脚本会启动 MySQL 与用户服务，调用全部用户公开接口和健康/信息端点，并生成 `target/e2e-reports/user-service-e2e-report.md` 与服务日志。
 

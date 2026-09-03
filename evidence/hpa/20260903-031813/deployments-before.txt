@@ -1,0 +1,13 @@
+﻿NAME            READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS      IMAGES                        SELECTOR
+api-gateway     1/1     1            1           109m    api-gateway     nginx:1.27-alpine             app.kubernetes.io/name=api-gateway
+backend         0/1     1            0           4d15h   backend         hangyin/backend:ci            app=backend
+frontend        1/1     1            1           4d15h   frontend        hangyin/frontend:local        app=frontend
+live-mysql      1/1     1            1           109m    mysql           mysql:8.4                     app.kubernetes.io/name=live-mysql
+live-service    1/1     1            1           109m    live-service    hangyin/live-service:local    app.kubernetes.io/name=live-service
+minio           1/1     1            1           4d15h   minio           minio/minio:latest            app=minio
+mysql           1/1     1            1           4d15h   mysql           mysql:8.4                     app=mysql
+srs             1/1     1            1           4d15h   srs             ossrs/srs:5                   app=srs
+user-mysql      1/1     1            1           102m    mysql           mysql:8.4                     app=user-mysql
+user-service    1/1     1            1           109m    user-service    hangyin/user-service:local    app=user-service
+video-mysql     1/1     1            1           109m    mysql           mysql:8.4                     app.kubernetes.io/name=video-mysql
+video-service   1/1     1            1           109m    video-service   hangyin/video-service:local   app.kubernetes.io/name=video-service

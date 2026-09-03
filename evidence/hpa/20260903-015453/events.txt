@@ -1,0 +1,293 @@
+LAST SEEN   TYPE      REASON                         OBJECT                                  MESSAGE
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-3          Successfully assigned hangyin/hpa-load-20260903-015017-3 to desktop-control-plane
+29m         Normal    Scheduled                      pod/live-mysql-77955567f6-6h62r         Successfully assigned hangyin/live-mysql-77955567f6-6h62r to desktop-control-plane
+3m43s       Normal    Scheduled                      pod/hpa-load-20260903-015453-8          Successfully assigned hangyin/hpa-load-20260903-015453-8 to desktop-control-plane
+22m         Normal    Scheduled                      pod/live-mysql-bdfd86b7b-54wzw          Successfully assigned hangyin/live-mysql-bdfd86b7b-54wzw to desktop-control-plane
+22m         Normal    Scheduled                      pod/live-service-784cd54867-k2fdr       Successfully assigned hangyin/live-service-784cd54867-k2fdr to desktop-control-plane
+29m         Normal    Scheduled                      pod/live-service-7d5bd6ff4-qrvhw        Successfully assigned hangyin/live-service-7d5bd6ff4-qrvhw to desktop-control-plane
+3m43s       Normal    Scheduled                      pod/hpa-load-20260903-015453-7          Successfully assigned hangyin/hpa-load-20260903-015453-7 to desktop-control-plane
+3m43s       Normal    Scheduled                      pod/hpa-load-20260903-015453-6          Successfully assigned hangyin/hpa-load-20260903-015453-6 to desktop-control-plane
+29m         Normal    Scheduled                      pod/live-service-848cd5bc58-pb76k       Successfully assigned hangyin/live-service-848cd5bc58-pb76k to desktop-control-plane
+21m         Normal    Scheduled                      pod/live-service-f7b4cc867-zfj69        Successfully assigned hangyin/live-service-f7b4cc867-zfj69 to desktop-control-plane
+25m         Normal    Scheduled                      pod/frontend-69c5bb6dfc-2zswn           Successfully assigned hangyin/frontend-69c5bb6dfc-2zswn to desktop-control-plane
+3m44s       Normal    Scheduled                      pod/hpa-load-20260903-015453-5          Successfully assigned hangyin/hpa-load-20260903-015453-5 to desktop-control-plane
+3m44s       Normal    Scheduled                      pod/hpa-load-20260903-015453-4          Successfully assigned hangyin/hpa-load-20260903-015453-4 to desktop-control-plane
+29m         Normal    Scheduled                      pod/minio-9ddd6b565-hpscz               Successfully assigned hangyin/minio-9ddd6b565-hpscz to desktop-control-plane
+29m         Normal    Scheduled                      pod/frontend-69c5bb6dfc-zk6sm           Successfully assigned hangyin/frontend-69c5bb6dfc-zk6sm to desktop-control-plane
+3m43s       Normal    Scheduled                      pod/hpa-load-20260903-015453-9          Successfully assigned hangyin/hpa-load-20260903-015453-9 to desktop-control-plane
+3m44s       Normal    Scheduled                      pod/hpa-load-20260903-015453-3          Successfully assigned hangyin/hpa-load-20260903-015453-3 to desktop-control-plane
+3m44s       Normal    Scheduled                      pod/hpa-load-20260903-015453-2          Successfully assigned hangyin/hpa-load-20260903-015453-2 to desktop-control-plane
+3m43s       Normal    Scheduled                      pod/hpa-load-20260903-015453-10         Successfully assigned hangyin/hpa-load-20260903-015453-10 to desktop-control-plane
+29m         Normal    Scheduled                      pod/mysql-6c4c55d7d4-wmhvd              Successfully assigned hangyin/mysql-6c4c55d7d4-wmhvd to desktop-control-plane
+86s         Normal    Scheduled                      pod/video-service-7c84f598bd-lp5dl      Successfully assigned hangyin/video-service-7c84f598bd-lp5dl to desktop-control-plane
+3m44s       Normal    Scheduled                      pod/hpa-load-20260903-015453-1          Successfully assigned hangyin/hpa-load-20260903-015453-1 to desktop-control-plane
+2m26s       Normal    Scheduled                      pod/video-service-7c84f598bd-7qmrs      Successfully assigned hangyin/video-service-7c84f598bd-7qmrs to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-9          Successfully assigned hangyin/hpa-load-20260903-015017-9 to desktop-control-plane
+22m         Normal    Scheduled                      pod/user-mysql-c57bcb9d7-x8x54          Successfully assigned hangyin/user-mysql-c57bcb9d7-x8x54 to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-8          Successfully assigned hangyin/hpa-load-20260903-015017-8 to desktop-control-plane
+22m         Normal    Scheduled                      pod/user-service-5f97b7d5fd-xbplm       Successfully assigned hangyin/user-service-5f97b7d5fd-xbplm to desktop-control-plane
+9m53s       Normal    Scheduled                      pod/hpa-load-20260903-014844            Successfully assigned hangyin/hpa-load-20260903-014844 to desktop-control-plane
+29m         Normal    Scheduled                      pod/user-service-7b9964f67b-dwszf       Successfully assigned hangyin/user-service-7b9964f67b-dwszf to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-7          Successfully assigned hangyin/hpa-load-20260903-015017-7 to desktop-control-plane
+29m         Normal    Scheduled                      pod/api-gateway-7877b88bc4-mfqk4        Successfully assigned hangyin/api-gateway-7877b88bc4-mfqk4 to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-6          Successfully assigned hangyin/hpa-load-20260903-015017-6 to desktop-control-plane
+25m         Normal    Scheduled                      pod/user-service-7b9964f67b-pl4rn       Successfully assigned hangyin/user-service-7b9964f67b-pl4rn to desktop-control-plane
+8m21s       Normal    Scheduled                      pod/hpa-load-20260903-015017-1          Successfully assigned hangyin/hpa-load-20260903-015017-1 to desktop-control-plane
+29m         Normal    Scheduled                      pod/video-service-7c84f598bd-6cm7z      Successfully assigned hangyin/video-service-7c84f598bd-6cm7z to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-5          Successfully assigned hangyin/hpa-load-20260903-015017-5 to desktop-control-plane
+25m         Normal    Scheduled                      pod/video-mysql-7c56cd74c8-bqhsq        Successfully assigned hangyin/video-mysql-7c56cd74c8-bqhsq to desktop-control-plane
+8m19s       Normal    Scheduled                      pod/hpa-load-20260903-015017-10         Successfully assigned hangyin/hpa-load-20260903-015017-10 to desktop-control-plane
+29m         Normal    Scheduled                      pod/video-mysql-85b8875554-g2xrz        Successfully assigned hangyin/video-mysql-85b8875554-g2xrz to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-2          Successfully assigned hangyin/hpa-load-20260903-015017-2 to desktop-control-plane
+29m         Normal    Scheduled                      pod/video-service-579d57d976-bt46z      Successfully assigned hangyin/video-service-579d57d976-bt46z to desktop-control-plane
+8m20s       Normal    Scheduled                      pod/hpa-load-20260903-015017-4          Successfully assigned hangyin/hpa-load-20260903-015017-4 to desktop-control-plane
+29m         Normal    Created                        pod/minio-9ddd6b565-hpscz               Created container: minio
+29m         Normal    SuccessfulCreate               replicaset/user-service-7b9964f67b      Created pod: user-service-7b9964f67b-dwszf
+29m         Normal    ScalingReplicaSet              deployment/mysql                        Scaled up replica set mysql-6c4c55d7d4 from 0 to 1
+29m         Normal    SuccessfulCreate               replicaset/mysql-6c4c55d7d4             Created pod: mysql-6c4c55d7d4-wmhvd
+29m         Normal    ScalingReplicaSet              deployment/api-gateway                  Scaled up replica set api-gateway-7877b88bc4 from 0 to 1
+29m         Normal    SuccessfulCreate               replicaset/api-gateway-7877b88bc4       Created pod: api-gateway-7877b88bc4-mfqk4
+29m         Normal    SuccessfulCreate               replicaset/minio-9ddd6b565              Created pod: minio-9ddd6b565-hpscz
+29m         Normal    ScalingReplicaSet              deployment/minio                        Scaled up replica set minio-9ddd6b565 from 0 to 1
+29m         Normal    Pulled                         pod/minio-9ddd6b565-hpscz               Container image "minio/minio:latest" already present on machine
+29m         Normal    Started                        pod/mysql-6c4c55d7d4-wmhvd              Started container mysql
+29m         Normal    ScalingReplicaSet              deployment/user-service                 Scaled up replica set user-service-7b9964f67b from 0 to 1
+29m         Normal    Created                        pod/mysql-6c4c55d7d4-wmhvd              Created container: mysql
+29m         Normal    Pulled                         pod/mysql-6c4c55d7d4-wmhvd              Container image "mysql:8.4" already present on machine
+29m         Normal    ScalingReplicaSet              deployment/video-service                Scaled up replica set video-service-579d57d976 from 0 to 1
+29m         Normal    SuccessfulCreate               replicaset/video-mysql-85b8875554       Created pod: video-mysql-85b8875554-g2xrz
+29m         Normal    Started                        pod/minio-9ddd6b565-hpscz               Started container minio
+29m         Normal    SuccessfulCreate               replicaset/video-service-579d57d976     Created pod: video-service-579d57d976-bt46z
+29m         Normal    ScalingReplicaSet              deployment/video-mysql                  Scaled up replica set video-mysql-85b8875554 from 0 to 1
+29m         Normal    Pulled                         pod/api-gateway-7877b88bc4-mfqk4        Successfully pulled image "nginx:1.27-alpine" in 135ms (135ms including waiting). Image size: 20984244 bytes.
+29m         Warning   Unhealthy                      pod/minio-9ddd6b565-hpscz               Readiness probe failed: Get "http://10.244.0.11:9000/minio/health/ready": dial tcp 10.244.0.11:9000: connect: connection refused
+29m         Normal    Pulling                        pod/api-gateway-7877b88bc4-mfqk4        Pulling image "nginx:1.27-alpine"
+29m         Normal    ScalingReplicaSet              deployment/frontend                     Scaled up replica set frontend-69c5bb6dfc from 0 to 1
+29m         Normal    SuccessfulCreate               replicaset/live-service-7d5bd6ff4       Created pod: live-service-7d5bd6ff4-qrvhw
+29m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled up replica set live-service-7d5bd6ff4 from 0 to 1
+29m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled up replica set live-service-848cd5bc58 from 0 to 1
+29m         Warning   Unhealthy                      pod/minio-76c6fcc754-x6qcp              Readiness probe failed: Get "http://10.244.0.6:9000/minio/health/ready": dial tcp 10.244.0.6:9000: connect: connection refused
+29m         Normal    SuccessfulCreate               replicaset/live-service-848cd5bc58      Created pod: live-service-848cd5bc58-pb76k
+29m         Normal    SuccessfulCreate               replicaset/frontend-69c5bb6dfc          Created pod: frontend-69c5bb6dfc-zk6sm
+29m         Normal    SuccessfulCreate               replicaset/video-service-7c84f598bd     Created pod: video-service-7c84f598bd-6cm7z
+29m         Normal    SuccessfulCreate               replicaset/live-mysql-77955567f6        Created pod: live-mysql-77955567f6-6h62r
+29m         Normal    ScalingReplicaSet              deployment/live-mysql                   Scaled up replica set live-mysql-77955567f6 from 0 to 1
+29m         Normal    Killing                        pod/minio-76c6fcc754-x6qcp              Stopping container minio
+29m         Normal    ScalingReplicaSet              deployment/minio                        Scaled down replica set minio-76c6fcc754 from 1 to 0
+29m         Normal    SuccessfulDelete               replicaset/minio-76c6fcc754             Deleted pod: minio-76c6fcc754-x6qcp
+29m         Normal    ScalingReplicaSet              deployment/video-service                Scaled up replica set video-service-7c84f598bd from 0 to 1
+29m         Normal    Pulling                        pod/video-service-7c84f598bd-6cm7z      Pulling image "hangyin/video-service:local"
+29m         Warning   Unhealthy                      pod/api-gateway-7877b88bc4-mfqk4        Readiness probe failed: Get "http://10.244.0.13:80/gateway/health": dial tcp 10.244.0.13:80: connect: connection refused
+29m         Normal    Pulling                        pod/live-service-7d5bd6ff4-qrvhw        Pulling image "hangyin/live-service:local"
+29m         Normal    Started                        pod/api-gateway-7877b88bc4-mfqk4        Started container api-gateway
+29m         Normal    Pulled                         pod/api-gateway-7877b88bc4-mfqk4        Container image "nginx:1.27-alpine" already present on machine
+29m         Normal    Created                        pod/api-gateway-7877b88bc4-mfqk4        Created container: api-gateway
+29m         Warning   Unhealthy                      pod/mysql-569f66d567-tqt5n              Readiness probe failed: mysqladmin: [Warning] Using a password on the command line interface can be insecure.
+29m         Normal    ScalingReplicaSet              deployment/mysql                        Scaled down replica set mysql-569f66d567 from 1 to 0
+29m         Normal    Killing                        pod/mysql-569f66d567-tqt5n              Stopping container mysql
+29m         Normal    SuccessfulDelete               replicaset/mysql-569f66d567             Deleted pod: mysql-569f66d567-tqt5n
+27m         Warning   Failed                         pod/user-service-7b9964f67b-dwszf       Error: ErrImageNeverPull
+27m         Warning   Failed                         pod/frontend-69c5bb6dfc-zk6sm           Error: ErrImageNeverPull
+27m         Warning   ErrImageNeverPull              pod/user-service-7b9964f67b-dwszf       Container image "hangyin/user-service:local" is not present with pull policy of Never
+27m         Warning   ErrImageNeverPull              pod/frontend-69c5bb6dfc-zk6sm           Container image "hangyin/frontend:local" is not present with pull policy of Never
+26m         Normal    Pulled                         pod/video-service-7c84f598bd-6cm7z      Successfully pulled image "hangyin/video-service:local" in 2.666s (2m53.24s including waiting). Image size: 161171554 bytes.
+26m         Normal    Started                        pod/video-service-7c84f598bd-6cm7z      Started container video-service
+26m         Normal    Created                        pod/video-service-7c84f598bd-6cm7z      Created container: video-service
+26m         Normal    Pulled                         pod/live-service-7d5bd6ff4-qrvhw        Successfully pulled image "hangyin/live-service:local" in 1.709s (2m54.802s including waiting). Image size: 142597385 bytes.
+26m         Normal    Pulled                         pod/frontend-69c5bb6dfc-zk6sm           Container image "hangyin/frontend:local" already present on machine
+26m         Normal    Killing                        pod/frontend-6ff5f7cdf8-n5v4n           Stopping container frontend
+26m         Normal    SuccessfulDelete               replicaset/frontend-6ff5f7cdf8          Deleted pod: frontend-6ff5f7cdf8-n5v4n
+26m         Normal    ScalingReplicaSet              deployment/frontend                     Scaled down replica set frontend-6ff5f7cdf8 from 1 to 0
+26m         Normal    Started                        pod/frontend-69c5bb6dfc-zk6sm           Started container frontend
+26m         Normal    Created                        pod/frontend-69c5bb6dfc-zk6sm           Created container: frontend
+26m         Warning   FailedComputeMetricsReplicas   horizontalpodautoscaler/video-service   invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+26m         Warning   FailedComputeMetricsReplicas   horizontalpodautoscaler/live-service    invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+26m         Warning   FailedComputeMetricsReplicas   horizontalpodautoscaler/user-service    invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+26m         Warning   Unhealthy                      pod/video-service-7c84f598bd-6cm7z      Startup probe failed: Get "http://10.244.0.18:8082/actuator/health": dial tcp 10.244.0.18:8082: connect: connection refused
+26m         Warning   Unhealthy                      pod/live-service-7d5bd6ff4-qrvhw        Startup probe failed: Get "http://10.244.0.19:8090/actuator/health": dial tcp 10.244.0.19:8090: connect: connection refused
+26m         Normal    BackOff                        pod/video-mysql-85b8875554-g2xrz        Back-off pulling image "mysql:8.0"
+26m         Warning   Failed                         pod/video-mysql-85b8875554-g2xrz        Error: ImagePullBackOff
+25m         Normal    Pulling                        pod/video-mysql-85b8875554-g2xrz        Pulling image "mysql:8.0"
+25m         Warning   Failed                         pod/video-service-579d57d976-bt46z      Error: ImagePullBackOff
+25m         Normal    BackOff                        pod/video-service-579d57d976-bt46z      Back-off pulling image "hangyin/video-service:0.1.0"
+25m         Normal    Killing                        pod/user-service-7b9964f67b-dwszf       Container user-service failed liveness probe, will be restarted
+25m         Normal    Started                        pod/user-service-7b9964f67b-dwszf       Started container user-service
+25m         Normal    Pulling                        pod/video-service-579d57d976-bt46z      Pulling image "hangyin/video-service:0.1.0"
+25m         Normal    Pulled                         pod/user-service-7b9964f67b-dwszf       Container image "hangyin/user-service:local" already present on machine
+25m         Normal    Created                        pod/user-service-7b9964f67b-dwszf       Created container: user-service
+25m         Normal    Killing                        pod/user-service-7b9964f67b-dwszf       Stopping container user-service
+25m         Normal    SuccessfulCreate               replicaset/video-mysql-7c56cd74c8       Created pod: video-mysql-7c56cd74c8-bqhsq
+25m         Normal    SuccessfulCreate               replicaset/user-service-7b9964f67b      Created pod: user-service-7b9964f67b-pl4rn
+25m         Normal    Created                        pod/video-mysql-7c56cd74c8-bqhsq        Created container: mysql
+25m         Normal    Pulled                         pod/video-mysql-7c56cd74c8-bqhsq        Container image "mysql:8.4" already present on machine
+25m         Normal    ScalingReplicaSet              deployment/video-mysql                  Scaled up replica set video-mysql-7c56cd74c8 from 0 to 1
+25m         Normal    Started                        pod/video-mysql-7c56cd74c8-bqhsq        Started container mysql
+25m         Normal    Killing                        pod/frontend-69c5bb6dfc-zk6sm           Stopping container frontend
+25m         Normal    SuccessfulCreate               replicaset/frontend-69c5bb6dfc          Created pod: frontend-69c5bb6dfc-2zswn
+25m         Normal    Started                        pod/frontend-69c5bb6dfc-2zswn           Started container frontend
+25m         Normal    Created                        pod/frontend-69c5bb6dfc-2zswn           Created container: frontend
+25m         Normal    Pulled                         pod/frontend-69c5bb6dfc-2zswn           Container image "hangyin/frontend:local" already present on machine
+25m         Warning   Unhealthy                      pod/video-service-7c84f598bd-6cm7z      Startup probe failed: HTTP probe failed with statuscode: 503
+25m         Normal    ScalingReplicaSet              deployment/video-mysql                  Scaled down replica set video-mysql-85b8875554 from 1 to 0
+25m         Normal    SuccessfulDelete               replicaset/video-mysql-85b8875554       Deleted pod: video-mysql-85b8875554-g2xrz
+25m         Normal    SuccessfulDelete               replicaset/video-service-579d57d976     Deleted pod: video-service-579d57d976-bt46z
+25m         Normal    ScalingReplicaSet              deployment/video-service                Scaled down replica set video-service-579d57d976 from 1 to 0
+25m         Warning   Failed                         pod/video-mysql-85b8875554-g2xrz        Error: ErrImagePull
+25m         Warning   Failed                         pod/video-mysql-85b8875554-g2xrz        Failed to pull image "mysql:8.0": failed to pull and unpack image "docker.io/library/mysql:8.0": failed to resolve reference "docker.io/library/mysql:8.0": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/mysql/manifests/8.0?ns=docker.io: 500 Internal Server Error
+24m         Warning   Failed                         pod/video-service-579d57d976-bt46z      Error: ErrImagePull
+24m         Warning   Failed                         pod/video-service-579d57d976-bt46z      Failed to pull image "hangyin/video-service:0.1.0": failed to pull and unpack image "docker.io/hangyin/video-service:0.1.0": failed to resolve reference "docker.io/hangyin/video-service:0.1.0": unexpected status from HEAD request to http://registry-mirror:1273/v2/hangyin/video-service/manifests/0.1.0?ns=docker.io: 500 Internal Server Error
+24m         Warning   Unhealthy                      pod/live-service-7d5bd6ff4-qrvhw        Startup probe failed: HTTP probe failed with statuscode: 503
+24m         Normal    Created                        pod/live-service-7d5bd6ff4-qrvhw        Created container: live-service
+24m         Normal    Pulled                         pod/live-service-7d5bd6ff4-qrvhw        Container image "hangyin/live-service:local" already present on machine
+24m         Normal    Killing                        pod/live-service-7d5bd6ff4-qrvhw        Container live-service failed startup probe, will be restarted
+24m         Normal    Started                        pod/live-service-7d5bd6ff4-qrvhw        Started container live-service
+23m         Normal    Pulling                        pod/live-mysql-77955567f6-6h62r         Pulling image "mysql:8.0"
+23m         Warning   Unhealthy                      pod/user-service-7b9964f67b-pl4rn       Liveness probe failed: HTTP probe failed with statuscode: 503
+23m         Warning   Unhealthy                      pod/user-service-7b9964f67b-pl4rn       Readiness probe failed: Get "http://10.244.0.22:8081/actuator/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+22m         Warning   Failed                         pod/live-mysql-77955567f6-6h62r         Error: ErrImagePull
+22m         Warning   Failed                         pod/live-mysql-77955567f6-6h62r         Failed to pull image "mysql:8.0": failed to pull and unpack image "docker.io/library/mysql:8.0": failed to resolve reference "docker.io/library/mysql:8.0": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/mysql/manifests/8.0?ns=docker.io: 500 Internal Server Error
+22m         Normal    Killing                        pod/user-service-7b9964f67b-pl4rn       Container user-service failed liveness probe, will be restarted
+22m         Normal    ScalingReplicaSet              deployment/user-mysql                   Scaled up replica set user-mysql-c57bcb9d7 from 0 to 1
+22m         Normal    SuccessfulCreate               replicaset/user-mysql-c57bcb9d7         Created pod: user-mysql-c57bcb9d7-x8x54
+22m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled up replica set live-service-784cd54867 from 0 to 1
+22m         Normal    SuccessfulCreate               replicaset/live-service-784cd54867      Created pod: live-service-784cd54867-k2fdr
+22m         Normal    Created                        pod/user-mysql-c57bcb9d7-x8x54          Created container: mysql
+22m         Normal    Killing                        pod/live-service-7d5bd6ff4-qrvhw        Stopping container live-service
+22m         Normal    ScalingReplicaSet              deployment/live-mysql                   Scaled up replica set live-mysql-bdfd86b7b from 0 to 1
+22m         Normal    SuccessfulDelete               replicaset/live-service-7d5bd6ff4       Deleted pod: live-service-7d5bd6ff4-qrvhw
+22m         Normal    SuccessfulCreate               replicaset/live-mysql-bdfd86b7b         Created pod: live-mysql-bdfd86b7b-54wzw
+22m         Normal    Started                        pod/user-mysql-c57bcb9d7-x8x54          Started container mysql
+22m         Normal    Pulled                         pod/user-service-5f97b7d5fd-xbplm       Container image "hangyin/user-service:local" already present on machine
+22m         Normal    Created                        pod/user-service-5f97b7d5fd-xbplm       Created container: user-service
+22m         Normal    Created                        pod/user-service-7b9964f67b-pl4rn       Created container: user-service
+22m         Normal    Started                        pod/user-service-5f97b7d5fd-xbplm       Started container user-service
+22m         Normal    Started                        pod/live-mysql-bdfd86b7b-54wzw          Started container mysql
+22m         Normal    Pulled                         pod/live-mysql-bdfd86b7b-54wzw          Container image "mysql:8.4" already present on machine
+22m         Normal    Pulled                         pod/user-mysql-c57bcb9d7-x8x54          Container image "mysql:8.4" already present on machine
+22m         Normal    Created                        pod/live-mysql-bdfd86b7b-54wzw          Created container: mysql
+22m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled down replica set live-service-7d5bd6ff4 from 1 to 0
+22m         Normal    Started                        pod/user-service-7b9964f67b-pl4rn       Started container user-service
+22m         Normal    ScalingReplicaSet              deployment/user-service                 Scaled up replica set user-service-5f97b7d5fd from 0 to 1
+22m         Normal    Pulled                         pod/user-service-7b9964f67b-pl4rn       Container image "hangyin/user-service:local" already present on machine
+22m         Normal    SuccessfulCreate               replicaset/user-service-5f97b7d5fd      Created pod: user-service-5f97b7d5fd-xbplm
+22m         Warning   Failed                         pod/live-mysql-77955567f6-6h62r         Error: ImagePullBackOff
+22m         Normal    BackOff                        pod/live-mysql-77955567f6-6h62r         Back-off pulling image "mysql:8.0"
+22m         Warning   Unhealthy                      pod/live-mysql-bdfd86b7b-54wzw          Readiness probe failed: mysqladmin: [Warning] Using a password on the command line interface can be insecure.
+22m         Normal    Pulling                        pod/live-service-848cd5bc58-pb76k       Pulling image "hangyin/live-service:0.1.0"
+22m         Normal    SuccessfulDelete               replicaset/live-mysql-77955567f6        Deleted pod: live-mysql-77955567f6-6h62r
+22m         Normal    ScalingReplicaSet              deployment/live-mysql                   Scaled down replica set live-mysql-77955567f6 from 1 to 0
+22m         Warning   Unhealthy                      pod/user-service-5f97b7d5fd-xbplm       Readiness probe failed: Get "http://10.244.0.25:8081/actuator/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+22m         Normal    BackOff                        pod/live-service-784cd54867-k2fdr       Back-off pulling image "hangyin/live-service:0.1.0"
+22m         Warning   Failed                         pod/live-service-784cd54867-k2fdr       Error: ImagePullBackOff
+22m         Normal    ScalingReplicaSet              deployment/user-service                 Scaled down replica set user-service-7b9964f67b from 1 to 0
+22m         Normal    Killing                        pod/user-service-7b9964f67b-pl4rn       Stopping container user-service
+22m         Normal    SuccessfulDelete               replicaset/user-service-7b9964f67b      Deleted pod: user-service-7b9964f67b-pl4rn
+21m         Normal    Pulling                        pod/live-service-784cd54867-k2fdr       Pulling image "hangyin/live-service:0.1.0"
+21m         Warning   Failed                         pod/live-service-848cd5bc58-pb76k       Failed to pull image "hangyin/live-service:0.1.0": failed to pull and unpack image "docker.io/hangyin/live-service:0.1.0": failed to resolve reference "docker.io/hangyin/live-service:0.1.0": unexpected status from HEAD request to http://registry-mirror:1273/v2/hangyin/live-service/manifests/0.1.0?ns=docker.io: 500 Internal Server Error
+21m         Warning   Failed                         pod/live-service-848cd5bc58-pb76k       Error: ErrImagePull
+21m         Warning   Failed                         pod/live-service-848cd5bc58-pb76k       Error: ImagePullBackOff
+21m         Normal    BackOff                        pod/live-service-848cd5bc58-pb76k       Back-off pulling image "hangyin/live-service:0.1.0"
+21m         Normal    Started                        pod/live-service-f7b4cc867-zfj69        Started container live-service
+21m         Normal    SuccessfulCreate               replicaset/live-service-f7b4cc867       Created pod: live-service-f7b4cc867-zfj69
+21m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled up replica set live-service-f7b4cc867 from 0 to 1
+21m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled down replica set live-service-848cd5bc58 from 1 to 0
+21m         Normal    SuccessfulDelete               replicaset/live-service-848cd5bc58      Deleted pod: live-service-848cd5bc58-pb76k
+21m         Normal    Pulled                         pod/live-service-f7b4cc867-zfj69        Container image "hangyin/live-service:local" already present on machine
+21m         Normal    Created                        pod/live-service-f7b4cc867-zfj69        Created container: live-service
+21m         Warning   Failed                         pod/live-service-784cd54867-k2fdr       Error: ErrImagePull
+21m         Warning   Failed                         pod/live-service-784cd54867-k2fdr       Failed to pull image "hangyin/live-service:0.1.0": failed to pull and unpack image "docker.io/hangyin/live-service:0.1.0": failed to resolve reference "docker.io/hangyin/live-service:0.1.0": unexpected status from HEAD request to http://registry-mirror:1273/v2/hangyin/live-service/manifests/0.1.0?ns=docker.io: 500 Internal Server Error
+21m         Warning   Unhealthy                      pod/live-service-f7b4cc867-zfj69        Startup probe failed: Get "http://10.244.0.28:8090/actuator/health": dial tcp 10.244.0.28:8090: connect: connection refused
+21m         Normal    SuccessfulDelete               replicaset/live-service-784cd54867      Deleted pod: live-service-784cd54867-k2fdr
+21m         Normal    ScalingReplicaSet              deployment/live-service                 Scaled down replica set live-service-784cd54867 from 1 to 0
+19m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/live-service    failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+19m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/video-service   failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+19m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/user-service    failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)
+14m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/user-service    failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+14m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/video-service   failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+14m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/live-service    failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+8m26s       Warning   Failed                         pod/hpa-load-20260903-014844            Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+8m26s       Warning   Failed                         pod/hpa-load-20260903-014844            Error: ErrImagePull
+8m21s       Normal    Pulling                        pod/hpa-load-20260903-015017-1          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-5          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-8          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-7          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-4          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-9          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-3          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-6          Pulling image "busybox:1.36"
+8m20s       Normal    Pulling                        pod/hpa-load-20260903-015017-2          Pulling image "busybox:1.36"
+8m19s       Normal    Pulling                        pod/hpa-load-20260903-015017-10         Pulling image "busybox:1.36"
+7m47s       Normal    BackOff                        pod/hpa-load-20260903-014844            Back-off pulling image "busybox:1.36"
+7m47s       Warning   Failed                         pod/hpa-load-20260903-014844            Error: ImagePullBackOff
+7m33s       Normal    Pulling                        pod/hpa-load-20260903-014844            Pulling image "busybox:1.36"
+5m58s       Warning   Failed                         pod/hpa-load-20260903-015017-1          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+5m58s       Warning   Failed                         pod/hpa-load-20260903-015017-1          Error: ErrImagePull
+5m38s       Warning   Failed                         pod/hpa-load-20260903-015017-2          Error: ErrImagePull
+5m38s       Warning   Failed                         pod/hpa-load-20260903-015017-2          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+5m18s       Warning   Failed                         pod/hpa-load-20260903-015017-3          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+5m18s       Warning   Failed                         pod/hpa-load-20260903-015017-3          Error: ErrImagePull
+4m58s       Warning   Failed                         pod/hpa-load-20260903-015017-4          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+4m58s       Warning   Failed                         pod/hpa-load-20260903-015017-4          Error: ErrImagePull
+4m28s       Warning   Unhealthy                      pod/backend-5664cdffdd-fbkjj            Readiness probe failed: Get "http://10.244.0.7:8080/api/live/rooms": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+3m44s       Normal    Started                        pod/hpa-load-20260903-015453-1          Started container hpa-load-20260903-015453-1
+3m44s       Normal    Created                        pod/hpa-load-20260903-015453-4          Created container: hpa-load-20260903-015453-4
+3m44s       Normal    Started                        pod/hpa-load-20260903-015453-3          Started container hpa-load-20260903-015453-3
+3m44s       Normal    Created                        pod/hpa-load-20260903-015453-3          Created container: hpa-load-20260903-015453-3
+3m44s       Normal    Started                        pod/hpa-load-20260903-015453-2          Started container hpa-load-20260903-015453-2
+3m44s       Normal    Pulled                         pod/hpa-load-20260903-015453-5          Container image "nginx:1.27-alpine" already present on machine
+3m44s       Normal    Created                        pod/hpa-load-20260903-015453-2          Created container: hpa-load-20260903-015453-2
+3m44s       Normal    Pulled                         pod/hpa-load-20260903-015453-3          Container image "nginx:1.27-alpine" already present on machine
+3m44s       Normal    Pulled                         pod/hpa-load-20260903-015453-2          Container image "nginx:1.27-alpine" already present on machine
+3m44s       Normal    Pulled                         pod/hpa-load-20260903-015453-4          Container image "nginx:1.27-alpine" already present on machine
+3m44s       Normal    Pulled                         pod/hpa-load-20260903-015453-1          Container image "nginx:1.27-alpine" already present on machine
+3m44s       Normal    Created                        pod/hpa-load-20260903-015453-1          Created container: hpa-load-20260903-015453-1
+3m43s       Normal    Pulled                         pod/hpa-load-20260903-015453-10         Container image "nginx:1.27-alpine" already present on machine
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-7          Started container hpa-load-20260903-015453-7
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-6          Created container: hpa-load-20260903-015453-6
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-6          Started container hpa-load-20260903-015453-6
+3m43s       Normal    Pulled                         pod/hpa-load-20260903-015453-9          Container image "nginx:1.27-alpine" already present on machine
+3m43s       Normal    Pulled                         pod/hpa-load-20260903-015453-6          Container image "nginx:1.27-alpine" already present on machine
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-8          Started container hpa-load-20260903-015453-8
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-9          Created container: hpa-load-20260903-015453-9
+3m43s       Normal    Pulled                         pod/hpa-load-20260903-015453-7          Container image "nginx:1.27-alpine" already present on machine
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-8          Created container: hpa-load-20260903-015453-8
+3m43s       Normal    Pulled                         pod/hpa-load-20260903-015453-8          Container image "nginx:1.27-alpine" already present on machine
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-5          Started container hpa-load-20260903-015453-5
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-10         Started container hpa-load-20260903-015453-10
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-10         Created container: hpa-load-20260903-015453-10
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-7          Created container: hpa-load-20260903-015453-7
+3m43s       Normal    Created                        pod/hpa-load-20260903-015453-5          Created container: hpa-load-20260903-015453-5
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-4          Started container hpa-load-20260903-015453-4
+3m43s       Normal    Started                        pod/hpa-load-20260903-015453-9          Started container hpa-load-20260903-015453-9
+3m34s       Warning   Failed                         pod/hpa-load-20260903-015017-5          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+3m34s       Warning   Failed                         pod/hpa-load-20260903-015017-5          Error: ErrImagePull
+2m27s       Normal    SuccessfulCreate               replicaset/video-service-7c84f598bd     Created pod: video-service-7c84f598bd-7qmrs
+2m27s       Normal    ScalingReplicaSet              deployment/video-service                Scaled up replica set video-service-7c84f598bd from 1 to 2
+2m27s       Normal    SuccessfulRescale              horizontalpodautoscaler/video-service   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2m26s       Normal    Created                        pod/video-service-7c84f598bd-7qmrs      Created container: video-service
+2m26s       Normal    Started                        pod/video-service-7c84f598bd-7qmrs      Started container video-service
+2m26s       Normal    Pulled                         pod/video-service-7c84f598bd-7qmrs      Container image "hangyin/video-service:local" already present on machine
+2m21s       Warning   Unhealthy                      pod/video-service-7c84f598bd-7qmrs      Startup probe failed: Get "http://10.244.0.52:8082/actuator/health": dial tcp 10.244.0.52:8082: connect: connection refused
+103s        Warning   Failed                         pod/hpa-load-20260903-015017-6          Error: ErrImagePull
+103s        Warning   Failed                         pod/hpa-load-20260903-015017-6          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-7          Stopping container hpa-load-20260903-015453-7
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-2          Stopping container hpa-load-20260903-015453-2
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-9          Stopping container hpa-load-20260903-015453-9
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-10         Stopping container hpa-load-20260903-015453-10
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-1          Stopping container hpa-load-20260903-015453-1
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-8          Stopping container hpa-load-20260903-015453-8
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-5          Stopping container hpa-load-20260903-015453-5
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-4          Stopping container hpa-load-20260903-015453-4
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-3          Stopping container hpa-load-20260903-015453-3
+101s        Normal    Killing                        pod/hpa-load-20260903-015453-6          Stopping container hpa-load-20260903-015453-6
+87s         Normal    ScalingReplicaSet              deployment/video-service                Scaled up replica set video-service-7c84f598bd from 2 to 3
+87s         Normal    SuccessfulRescale              horizontalpodautoscaler/video-service   New size: 3; reason: cpu resource utilization (percentage of request) above target
+87s         Normal    SuccessfulCreate               replicaset/video-service-7c84f598bd     Created pod: video-service-7c84f598bd-lp5dl
+86s         Normal    Started                        pod/video-service-7c84f598bd-lp5dl      Started container video-service
+86s         Normal    Created                        pod/video-service-7c84f598bd-lp5dl      Created container: video-service
+86s         Normal    Pulled                         pod/video-service-7c84f598bd-lp5dl      Container image "hangyin/video-service:local" already present on machine
+83s         Warning   Failed                         pod/hpa-load-20260903-015017-7          Error: ErrImagePull
+83s         Warning   Failed                         pod/hpa-load-20260903-015017-7          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error
+76s         Warning   Unhealthy                      pod/video-service-7c84f598bd-lp5dl      Startup probe failed: Get "http://10.244.0.53:8082/actuator/health": dial tcp 10.244.0.53:8082: connect: connection refused
+63s         Warning   Failed                         pod/hpa-load-20260903-015017-8          Error: ErrImagePull
+63s         Warning   Failed                         pod/hpa-load-20260903-015017-8          Failed to pull image "busybox:1.36": failed to pull and unpack image "docker.io/library/busybox:1.36": failed to resolve reference "docker.io/library/busybox:1.36": unexpected status from HEAD request to http://registry-mirror:1273/v2/library/busybox/manifests/1.36?ns=docker.io: 500 Internal Server Error

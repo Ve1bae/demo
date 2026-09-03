@@ -16,3 +16,12 @@ node_modules/
 .legacy-monolith/
 _legacy-monolith/
 _artifacts/
+
+# Keep course documentation and test reports reviewable in the repository.
+!doc/
+!doc/**
+
+# Build and browser-report outputs must not be committed.
+**/target/
+frontend/demo/playwright-report/
+frontend/demo/test-results/

@@ -1,0 +1,34 @@
+﻿Name:                                                  video-service
+Namespace:                                             hangyin
+Labels:                                                <none>
+Annotations:                                           <none>
+CreationTimestamp:                                     Thu, 03 Sep 2026 01:29:04 +0800
+Reference:                                             Deployment/video-service
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  702% (702m) / 60%
+Min replicas:                                          1
+Max replicas:                                          3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Percent  Value: 100  Period: 60 seconds
+  Scale Down:
+    Stabilization Window: 60 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Percent  Value: 100  Period: 15 seconds
+Deployment pods:       3 current / 3 desired
+Conditions:
+  Type            Status  Reason            Message
+  ----            ------  ------            -------
+  AbleToScale     True    ReadyForNewScale  recommended size matches current size
+  ScalingActive   True    ValidMetricFound  the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  True    TooManyReplicas   the desired replica count is more than the maximum replica count
+Events:
+  Type    Reason             Age                  From                       Message
+  ----    ------             ----                 ----                       -------
+  Normal  SuccessfulRescale  4m37s (x2 over 80m)  horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
+  Normal  SuccessfulRescale  82s (x3 over 84m)    horizontal-pod-autoscaler  New size: 2; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  22s (x3 over 83m)    horizontal-pod-autoscaler  New size: 3; reason: cpu resource utilization (percentage of request) above target

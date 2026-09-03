@@ -1,0 +1,5 @@
+CONTAINER ID   NAME                               CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O        PIDS
+7348e4bf094e   hangyin-monolith-benchmark         0.08%     524.4MiB / 15.47GiB   3.31%     1.35GB / 663MB    557kB / 565kB    63
+da54786e926e   hangyin-monolith-benchmark-mysql   0.46%     449.1MiB / 15.47GiB   2.83%     310MB / 1.2GB     65.1MB / 776MB   60
+65d7ec745b03   hangyin-monolith-benchmark-minio   0.00%     81.92MiB / 15.47GiB   0.52%     30.8kB / 12.8kB   0B / 668kB       33
+af3e569223e4   hangyin-monolith-benchmark-srs     0.39%     13.39MiB / 15.47GiB   0.08%     2.26kB / 126B     0B / 4.1kB       2

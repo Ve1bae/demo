@@ -17,14 +17,19 @@ import com.example.video.vo.VideoVO;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -38,12 +43,15 @@ import java.util.stream.Collectors;
 
 @Service
 public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements VideoService {
+    private static final long FOLLOWED_AUTHOR_BOOST = 10_000L;
+    private static final Logger log = LoggerFactory.getLogger(VideoServiceImpl.class);
     private final UserVideoMapper userVideoMapper;
     private final ViewHistoryMapper viewHistoryMapper;
     private final UserPreferenceClient userPreferenceClient;
     private final MinioService minioService;
     private final VideoTranscodeService transcodeService;
     private final RestClient userProfileClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public VideoServiceImpl(UserVideoMapper userVideoMapper, ViewHistoryMapper viewHistoryMapper,
@@ -55,9 +63,15 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         this.userPreferenceClient = userPreferenceClient;
         this.minioService = minioService;
         this.transcodeService = transcodeService;
+        long timeoutMillis = environment.getProperty("user-service.timeout-millis", Long.class, 500L);
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(timeoutMillis));
+        requestFactory.setReadTimeout(Duration.ofMillis(timeoutMillis));
         this.userProfileClient = RestClient.builder()
                 .baseUrl(environment.getProperty("user-service.base-url", "http://user-service:8081"))
+                .requestFactory(requestFactory)
                 .build();
+        log.info("Video recommendation preference client: {}", userPreferenceClient.getClass().getName());
     }
 
     /** 保留无 Environment 的测试构造器。 */
@@ -154,8 +168,13 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     }
 
     private UserPreference safePreference(Long userId) {
-        UserPreference preference = userPreferenceClient.getPreference(userId);
-        return preference == null ? UserPreference.guest() : preference;
+        try {
+            UserPreference preference = userPreferenceClient.getPreference(userId);
+            return preference == null ? UserPreference.guest() : preference;
+        } catch (RuntimeException exception) {
+            // user-service is an optional personalization dependency; recommendation remains available.
+            return UserPreference.guest();
+        }
     }
 
     private Set<Long> localViewedVideoIds(Long userId) {
@@ -180,7 +199,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         result += nonNegative(video.getLikeCount()) * 20L;
         result += nonNegative(video.getFavoriteCount()) * 30L;
         result += nonNegative(video.getCommentCount()) * 10L;
-        if (video.getUserId() != null && followed.contains(video.getUserId())) result += 1000L;
+        if (video.getUserId() != null && followed.contains(video.getUserId())) result += FOLLOWED_AUTHOR_BOOST;
         for (String tag : parseTags(video.getTags())) {
             result += interests.getOrDefault(tag.toLowerCase(Locale.ROOT), 0) * 10L;
         }
@@ -374,14 +393,15 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             VideoVO.AuthorInfo authorInfo = new VideoVO.AuthorInfo(video.getUserId(), false);
             authorInfo.setNickname(video.getAuthor());
             try {
-                JsonNode root = userProfileClient.get().uri("/api/user/{id}/profile", video.getUserId())
-                        .retrieve().body(JsonNode.class);
+                String responseBody = userProfileClient.get().uri("/api/user/{id}/profile", video.getUserId())
+                        .retrieve().body(String.class);
+                JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode data = root != null && root.has("data") ? root.path("data") : root;
                 if (data != null && !data.isMissingNode()) {
                     if (data.hasNonNull("nickname")) authorInfo.setNickname(data.get("nickname").asText());
                     if (data.hasNonNull("avatarUrl")) authorInfo.setAvatarUrl(data.get("avatarUrl").asText());
                 }
-            } catch (RuntimeException ignored) { }
+            } catch (Exception ignored) { }
             vo.setAuthorInfo(authorInfo);
         }
         return vo;

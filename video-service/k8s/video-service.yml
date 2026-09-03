@@ -45,6 +45,12 @@ spec:
               value: hangyin-video
             - name: VIDEO_TRANSCODE_ENABLED
               value: "false"
+            - name: USER_SERVICE_ENABLED
+              value: "true"
+            - name: USER_SERVICE_BASE_URL
+              value: http://user-service:8081
+            - name: USER_SERVICE_TIMEOUT_MILLIS
+              value: "500"
           startupProbe:
             httpGet:
               path: /actuator/health

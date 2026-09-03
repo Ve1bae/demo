@@ -1,0 +1,13 @@
+NAME                             CPU(cores)   MEMORY(bytes)   
+api-gateway-7877b88bc4-mfqk4     1m           2Mi             
+backend-5664cdffdd-fbkjj         4m           388Mi           
+frontend-69c5bb6dfc-2zswn        1m           23Mi            
+live-mysql-bdfd86b7b-54wzw       14m          428Mi           
+live-service-f7b4cc867-zfj69     4m           180Mi           
+minio-9ddd6b565-hpscz            2m           78Mi            
+mysql-6c4c55d7d4-wmhvd           12m          449Mi           
+srs-5bd58db4c9-5626w             6m           13Mi            
+user-mysql-c57bcb9d7-x8x54       14m          428Mi           
+user-service-5f97b7d5fd-xbplm    4m           169Mi           
+video-mysql-7c56cd74c8-bqhsq     13m          477Mi           
+video-service-7c84f598bd-6cm7z   3m           249Mi           

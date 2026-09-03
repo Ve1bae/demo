@@ -1,0 +1,5 @@
+{
+  "name": "play-count",
+  "status": 200,
+  "body": "{\"code\":200,\"message\":\"success\",\"data\":{\"videoId\":930301,\"playCount\":101}}"
+}

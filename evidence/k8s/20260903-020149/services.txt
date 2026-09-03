@@ -1,0 +1,13 @@
+NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
+api-gateway     NodePort    10.96.123.159   <none>        8080:30080/TCP      32m
+backend         ClusterIP   10.96.99.139    <none>        8080/TCP            4d13h
+frontend        ClusterIP   10.96.158.148   <none>        80/TCP              4d13h
+live-mysql      ClusterIP   10.96.161.108   <none>        3306/TCP            32m
+live-service    ClusterIP   10.96.249.32    <none>        8090/TCP            32m
+minio           ClusterIP   10.96.154.60    <none>        9000/TCP            4d13h
+mysql           ClusterIP   10.96.78.74     <none>        3306/TCP            4d13h
+srs             ClusterIP   10.96.189.204   <none>        1935/TCP,8080/TCP   4d13h
+user-mysql      ClusterIP   10.96.157.35    <none>        3306/TCP            25m
+user-service    NodePort    10.96.138.86    <none>        8081:30081/TCP      32m
+video-mysql     ClusterIP   10.96.99.227    <none>        3306/TCP            32m
+video-service   ClusterIP   10.96.193.16    <none>        8082/TCP            32m

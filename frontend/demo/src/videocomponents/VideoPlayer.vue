@@ -1133,13 +1133,16 @@ const sendDanmaku = async () => {
     const videoId = props.videoData.id
     const requestBody = {
       content: newDanmaku.content,
-      timeSeconds: newDanmaku.time,
+      timeSeconds: Math.max(0, Math.floor(newDanmaku.time)),
       color: newDanmaku.color,
       userId: newDanmaku.userId
     }
     const response = await fetch(`${API_BASE}/videos/${videoId}/danmakus`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': String(newDanmaku.userId)
+      },
       body: JSON.stringify(requestBody)
     })
     const result = await response.json()

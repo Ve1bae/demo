@@ -961,7 +961,7 @@ const parseRouteFromHash = () => {
   }
 
   const [page, resourceId] = hashPath.split('/')
-  if (page === 'live' && roomId) {
+  if (page === 'live' && resourceId) {
     return { page: 'live-room', roomId: resourceId }
   }
   if (page === 'video' && resourceId) return { page: 'video', videoId: resourceId }

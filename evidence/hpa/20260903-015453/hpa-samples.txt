@@ -1,0 +1,32 @@
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 4%/60%   1         3         1          25m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          25m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          25m
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 4%/60%   1         3         1          26m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          26m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          26m
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 3%/60%   1         3         1          26m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          26m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          26m
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 3%/60%   1         3         1          26m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          26m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          26m
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 3%/60%   1         3         1          26m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          26m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          26m
+NAME            REFERENCE                  TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 3%/60%   1         3         1          27m
+user-service    Deployment/user-service    cpu: 3%/60%   1         3         1          27m
+video-service   Deployment/video-service   cpu: 3%/60%   1         3         1          27m
+NAME            REFERENCE                  TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 4%/60%     1         3         1          27m
+user-service    Deployment/user-service    cpu: 3%/60%     1         3         1          27m
+video-service   Deployment/video-service   cpu: 949%/60%   1         3         1          27m
+NAME            REFERENCE                  TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+live-service    Deployment/live-service    cpu: 4%/60%     1         3         1          27m
+user-service    Deployment/user-service    cpu: 3%/60%     1         3         1          27m
+video-service   Deployment/video-service   cpu: 949%/60%   1         3         2          27m

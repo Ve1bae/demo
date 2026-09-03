@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-service-config
+  namespace: hangyin
+data:
+  SPRING_DATASOURCE_URL: jdbc:mysql://video-mysql:3306/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  MINIO_ENDPOINT: http://minio:9000
+  # 本地答辩可通过 kubectl port-forward svc/minio 9000:9000 访问对象；
+  # 生产环境应替换为 Ingress 或对象存储的实际外部地址。
+  MINIO_PUBLIC_BASE_URL: http://localhost:9000/hangyin-video
+  MINIO_BUCKET: hangyin-video
+  VIDEO_TRANSCODE_ENABLED: "false"
+
+

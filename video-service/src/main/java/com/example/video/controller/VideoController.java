@@ -16,12 +16,30 @@ public class VideoController {
     public VideoController(VideoService videos) { this.videos = videos; }
 
     @GetMapping("/recommend") public ApiResponse<List<VideoVO>> recommend(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "12") int pageSize,
+            @RequestParam(defaultValue = "1") String page,
+            @RequestParam(defaultValue = "12") String pageSize,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        return ApiResponse.success(videos.recommend(page, pageSize, categoryId, keyword, userId));
+            @RequestHeader(value = "X-User-Id", required = false) String rawUserId) {
+        return ApiResponse.success(videos.recommend(parseInt(page, "页码"), parseInt(pageSize, "每页数量"),
+                categoryId, keyword, parseOptionalLong(rawUserId, "用户 ID")));
+    }
+
+    private int parseInt(String value, String field) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(field + "必须是数字");
+        }
+    }
+
+    private Long parseOptionalLong(String value, String field) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(field + "必须是数字");
+        }
     }
 
     @GetMapping("/{videoId}") public ApiResponse<VideoVO> get(

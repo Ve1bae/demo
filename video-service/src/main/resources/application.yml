@@ -8,7 +8,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/video_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:mkj162829}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 2GB
@@ -37,6 +37,7 @@ minio:
 user-service:
   enabled: ${USER_SERVICE_ENABLED:false}
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8081}
+  timeout-millis: ${USER_SERVICE_TIMEOUT_MILLIS:500}
 
 management:
   endpoints:

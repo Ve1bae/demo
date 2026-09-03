@@ -1,0 +1,280 @@
+openapi: 3.0.3
+info:
+  title: HangYin UC-03 Video Recommendation API
+  version: 0.1.0
+  description: API contract for the implemented UC-03 recommendation and health endpoints.
+servers:
+  - url: http://127.0.0.1:8082
+    description: Local integrated video-service
+tags:
+  - name: Recommendation
+  - name: Operations
+paths:
+  /api/videos/recommend:
+    get:
+      tags:
+        - Recommendation
+      summary: Get recommended public videos
+      operationId: getRecommendedVideos
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number. Values below 1 are treated as 1.
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          description: Page size clamped to the range 1 through 50.
+          schema:
+            type: integer
+            format: int32
+            default: 12
+        - name: categoryId
+          in: query
+          required: false
+          description: Positive category identifier. Non-positive values select all categories.
+          schema:
+            type: integer
+            format: int32
+            default: 0
+        - name: keyword
+          in: query
+          required: false
+          description: Case-insensitive substring matched against title, author, description and tags.
+          schema:
+            type: string
+        - name: X-User-Id
+          in: header
+          required: false
+          description: Numeric user identifier. Omit for guest requests.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Recommendation completed. An empty result is returned as an empty array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoListResponse'
+              examples:
+                success:
+                  value:
+                    code: 200
+                    message: success
+                    data:
+                      - id: 930301
+                        videoId: 930301
+                        title: UC03 Campus Music
+                        description: Campus music test video
+                        coverUrl: ''
+                        playUrl: https://example.test/videos/campus-music.mp4
+                        videoUrl: videos/campus-music.mp4
+                        author: UC03 Author A
+                        userId: 930101
+                        categoryId: 3
+                        tags: campus music
+                        tagList:
+                          - campus
+                          - music
+                        duration: 120
+                        status: public
+                        playCount: 100
+                        likeCount: 0
+                        favoriteCount: 0
+                        commentCount: 0
+                        sources:
+                          720P: https://example.test/videos/campus-music.mp4
+                        defaultQuality: 720P
+                        authorInfo:
+                          userId: 930101
+                          following: false
+                        createdAt: '2026-08-31T09:00:00'
+                        updatedAt: '2026-08-31T09:00:00'
+        '400':
+          description: A query parameter or X-User-Id cannot be converted to the expected type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: 请求参数不合法
+                data: null
+        '500':
+          description: Unexpected service error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: 视频服务暂时不可用
+                data: null
+  /actuator/health:
+    get:
+      tags:
+        - Operations
+      summary: Get service health
+      operationId: getHealth
+      responses:
+        '200':
+          description: The service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: UP
+components:
+  schemas:
+    VideoListResponse:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          nullable: true
+    Video:
+      type: object
+      required:
+        - id
+        - videoId
+        - title
+        - status
+        - sources
+        - defaultQuality
+        - tagList
+      properties:
+        id:
+          type: integer
+          format: int64
+        videoId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        playUrl:
+          type: string
+          nullable: true
+        videoUrl:
+          type: string
+          nullable: true
+        author:
+          type: string
+          nullable: true
+        userId:
+          type: integer
+          format: int64
+          nullable: true
+        categoryId:
+          type: integer
+          format: int32
+          nullable: true
+        tags:
+          type: string
+          nullable: true
+        tagList:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+        duration:
+          type: integer
+          format: int32
+          nullable: true
+        status:
+          type: string
+          example: public
+        playCount:
+          type: integer
+          format: int32
+          nullable: true
+        likeCount:
+          type: integer
+          format: int32
+          nullable: true
+        favoriteCount:
+          type: integer
+          format: int32
+          nullable: true
+        commentCount:
+          type: integer
+          format: int32
+          nullable: true
+        sources:
+          type: object
+          additionalProperties:
+            type: string
+        defaultQuality:
+          type: string
+          example: 720P
+        authorInfo:
+          allOf:
+            - $ref: '#/components/schemas/AuthorInfo'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    AuthorInfo:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        following:
+          type: boolean
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: UP
+
+
+
