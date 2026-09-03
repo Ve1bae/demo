@@ -243,6 +243,12 @@ spec:
           image: nginx:1.27-alpine
           volumeMounts: [{ name: config, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf }]
           ports: [{ containerPort: 80 }]
+          readinessProbe:
+            httpGet: { path: /gateway/health, port: 80 }
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 20
       volumes:
         - name: config
           configMap: { name: api-gateway-config }

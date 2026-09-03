@@ -21,6 +21,7 @@ const warmupSeconds = Number(process.env.BENCHMARK_WARMUP_SEC || 10)
 const runs = Number(process.env.BENCHMARK_RUNS || 3)
 const outputDir = resolve(process.env.BENCHMARK_OUTPUT_DIR || 'benchmark-results')
 const container = process.env.BENCHMARK_CONTAINER || ''
+const requestTimeoutMs = Number(process.env.BENCHMARK_REQUEST_TIMEOUT_MS || 5000)
 
 const cases = [
   { name: 'video-detail', method: 'GET', path: `/videos/${videoId}` },
@@ -43,7 +44,7 @@ async function request(testCase) {
         Accept: 'application/json',
         ...(testCase.method === 'POST' ? { 'X-User-Id': String(userId) } : {})
       },
-      signal: AbortSignal.timeout(15000)
+      signal: AbortSignal.timeout(requestTimeoutMs)
     })
     // Consume the body so connection reuse is possible.
     await response.arrayBuffer()
@@ -59,8 +60,10 @@ async function runWindow(testCase, concurrency, seconds, collect) {
   let total = 0
   let errors = 0
   const stats = { cpu: [], memory: [] }
+  let sampling = false
   const sample = async () => {
-    if (!container) return
+    if (!container || sampling) return
+    sampling = true
     try {
       const { stdout } = await execFileAsync('docker', ['stats', '--no-stream', '--format', '{{.CPUPerc}}\t{{.MemUsage}}', container], { windowsHide: true, timeout: 5000 })
       const [cpuText, memoryText] = stdout.trim().split(/\s*\t\s*/)
@@ -69,6 +72,7 @@ async function runWindow(testCase, concurrency, seconds, collect) {
       if (Number.isFinite(cpu)) stats.cpu.push(cpu)
       if (Number.isFinite(memory)) stats.memory.push(memory)
     } catch { /* Container stats are optional when running against a remote URL. */ }
+    finally { sampling = false }
   }
   await sample()
   const sampler = setInterval(() => { void sample() }, 1000)

@@ -1,0 +1,10 @@
+run,case,method,path,concurrency,requests,throughput,avgMs,p95Ms,errors,errorRate,cpuAvgPct,cpuMaxPct,memoryAvgMiB,memoryMaxMiB
+1,"video-detail","GET","/videos/16",1,0,0,0,0,0,1,0.125,0.13,581.5,581.5
+2,"video-detail","GET","/videos/16",1,0,0,0,0,0,1,0.13,0.13,581.8,581.8
+3,"video-detail","GET","/videos/16",1,0,0,0,0,0,1,0.135,0.15,582.5999999999999,582.8
+1,"comments-list","GET","/videos/16/comments?page=1&pageSize=50",1,0,0,0,0,0,1,0.13,0.14,582.95,583.3
+2,"comments-list","GET","/videos/16/comments?page=1&pageSize=50",1,0,0,0,0,0,1,0.135,0.15,582.1500000000001,582.2
+3,"comments-list","GET","/videos/16/comments?page=1&pageSize=50",1,0,0,0,0,0,1,0.12,0.13,581.9,581.9
+1,"play-counter","POST","/videos/16/play",1,0,0,0,0,0,1,0.12,0.12,582.3,582.4
+2,"play-counter","POST","/videos/16/play",1,0,0,0,0,0,1,0.14500000000000002,0.17,582,582
+3,"play-counter","POST","/videos/16/play",1,0,0,0,0,0,1,0.14500000000000002,0.16,582.15,582.4

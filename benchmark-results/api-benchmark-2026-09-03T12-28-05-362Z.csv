@@ -1,0 +1,4 @@
+run,case,method,path,concurrency,requests,throughput,avgMs,p95Ms,errors,errorRate,cpuAvgPct,cpuMaxPct,memoryAvgMiB,memoryMaxMiB
+1,"video-detail","GET","/videos/14",1,0,0,0,0,0,1,0.10500000000000001,0.11,462.6,462.8
+1,"comments-list","GET","/videos/14/comments?page=1&pageSize=50",1,0,0,0,0,0,1,1.26,2.38,463.20000000000005,463.3
+1,"play-counter","POST","/videos/14/play",1,0,0,0,0,0,1,0.125,0.13,462.35,462.5
