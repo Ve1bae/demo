@@ -381,14 +381,14 @@
             <div v-else-if="historyList.length === 0" class="creator-empty">还没有观看历史，去首页看看感兴趣的视频吧。</div>
             <div v-else class="creator-manuscript-list history-manuscript-list">
               <div v-for="item in historyList" :key="`history-${item.id || item.videoId}`" class="creator-manuscript-item history-manuscript-item">
-                <div class="creator-manuscript-cover" @click="openVideoPlayer(item.video)">
+                  <div class="creator-manuscript-cover" @click="openHistoryVideo(item)">
                   <img v-if="item.video?.coverUrl" :src="item.video.coverUrl" alt="" />
                   <div v-else class="creator-cover-fallback">{{ item.video?.title?.slice(0, 1) || 'V' }}</div>
                   <span>{{ item.video?.duration || '00:00' }}</span>
                 </div>
 
                 <div class="creator-manuscript-main">
-                  <h4 @click="openVideoPlayer(item.video)">{{ item.video?.title || '已失效视频' }}</h4>
+                  <h4 @click="openHistoryVideo(item)">{{ item.video?.title || '已失效视频' }}</h4>
                   <p>{{ item.video?.description || '暂无简介' }}</p>
                   <div v-if="item.video?.tags?.length" class="video-tags">
                     <span v-for="tag in item.video.tags" :key="`history-${item.video.id}-${tag}`">{{ tag }}</span>
@@ -402,7 +402,7 @@
                 </div>
 
                 <div class="creator-manuscript-actions">
-                  <button class="outline-btn" :disabled="!item.video" @click="openVideoPlayer(item.video)">继续观看</button>
+                  <button class="outline-btn" @click="openHistoryVideo(item)">继续观看</button>
                   <button class="outline-btn" :disabled="!item.video?.userId" @click="openProfile(item.video?.userId)">作者主页</button>
                 </div>
               </div>
@@ -1046,13 +1046,22 @@ const resetForm = () => {
 }
 
 const openVideoPlayer = (video) => {
-  if (!video) {
+  if (!video || video.status === 'deleted') {
+    alert('该视频已不可见')
     return
   }
   selectedVideo.value = video
   showVideoPlayer.value = true
   setRouteHash('video', video.id)
   window.scrollTo(0, 0)
+}
+
+const openHistoryVideo = (item) => {
+  if (!item?.video || item.videoStatus === 'deleted' || item.videoStatus === 'missing') {
+    alert('该视频已不可见')
+    return
+  }
+  openVideoPlayer(item.video)
 }
 
 const closeVideoPlayer = () => {
@@ -1065,7 +1074,7 @@ const loadVideoById = async (videoId) => {
   if (!videoId) return
   try {
     const res = await axios.get(`${API_BASE}/videos/${videoId}`, { headers: getAuthHeaders() })
-    if (res.data?.code === 200 && res.data.data) {
+    if (res.data?.code === 200 && res.data.data && res.data.data.status !== 'deleted') {
       selectedVideo.value = convertVideoFromBackend(res.data.data)
       try {
         const profile = await axios.get(`${API_BASE}/user/${selectedVideo.value.userId}/profile`)
@@ -1083,7 +1092,8 @@ const loadVideoById = async (videoId) => {
   } catch (error) {
     console.error('加载视频失败:', error)
   }
-  setRouteHash('home')
+  alert('该视频已不可见')
+  setRouteHash('history')
 }
 
 const openProfile = async (userId) => {

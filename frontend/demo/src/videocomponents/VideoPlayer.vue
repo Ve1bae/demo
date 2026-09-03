@@ -603,7 +603,8 @@ const loadDanmakuFromServer = async () => {
           id: item.id,
           content: item.content,
           color: item.color,
-          time: item.time,
+          // API 持久化字段名为 timeSeconds；兼容旧数据的 time 字段。
+          time: Number(item.timeSeconds ?? item.time ?? 0),
           userId: item.userId,
           isUser: isCurrentUserDanmaku(item.userId)
         })
@@ -1115,8 +1116,9 @@ const sendDanmaku = async () => {
 
   const userId = getCurrentLoginUserId()
   const currentVideoTime = videoRef.value ? videoRef.value.currentTime : currentTime.value
+  const localId = `local-${Date.now()}`
   const newDanmaku = {
-    id: Date.now(),
+    id: localId,
     content: danmakuInput.value,
     color: danmakuColor.value,
     time: currentVideoTime,
@@ -1133,21 +1135,33 @@ const sendDanmaku = async () => {
     const videoId = props.videoData.id
     const requestBody = {
       content: newDanmaku.content,
-      timeSeconds: newDanmaku.time,
+      timeSeconds: Math.max(0, Math.floor(newDanmaku.time)),
       color: newDanmaku.color,
       userId: newDanmaku.userId
     }
     const response = await fetch(`${API_BASE}/videos/${videoId}/danmakus`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': String(newDanmaku.userId)
+      },
       body: JSON.stringify(requestBody)
     })
     const result = await response.json()
-    if (result.code !== 200) {
-      console.warn('发送弹幕失败:', result.message)
+    if (result.code !== 200 || !result.data) {
+      throw new Error(result.message || '弹幕发送失败')
+    }
+    // 用服务端生成的 ID 替换临时 ID，避免后续历史合并时重复。
+    const localItem = danmakuList.value.find(item => item.id === localId)
+    if (localItem) {
+      localItem.id = result.data.id
+      // 立即显示时记录的是临时 ID，换成服务端 ID 后同步更新去重集合。
+      displayedDanmakuIds.delete(localId)
+      displayedDanmakuIds.add(result.data.id)
     }
   } catch (error) {
     console.error('发送弹幕失败:', error)
+    danmakuList.value = danmakuList.value.filter(item => item.id !== localId)
   }
 }
 
