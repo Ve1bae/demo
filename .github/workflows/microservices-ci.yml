@@ -176,14 +176,12 @@ jobs:
           kubectl -n hangyin rollout status deployment/mysql-user --timeout=180s
           kubectl -n hangyin rollout status deployment/mysql-video --timeout=180s
           kubectl -n hangyin rollout status deployment/mysql-live --timeout=180s
-          kubectl -n hangyin rollout status deployment/minio --timeout=180s
+          kubectl -n hangyin rollout status deployment/minio --timeout=300s
           kubectl -n hangyin rollout status deployment/user-service --timeout=240s
           kubectl -n hangyin rollout status deployment/video-service --timeout=240s
           kubectl -n hangyin rollout status deployment/live-service --timeout=240s
           kubectl -n hangyin rollout status deployment/api-gateway --timeout=180s
           kubectl -n hangyin rollout status deployment/frontend --timeout=180s
-          kubectl -n hangyin patch service api-gateway --type merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30080}]}}'
-          kubectl -n hangyin patch service frontend --type merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30573}]}}'
       - name: Run deployed API and E2E regression
         shell: powershell
         env:
