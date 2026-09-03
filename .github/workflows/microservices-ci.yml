@@ -140,11 +140,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Normalize GHCR image owner
+        shell: bash
+        run: echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/${{ env.IMAGE_OWNER }}/${{ matrix.service }}:${{ github.sha }}
   deploy:
     if: github.event_name == 'push' && vars.ENABLE_MICROSERVICES_DEPLOY == 'true'
     needs: publish-images
